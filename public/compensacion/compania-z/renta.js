@@ -104,7 +104,7 @@ function simCalcZ(campana){
     const prima=ss.prima[p.id];
     // Factor AE: campaña o base
     // Si campaña APV y KPI no cumplido → usar factor base (50%)
-    const kpiSaludChk=document.getElementById('kpi-salud')?.checked;
+    const kpiSaludChk=document.getElementById('kpi-salud')?.checked||ss.qty['SS']>0;
     const tieneVidaMix=SIM_PRODS.some(q=>ss.qty[q.id]>0);
     const tieneGIMix=SIM_PRODS_GI.some(q=>ss.qtyGI[q.id]>0);
     const kpiCumpleCalc=kpiSaludChk&&tieneVidaMix&&tieneGIMix;
@@ -231,6 +231,9 @@ function simRender(){
   const kpiGI=document.getElementById('kpi-gi');
   if(kpiVida&&tieneVida){kpiVida.checked=true;const kpiVidaLbl=document.getElementById('kpi-vida-lbl');if(kpiVidaLbl)kpiVidaLbl.style.opacity='1';}
   if(kpiGI&&tieneGI){kpiGI.checked=true;const kpiGiLbl=document.getElementById('kpi-gi-lbl');if(kpiGiLbl)kpiGiLbl.style.opacity='1';}
+  const tieneSalud=ss.qty['SS']>0;
+  const kpiSaludEl=document.getElementById('kpi-salud');
+  if(kpiSaludEl&&tieneSalud){kpiSaludEl.checked=true;const kpiSaludLbl=document.getElementById('kpi-salud-lbl');if(kpiSaludLbl)kpiSaludLbl.style.opacity='1';}
   // KPI campaña APV alert
   const kpiSalud=document.getElementById('kpi-salud')?.checked;
   const kpiCumple=campana&&ss.qty['APV']>0?
