@@ -19,12 +19,11 @@ function buildSimMix(){
 function simChQty(id,delta){
   simState.qty[id]=Math.max(0,Math.min(20,simState.qty[id]+delta));
   const el=document.getElementById(`sqty-${id}`);if(el)el.textContent=simState.qty[id];
-  const rp=document.getElementById('rp-section');if(rp)rp.style.display=simState.qty['RP']>0?'block':'none';
   simUpdPrimaVis();simRender();
 }
 function buildSimPrimas(){
   const w=document.getElementById('sim-prima-inputs');if(!w)return;w.innerHTML='';
-  SIM_PRODS.filter(p=>p.id!=='RP').forEach(p=>{
+  SIM_PRODS.forEach(p=>{
     const d=document.createElement('div');d.className='fg';d.id=`spg-${p.id}`;d.style.display=simState.qty[p.id]>0?'block':'none';
     d.innerHTML=`<div class="flbl">${p.n}
       <span style="font-size:10px;color:var(--g400)">PPA = prima × 12</span>
@@ -49,7 +48,7 @@ function buildSimPrimas(){
     });
   });
 }
-function simUpdPrimaVis(){SIM_PRODS.filter(p=>p.id!=='RP').forEach(p=>{const g=document.getElementById(`spg-${p.id}`);if(g)g.style.display=simState.qty[p.id]>0?'block':'none'})}
+function simUpdPrimaVis(){SIM_PRODS.forEach(p=>{const g=document.getElementById(`spg-${p.id}`);if(g)g.style.display=simState.qty[p.id]>0?'block':'none'})}
 
 function simBuildGI(){
   const g=document.getElementById('sim-gi-grid');if(!g)return;g.innerHTML='';
@@ -101,15 +100,12 @@ function simCalcZ(campana){
   // ── Pólizas Vida VI ──
   SIM_PRODS.forEach(p=>{
     const qty=ss.qty[p.id];if(!qty)return;
-    // FIX 2: si hay rpMonto (prima única), omitir RP regular para evitar doble conteo
-    if(p.id==='RP' && ss.rpMonto>0) return;
     const cp=campana?CAMP_PRODS[p.id]:null;
     const prima=ss.prima[p.id];
     // Factor AE: campaña o base
     // Si campaña APV y KPI no cumplido → usar factor base (50%)
     const kpiSaludChk=document.getElementById('kpi-salud')?.checked;
-    // FIX 1: APV cuenta como producto Vida para el KPI 1x1x1 de campaña (CUI o APV o Temporal)
-    const tieneVidaMix=SIM_PRODS.filter(q=>q.id!=='RP').some(q=>ss.qty[q.id]>0);
+    const tieneVidaMix=SIM_PRODS.some(q=>ss.qty[q.id]>0);
     const tieneGIMix=SIM_PRODS_GI.some(q=>ss.qtyGI[q.id]>0);
     const kpiCumpleCalc=kpiSaludChk&&tieneVidaMix&&tieneGIMix;
     const usarCamp=cp&&(p.id!=='APV'||kpiCumpleCalc);
@@ -138,32 +134,33 @@ function simCalcZ(campana){
     det.push({p,qty,ppaUF,zTotal:zT,comVenta:cV,incMant:incT,nota});
   });
 
-  // ── APV Flex aporte cliente cartera (APE = 10% monto, AE = 25% APE, factor fijo) ──
-  if(ss.apvFlexEx>0){
-    const apeF=ss.apvFlexEx*0.10;        // APE = 10% del monto aportado
-    const zF=apeF*0.25;                   // 25% del APE, siempre, sin importar campaña
-    zVI+=zF;
-    det.push({p:{id:'APVFLEX_EX',n:'APV AE Flexible Aporte Cartera'},qty:1,ppaUF:apeF,zTotal:zF,comVenta:0,incMant:0,nota:'25% APE'});
-  }
-  // ── APV aporte extraordinario (10% del monto = PPA, × factor campaña) ──
-  if(ss.apvEx>0){
-    // FIX 4: el usuario ingresa el MONTO en UF; PPA = 10% del monto (regla Compañía AE primas únicas)
-    const ppaEq=ss.apvEx*0.10; // PPA = 10% × monto aportado
-    const fzApvEx=campana&&CAMP_PRODS['APV']?CAMP_PRODS['APV'].z:0.50;
-    const z=ppaEq*fzApvEx;
-    zVI+=z;
-    det.push({p:{id:'APVEX',n:'APV Aporte Extra'},qty:1,ppaUF:ppaEq,zTotal:z,comVenta:0,incMant:0,nota:'aporte extra'});
-  }
+  // Columna endoso según pólizas nueva venta del período
+  const endosoCol=ventas>=3?0:ventas===2?1:2;
+  const endosoLbl=endosoCol===0?'≥3 pol.':endosoCol===1?'2 pol.':'0-1 pol.';
 
-  // ── Renta Preferente Prima Única (10% del monto = PPA, × 50%) ──
-  if(ss.rpMonto>0){
-    const ufU=ss.rpMonto; // rpMonto en UF directamente (monto invertido)
-    // PPA = 10% del monto; factor AE RP = 50% (contrato) o 50% (campaña RP no cambia)
-    const z=ufU*0.05; // z = monto × 10% × 50% = monto × 5% (fórmula correcta)
-    // FIX 3: comisión prima única es evento puntual ya liquidado; no se suma al mensual
-    const cRP=0;
+  // ── APV AE Flexible Traspaso cartera (PPA = 10% monto, factor ENDOSO_Z) ──
+  if(ss.apvFlexEx>0){
+    const zFactor=ENDOSO_Z['APVF'][endosoCol];
+    const ppaF=ss.apvFlexEx*0.10;
+    const zF=ppaF*zFactor;
+    zVI+=zF;
+    det.push({p:{id:'APVFLEX_EX',n:'APV AE Flexible Traspaso Cartera'},qty:1,ppaUF:ppaF,zTotal:zF,comVenta:0,incMant:0,nota:`PPA ${(zFactor*100).toFixed(1)}% (${endosoLbl})`});
+  }
+  // ── APV aporte extraordinario (PPA = 10% monto, factor ENDOSO_Z) ──
+  if(ss.apvEx>0){
+    const ppaEq=ss.apvEx*0.10;
+    const zFactor=ENDOSO_Z['APV'][endosoCol];
+    const z=ppaEq*zFactor;
     zVI+=z;
-    det.push({p:{id:'RPUNI',n:'Futura Renta'},qty:1,ppaUF:ufU*0.10,zTotal:z,comVenta:cRP,incMant:0,nota:'5% AE'});
+    det.push({p:{id:'APVEX',n:'APV Aporte Extra'},qty:1,ppaUF:ppaEq,zTotal:z,comVenta:0,incMant:0,nota:`aporte ${(zFactor*100).toFixed(0)}% (${endosoLbl})`});
+  }
+  // ── Renta Preferente Prima Única (PPA = 10% monto, factor ENDOSO_Z) ──
+  if(ss.rpMonto>0){
+    const zFactor=ENDOSO_Z['RP'][endosoCol];
+    const ppaRP=ss.rpMonto*0.10;
+    const z=ppaRP*zFactor;
+    zVI+=z;
+    det.push({p:{id:'RPUNI',n:'Futura Renta'},qty:1,ppaUF:ppaRP,zTotal:z,comVenta:0,incMant:0,nota:`${(zFactor*100).toFixed(0)}% (${endosoLbl})`});
   }
 
   // ── Pólizas Generales GI ──
@@ -228,9 +225,7 @@ function simRender(){
   setEl('persist-info',`Mínima exigida (mes ${ant}): <strong>${Math.round(pM*100)}%</strong> · Cumplimiento: <strong>${pPct}%</strong> → <strong>${pLbl} del bono</strong>`);
   setEl('campana-info',campana?`Campaña 2026: APV al <strong>100%</strong>. Tope T5: <strong>${tope_t5===null?'sin tope':tope_t5+' AE'}</strong>. GI: tope liberado.`:`Contrato base: Tope T5 <strong>${tope_t5===null?'sin tope':tope_t5+' AE'}</strong> (mes ${ant}). GI: tope 25% AE VI.`);
   const giLbl=document.getElementById('gi-tope-lbl');if(giLbl)giLbl.textContent=campana?'tope GI liberado':'tope 25% AE VI';
-  // Auto-detect KPI vida and KPI GI from mix
-  // FIX A: APV cuenta como Vida para el KPI (igual que tieneVidaMix en simCalcZ)
-  const tieneVida=SIM_PRODS.filter(p=>p.id!=='RP').some(p=>ss.qty[p.id]>0);
+  const tieneVida=SIM_PRODS.some(p=>ss.qty[p.id]>0);
   const tieneGI=SIM_PRODS_GI.some(p=>ss.qtyGI[p.id]>0);
   const kpiVida=document.getElementById('kpi-vida');
   const kpiGI=document.getElementById('kpi-gi');
@@ -308,7 +303,7 @@ function simRender(){
   if(campana){
     const campRows=SIM_PRODS.filter(p=>simState.qty[p.id]>0).map(p=>{
       const qty=simState.qty[p.id],cp=CAMP_PRODS[p.id];
-      const ppaUF=p.id==='RP'?simState.rpMonto/UF_VAL:(simState.prima[p.id]*12)/UF_VAL;
+      const ppaUF=simState.prima[p.id]*12; // prima stored in UF, PPA = prima × 12
       const tZ=cp?.tope?`${cp.tope} AE/pól.`:'Sin tope';
       const nota=cp?.capUF?`Solo sobre UF${cp.capUF}`:'';
       const zF=cp?cp.z:p.z;
@@ -335,7 +330,7 @@ function simRender(){
     `<tr style="background:var(--teal-lt,#E1F5EE)"><td colspan="2"><strong>INGRESO BRUTO MENSUAL ESTIMADO</strong></td><td><strong style="color:var(--teal,#0F6E56);font-size:14px">${fmt(total)}</strong></td></tr>`
   ].join('');
   setEl('consolidado-tbody',consolRows);
-  setEl('disclaimer-txt',`* Simulación para <strong>${ss.asesor}</strong>. UF = $${Math.round(UF_VAL).toLocaleString('es-CL')} · Sueldo mínimo $539.000 (Ley 21.751). Tope T5: ${tope_t5===null?'sin tope':tope_t5+' AE'} (mes ${ant}). Validado contra liquidaciones reales Compañía AE 2025-2026. No constituye garantía de ingresos.`);
+  setEl('disclaimer-txt',`* Esta simulación es una <strong>referencia de gestión</strong>, no una liquidación exacta. Su propósito es estimar el número de contactos y volumen de producción necesarios para alcanzar una meta de ingresos. El resultado real dependerá del mix definitivo de productos, primas cobradas y persistencia mensual. UF = $${Math.round(UF_VAL).toLocaleString('es-CL')} · Sueldo mínimo $539.000 (Ley 21.751) · Tope T5: ${tope_t5===null?'sin tope':tope_t5+' AE'} (mes ${ant}).`);
 
   // funnel
   simRenderFunnel(ventas);

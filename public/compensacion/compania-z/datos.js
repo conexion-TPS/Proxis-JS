@@ -22,8 +22,7 @@ const SIM_PRODS=[
   {id:'APV', n:'APV',             z:0.50, cUF:.08,q:1, p:120000, pMax:2000000},
   {id:'SS',  n:'Salud', z:0.50, c:.08,  q:0, p:50000,  pMax:1000000, incM12:.08, incM24:.08, incM120:.08},
   {id:'BLF', n:'Vida Empresarial Flexible',         z:0.50, c:.32,  q:0, p:80000,  pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
-  {id:'RP',  n:'Futura Renta',z:0.50, c:.24,  q:0, p:200000, pMax:2000000},
-  {id:'APVF',n:'APV AE Flexible',        z:0.25, cUF:.08,q:0, p:100000, pMax:1500000},
+  // RP y APVF son aportes extraordinarios/traspasos, no productos del mix de pólizas
 ];
 // ── PRODUCTOS GENERALES GI (Auto 50%, Hogar 100%) ──
 const SIM_PRODS_GI=[
@@ -58,6 +57,15 @@ const SIM_TRAMOS=[
 ];
 const TOPES_ORIG=[[6,300],[23,700],[47,800],[71,900],[95,1000],[119,1100],[999,1200]];
 const TOPES_CAMP=[[6,1000],[12,1500],[24,2000],[999,99999]];
+// Factores para endosos y/o aportes según pólizas nueva venta en el período
+// Columnas: [≥3 pol. NV, 2 pol. NV, 0-1 pol. NV]
+const ENDOSO_Z={
+  'BL':[0.80,0.60,0.50],'PM':[0.80,0.60,0.50],
+  'FP':[0.80,0.60,0.50],'TP':[0.70,0.60,0.50],
+  'AP':[0.70,0.60,0.50],'APV':[0.50,0.50,0.25],
+  'SS':[0.50,0.50,0.25],'BLF':[0.50,0.50,0.25],
+  'RP':[0.50,0.50,0.25],'APVF':[0.25,0.25,0.125],
+};
 // Campaña Complemento Producción Emitida — Tabla 2
 const CAMP_PRODS={
   'BL': {z:1.00,tope:300},

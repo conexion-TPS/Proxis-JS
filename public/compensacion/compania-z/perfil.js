@@ -26,35 +26,31 @@ function buildSimulador(){
     <div class="stitle">Mix de productos mensual</div>
     <div class="ib am" style="font-size:11px"><strong>Número de pólizas por tipo en un mes típico.</strong></div>
     <div id="sim-mix-grid"></div>
-    <div id="rp-section" style="display:none">
-      <div class="stitle">Futura Renta</div>
-      <div class="fg"><div class="flbl">Monto aportado (UF)</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-      <input type="number" id="sl-rp" step="0.1" min="0" max="99999" value="0"
-        style="width:100px;padding:5px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center" placeholder="UF">
-      <span style="font-size:11px;color:var(--g400)">UF · <span id="lbl-rp" style="font-family:var(--mono);color:var(--amber)">0 AE</span></span>
-    </div></div>
-    </div>
-    <div class="stitle">APV Aportes extraordinarios</div>
-    <div class="fg"><div class="flbl">Monto aporte/traspaso (UF)</div>
+    <div class="stitle">Prima mensual promedio por producto (Vida)</div>
+    <div id="sim-prima-inputs"></div>
+    <div class="stitle">Mix Generales (GI)</div>
+    <div style="font-size:11px;color:var(--g400);margin-bottom:8px">Auto: 50% AE · Hogar: 100% AE. Se suman con tope del 25% del AE Vida.</div>
+    <div id="sim-gi-grid"></div>
+    <div id="sim-gi-primas"></div>
+    <div class="stitle">Aportes y traspasos (AE cartera)</div>
+    <div class="fg"><div class="flbl">APV — Aporte extraordinario (UF) <span style="font-size:10px;font-weight:400;color:var(--g400)">· PPA: 10% · AE: 50% (o 100% campaña)</span></div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
       <input type="number" id="sl-apvex" step="0.1" min="0" max="99999" value="0"
         style="width:100px;padding:5px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center" placeholder="UF">
       <span style="font-size:11px;color:var(--g400)">UF · <span id="lbl-apvex-uf" style="font-family:var(--mono);color:var(--amber)">PPA: 0 UF · 0 AE</span></span>
     </div></div>
-    <div class="stitle">APV AE Flexible — Aporte cliente cartera</div>
-    <div class="fg"><div class="flbl">Monto aporte cliente cartera (UF) <span style="font-size:10px;font-weight:400;color:var(--g400)">· factor fijo 25% del APE</span></div>
+    <div class="fg"><div class="flbl">APV AE Flexible — Traspaso cartera (UF) <span style="font-size:10px;font-weight:400;color:var(--g400)">· PPA: 10% del monto · AE: 25%</span></div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
       <input type="number" id="sl-apvflexex" step="0.1" min="0" max="99999" value="0"
         style="width:100px;padding:5px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center" placeholder="UF">
-      <span style="font-size:11px;color:var(--g400)">UF · <span id="lbl-apvflexex" style="font-family:var(--mono);color:var(--amber)">APE: 0 UF · 0 AE</span></span>
+      <span style="font-size:11px;color:var(--g400)">UF · <span id="lbl-apvflexex" style="font-family:var(--mono);color:var(--amber)">PPA: 0 UF · 0 AE</span></span>
     </div></div>
-    <div class="stitle">Mix Generales (GI)</div>
-    <div style="font-size:11px;color:var(--g400);margin-bottom:8px">Auto: 50% AE · Hogar: 100% AE. Se suman con tope del 25% del AE Vida.</div>
-    <div id="sim-gi-grid"></div>
-    <div id="sim-gi-primas"></div>
-    <div class="stitle">Prima mensual promedio por producto (Vida)</div>
-    <div id="sim-prima-inputs"></div>
+    <div class="fg"><div class="flbl">Futura Renta — Aporte extraordinario (UF) <span style="font-size:10px;font-weight:400;color:var(--g400)">· AE: 5% del monto</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+      <input type="number" id="sl-rp" step="0.1" min="0" max="99999" value="0"
+        style="width:100px;padding:5px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center" placeholder="UF">
+      <span style="font-size:11px;color:var(--g400)">UF · <span id="lbl-rp" style="font-family:var(--mono);color:var(--amber)">0 AE</span></span>
+    </div></div>
     <div class="stitle" style="color:#BA7517">KPI Campaña APV 100% <span style="font-size:10px;font-weight:400;color:var(--g400)">— requiere los 3</span></div>
     <div style="background:#FAEEDA;border:1.5px solid #BA7517;border-radius:var(--r);padding:10px 12px;margin-bottom:8px">
       <div style="font-size:11px;color:#633806;margin-bottom:8px;line-height:1.4">Para pago al <strong>100%</strong>: debe cumplir <strong>los 3 KPI</strong>. Si falla uno → APV se paga al <strong>50%</strong> (contrato base).</div>
@@ -121,7 +117,7 @@ function buildSimulador(){
    ['sl-persist','lbl-persist',v=>{simState.persist=+v;return +v+'%'}],
    ['sl-rp','lbl-rp',v=>{const ufV=parseFloat(v)||0;simState.rpMonto=ufV;return `${(ufV*0.05).toFixed(2)} AE`}],
    ['sl-apvex','lbl-apvex-uf',v=>{const ufV=parseFloat(v)||0;simState.apvEx=ufV;const ppa=(ufV*0.10).toFixed(2);const z=(parseFloat(ppa)*0.5).toFixed(2);return `PPA: ${ppa} UF · ${z} AE`}],
-   ['sl-apvflexex','lbl-apvflexex',v=>{const ufV=parseFloat(v)||0;simState.apvFlexEx=ufV;const ape=(ufV*0.10);return `APE: ${ape.toFixed(2)} UF · ${(ape*0.25).toFixed(2)} AE`}],
+   ['sl-apvflexex','lbl-apvflexex',v=>{const ufV=parseFloat(v)||0;simState.apvFlexEx=ufV;const ppa=(ufV*0.10);return `PPA: ${ppa.toFixed(2)} UF · ${(ppa*0.25).toFixed(2)} AE`}],
   ].forEach(([id,lbl,fn])=>{const el=document.getElementById(id);if(el)el.addEventListener('input',e=>{const l=document.getElementById(lbl);if(l)l.textContent=fn(e.target.value);simRender()})});
   document.getElementById('campana-toggle').addEventListener('change',simRender);
 
