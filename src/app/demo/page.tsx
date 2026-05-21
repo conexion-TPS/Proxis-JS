@@ -567,8 +567,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:var
         <div className="cta-copy">2026 · Derechos Reservados por Futura Soluciones Digitales Ltda.</div>
       </div>
 
-      {/* PROGRESS DOTS */}
-      <div className="prog" id="prog">
+      {/* PROGRESS DOTS — hidden until presentation starts */}
+      <div className="prog" id="prog" style={{opacity: startGone ? 1 : 0, pointerEvents: startGone ? 'all' : 'none'}}>
         {Array.from({length:12},(_,i) => (
           <button key={i} className={`pp${i===0?' cur':''}`} onClick={() => jumpToRef.current(i)} />
         ))}
@@ -591,13 +591,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:var
           Ver presentación
         </button>
         <div className="so-hint">Con audio · ~1 min 22 seg</div>
-        <div style={{marginTop:'16px'}}>
+      </div>
+
+      {/* Saltar presentación — fixed bottom-left, visible only while overlay is shown */}
+      {!startGone && (
+        <div style={{position:'fixed',bottom:'24px',left:'28px',zIndex:101}}>
           <span style={{fontFamily:'var(--font-mono,"DM Mono",monospace)',fontSize:'10px',letterSpacing:'.08em',color:'rgba(255,255,255,0.45)',cursor:'pointer',textDecoration:'underline',textUnderlineOffset:'3px'}}
                 onClick={() => jumpToRef.current(12)}>
-            Saltar presentación. Ir a solicitar Demo.
+            Saltar presentación · Ir a solicitar Demo
           </span>
         </div>
-      </div>
+      )}
     </>
   )
 }
