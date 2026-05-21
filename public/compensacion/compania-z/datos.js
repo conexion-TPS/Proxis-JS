@@ -68,8 +68,8 @@ const ENDOSO_Z={
 };
 // Campaña Complemento Producción Emitida — Tabla 2
 const CAMP_PRODS={
-  'BL': {z:1.00,tope:300},
-  'PM': {z:1.00,tope:300},
+  'BL': {z:2.00,tope:300},
+  'PM': {z:2.00,tope:300},
   'TP': {z:1.00,tope:null},
   'AP': {z:1.00,tope:null},
   'APV':{z:1.00,tope:600,capUF:500},
