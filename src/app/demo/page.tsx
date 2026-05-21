@@ -123,7 +123,7 @@ export default function Demo() {
         setPip(11)
         cur = n; return
       }
-      else if (n === 12) { showOnly(null, 12); vis('ctaScreen', true) }
+      else if (n === 12) { showOnly(null, 12); setTimeout(() => vis('ctaScreen', true), 620) }
       cur = n
     }
 
@@ -588,7 +588,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:var
       </div>
 
       {/* Saltar presentación — fixed bottom-left, always mounted to avoid hydration issues */}
-      <div style={{position:'fixed',bottom:'24px',left:'28px',zIndex:101,transition:'opacity 0.5s',opacity:startGone?0:1,pointerEvents:startGone?'none':'all'}}>
+      <div style={{position:'fixed',bottom:'24px',left:'28px',zIndex:101,transition:'opacity 0.5s',opacity:startGone?1:0,pointerEvents:startGone?'all':'none'}}>
         <span style={{fontFamily:'var(--font-mono,"DM Mono",monospace)',fontSize:'10px',letterSpacing:'.08em',color:'rgba(255,255,255,0.45)',cursor:'pointer',textDecoration:'underline',textUnderlineOffset:'3px'}}
               onClick={() => jumpToRef.current(12)}>
           Saltar presentación · Ir a solicitar Demo
