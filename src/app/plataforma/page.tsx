@@ -15,12 +15,13 @@ export default function PlataformaPage() {
 
     import('chart.js/auto').then(mod => {
       ;(window as any).Chart = mod.default
-      // Load scripts in dependency order: core → datos → perfil → nodos → renta
-      loadScript('/plataforma-core.js', () =>
-        loadScript('/compensacion/compania-z/datos.js', () =>
-          loadScript('/compensacion/compania-z/perfil.js', () =>
-            loadScript('/compensacion/compania-z/nodos.js', () =>
-              loadScript('/compensacion/compania-z/renta.js')
+      const v = Date.now()
+      // v= cache-buster: forces fresh load of public JS files on every page load
+      loadScript('/plataforma-core.js?v='+v, () =>
+        loadScript('/compensacion/compania-z/datos.js?v='+v, () =>
+          loadScript('/compensacion/compania-z/perfil.js?v='+v, () =>
+            loadScript('/compensacion/compania-z/nodos.js?v='+v, () =>
+              loadScript('/compensacion/compania-z/renta.js?v='+v)
             )
           )
         )
@@ -143,7 +144,7 @@ select.fsel:focus{border-color:var(--blue);box-shadow:var(--ring)}
 .card-title::before{content:'';display:block;width:3px;height:14px;background:var(--lime-dk);border-radius:2px;flex-shrink:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.mcrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.mcrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
 
 /* ══ METRIC CARDS (tracker) ══ */
 .mc{background:white;border:1px solid var(--g200);border-radius:var(--rl);padding:14px 16px;position:relative;box-shadow:var(--shadow-1)}
@@ -160,13 +161,11 @@ select.fsel:focus{border-color:var(--blue);box-shadow:var(--ring)}
 .semaforo.ok{background:#22c55e}.semaforo.warn{background:#f59e0b}.semaforo.bad{background:#ef4444}
 
 /* ══ METRIC CARDS (simulator) ══ */
-.smc{background:white;border:1px solid var(--g200);border-radius:var(--rl);padding:14px 16px;box-shadow:var(--shadow-1)}
-.smc.ok{border-color:var(--teal);border-width:1.5px}.smc.ng{border-color:var(--red);border-width:1.5px}
-.smc.smc-ingreso{border:1.5px solid var(--teal)!important;background:linear-gradient(180deg,#edf6f1 0%,#e3f1ea 100%)!important;box-shadow:0 1px 2px rgba(31,111,86,0.08),0 6px 18px rgba(31,111,86,0.06)!important}
-.smc.smc-ingreso .smc-lbl{color:var(--teal)!important}
-.smc.smc-ingreso .smc-val{color:var(--teal)!important;font-size:24px!important}
-.smc.smc-ingreso .smc-sub{color:var(--teal)!important;opacity:.85}
-.card-collapsible .card-title{cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;margin-bottom:0;padding:2px 0;transition:color .15s}
+.smc{background:white;border:1px solid var(--g200);border-radius:var(--rl);padding:14px 16px;box-shadow:var(--shadow-1);text-align:center}
+.smc.ok{background:linear-gradient(180deg,#edf4fb 0%,#d9ecf8 100%);border:1.5px solid #185FA5}
+.smc.ok .smc-lbl{color:#185FA5}.smc.ok .smc-val{color:#0C447C;font-size:27px}.smc.ok .smc-sub{color:#185FA5;opacity:.85}
+.smc.ng{border-color:var(--red);border-width:1.5px}
+.card-collapsible .card-title{cursor:pointer;display:flex;align-items:center;user-select:none;margin-bottom:0;padding:2px 0;transition:color .15s}
 .card-collapsible .card-title:hover{color:#0b0a09}
 .card-collapsible.open .card-title{margin-bottom:16px}
 .card-collapsible .card-body{display:none}
@@ -177,7 +176,7 @@ select.fsel:focus{border-color:var(--blue);box-shadow:var(--ring)}
 .smc-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--g400);margin-bottom:6px}
 .smc-val{font-size:20px;font-weight:600;color:var(--g900);font-family:var(--font);letter-spacing:-.022em;font-feature-settings:"tnum";line-height:1.15}
 .smc-sub{font-size:11px;color:var(--g600);margin-top:3px}
-.smc.ok .smc-val{color:var(--teal)}.smc.ng .smc-val{color:var(--red)}
+.smc.ng .smc-val{color:var(--red)}
 
 /* ══ INFO BOXES ══ */
 .ib{padding:10px 13px;border-radius:var(--r);font-size:12px;line-height:1.55;margin-bottom:12px;border:1px solid transparent}
@@ -285,8 +284,8 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
   .print-title{font-size:14px;font-weight:700;color:#003781}
   .print-asesor{font-size:12px;color:#3C3B37;margin-top:2px}
   .fbar,.bar-c,.bar-p,.bar-v,.smc,.mc{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .smc.ok{border-color:var(--teal)!important;border-width:1.5px!important}.smc.ng{border-color:var(--red)!important;border-width:1.5px!important}
-  .smc.ok .smc-val{color:#1f6f56!important}.smc.ng .smc-val{color:#b03a3a!important}
+  .smc.ok{background:linear-gradient(180deg,#edf4fb 0%,#d9ecf8 100%)!important;border:1.5px solid #185FA5!important}.smc.ng{border-color:var(--red)!important;border-width:1.5px!important}
+  .smc.ok .smc-val{color:#0C447C!important;font-size:27px!important}.smc.ng .smc-val{color:#b03a3a!important}
 }
 @media screen{.print-header{display:none}}
 
@@ -449,7 +448,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
                 </button>
               </div>
               <div className="mcrow" id="metric-row"></div>
-              <div style={{fontSize:'11px',color:'#185FA5',lineHeight:1.6,marginTop:'10px',padding:'9px 12px',background:'#E6F1FB',borderLeft:'3px solid #185FA5',borderRadius:'0 6px 6px 0'}}>ⓘ * Cifra referencial. Valores aproximados. Es posible que haya diferencias con los valores reales. El objetivo del &quot;Ingreso Bruto Aproximado Total&quot; es servir solo de referencia general para el cálculo de las metas de prospección.</div>
+              <div style={{fontSize:'11px',color:'#185FA5',lineHeight:1.6,marginBottom:'12px',padding:'9px 12px',background:'#E6F1FB',borderLeft:'3px solid #185FA5',borderRadius:'0 6px 6px 0'}}>ℹ️ * Cifra referencial. Valores aproximados. Es posible que haya diferencias con los valores reales. El objetivo del &quot;Ingreso Bruto Aproximado Total&quot; es servir solo de referencia general para el cálculo de las metas de prospección.</div>
               <div id="metric-contacts"></div>
               <div className="card"><div className="card-title">Prospectos Referidos por Contactos / Nodos</div><div id="funnel-content"></div></div>
               <div className="lit-box">

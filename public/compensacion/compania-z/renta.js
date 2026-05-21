@@ -1,10 +1,5 @@
 /* ═══════════════════════════════════════════════════════
    COMPAÑÍA Z — BLOQUE 3: CÁLCULO DE RENTA
-   Mix de productos, primas, GI, cálculo de AE/bonos (simCalcZ)
-   y renderizado completo de resultados (simRender, simRenderFunnel)
-   ESTE ES EL ARCHIVO QUE UNA IA PUEDE AUTO-GENERAR
-   para una nueva compañía a partir de su manual de compensaciones
-   Dependencia: datos.js → perfil.js → nodos.js cargados antes
 ═══════════════════════════════════════════════════════ */
 function buildSimMix(){
   const g=document.getElementById('sim-mix-grid');if(!g)return;g.innerHTML='';
@@ -284,14 +279,14 @@ function simRender(){
   // metric cards
   const t5st=zTotal>200?(t5Hab?'<span style="color:var(--teal);font-size:10px">✓ T5</span>':'<span style="color:var(--red);font-size:10px">✗ T5</span>'):'';
   setEl('metric-row',`
-    <div class="smc" style="text-align:center"><div class="smc-lbl">Sueldo base</div><div class="smc-val">${fmt(SUELDO_BASE)}</div><div class="smc-sub">Mín. legal $539.000</div></div>
-    <div class="smc" style="text-align:center"><div class="smc-lbl">Bono producción AE</div><div class="smc-val">${fmt(bonoNeto)}</div><div class="smc-sub">${zTotal.toFixed(1)}AE → ${fmtUF(bUF)} × ${Math.round(fp*100)}% ${t5st}</div></div>
-    <div class="smc ${mc} smc-ingreso" style="text-align:center"><div class="smc-lbl">* Ingreso Bruto Aproximado Total</div><div class="smc-val">${fmt(total)}</div><div class="smc-sub">UF: ${fmt(UF_VAL)} · AE VI+GI: ${zTotal.toFixed(1)}</div></div>
+    <div class="smc"><div class="smc-lbl">Sueldo base</div><div class="smc-val">${fmt(SUELDO_BASE)}</div><div class="smc-sub">Mín. legal $539.000</div></div>
+    <div class="smc"><div class="smc-lbl">Bono producción AE</div><div class="smc-val">${fmt(bonoNeto)}</div><div class="smc-sub">${zTotal.toFixed(1)}AE → ${fmtUF(bUF)} × ${Math.round(fp*100)}% ${t5st}</div></div>
+    <div class="smc ${mc} ok"><div class="smc-lbl">* Ingreso Bruto Aproximado Total</div><div class="smc-val">${fmt(total)}</div><div class="smc-sub">UF: ${fmt(UF_VAL)} · AE VI+GI: ${zTotal.toFixed(1)}</div></div>
 `);
   
   // mix table title
   const mct=document.getElementById('mix-card-title');
-  if(mct)mct.textContent=campana?'Desglose del mix — Campaña Complemento Producción Emitida (reemplaza contrato)':'Desglose del mix de productos — Contrato original';
+  if(mct)mct.innerHTML=(campana?'Desglose del mix — Campaña Complemento Producción Emitida (reemplaza contrato)':'Desglose del mix de productos — Contrato original')+' <span class="coll-arrow">▾</span>';
   // mix table
   const mb=document.getElementById('mix-tbody');
   if(mb){mb.innerHTML=det.length===0?'<tr><td colspan="7" style="text-align:center;color:var(--g400);padding:12px">Agrega pólizas al mix.</td></tr>'
