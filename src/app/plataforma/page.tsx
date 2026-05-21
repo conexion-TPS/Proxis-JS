@@ -5,11 +5,26 @@ export default function PlataformaPage() {
   useEffect(() => {
     if ((window as any).__plataformaLoaded) return
     ;(window as any).__plataformaLoaded = true
+
+    function loadScript(src: string, onload?: () => void) {
+      const s = document.createElement('script')
+      s.src = src
+      if (onload) s.onload = onload
+      document.body.appendChild(s)
+    }
+
     import('chart.js/auto').then(mod => {
       ;(window as any).Chart = mod.default
-      const s = document.createElement('script')
-      s.src = '/plataforma-app.js'
-      document.body.appendChild(s)
+      // Load scripts in dependency order: core → datos → perfil → nodos → renta
+      loadScript('/plataforma-core.js', () =>
+        loadScript('/compensacion/compania-z/datos.js', () =>
+          loadScript('/compensacion/compania-z/perfil.js', () =>
+            loadScript('/compensacion/compania-z/nodos.js', () =>
+              loadScript('/compensacion/compania-z/renta.js')
+            )
+          )
+        )
+      )
     })
   }, [])
 
