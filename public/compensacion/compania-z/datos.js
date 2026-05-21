@@ -16,11 +16,11 @@ const SIM_PRODS=[
   // incM12/M24/M120: incentivo mantención por tramo antigüedad, cTopeUF: tope comisión en UF
   {id:'BL',  n:'Vida Empresarial',   z:2.00, c:.32,  q:1, p:200000, pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
   {id:'PM',  n:'Vida Mujer',        z:2.00, c:.32,  q:0, p:180000, pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
-  {id:'TP',  n:'Seguro Temporal',  z:1.00, c:.16,  q:0, p:80000,  pMax:1500000, cTopeUF:10, incM12:.024, incM24:.024},
+  {id:'TP',  n:'Seguro Temporal',  z:1.00, c:.16,  q:0, p:80000,  pMax:1500000, cTopeUF:10, incM12:.024, incM24:.024, incM120:.024},
   {id:'FP',  n:'El Futuro es Hoy AE', z:1.00, c:.056, q:0, p:100000, pMax:1500000, cTopeUF:0.22, incM12:.056, incM12TopeUF:.22, incM24:.024, incM24TopeUF:.10},
-  {id:'AP',  n:'Acc. Personales', z:1.00, c:.08,  q:0, p:30000,  pMax:500000,  incM12:.08},
+  {id:'AP',  n:'Acc. Personales', z:1.00, c:.08,  q:0, p:30000,  pMax:500000,  incM12:.08, incM24:.08, incM120:.08},
   {id:'APV', n:'APV',             z:0.50, cUF:.08,q:1, p:120000, pMax:2000000},
-  {id:'SS',  n:'Salud', z:0.50, c:.08,  q:0, p:50000,  pMax:1000000, incM12:.08},
+  {id:'SS',  n:'Salud', z:0.50, c:.08,  q:0, p:50000,  pMax:1000000, incM12:.08, incM24:.08, incM120:.08},
   {id:'BLF', n:'Vida Empresarial Flexible',         z:0.50, c:.32,  q:0, p:80000,  pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
   {id:'RP',  n:'Futura Renta',z:0.50, c:.24,  q:0, p:200000, pMax:2000000},
   {id:'APVF',n:'APV AE Flexible',        z:0.25, cUF:.08,q:0, p:100000, pMax:1500000},
@@ -50,9 +50,11 @@ const SIM_METODOS=[
    cadena:[{n:'—',l:'sin\nnodo'},{n:40,l:'contactos\nfríos'},{n:10,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:'amber'}]},
 ];
 const SIM_TRAMOS=[
-  {min:0,max:49.9,pct:.10,lbl:'0 – 49,9'},{min:50,max:99.9,pct:.12,lbl:'50 – 99,9'},
-  {min:100,max:149.9,pct:.15,lbl:'100 – 149,9'},{min:150,max:200,pct:.18,lbl:'150 – 200'},
-  {min:200.01,max:9999,pct:.10,lbl:'200+ (tramo 5)'},
+  {min:0,   max:49.99, pct:.10, lbl:'0 – 49,99'},
+  {min:50,  max:99.99, pct:.12, lbl:'50 – 99,99'},
+  {min:100, max:149.99,pct:.15, lbl:'100 – 149,99'},
+  {min:150, max:200,   pct:.18, lbl:'150 – 200'},
+  {min:200.01,max:9999,pct:.10, lbl:'200+ (tramo 5)'},
 ];
 const TOPES_ORIG=[[6,300],[23,700],[47,800],[71,900],[95,1000],[119,1100],[999,1200]];
 const TOPES_CAMP=[[6,1000],[12,1500],[24,2000],[999,99999]];
