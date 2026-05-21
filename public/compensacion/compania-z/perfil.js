@@ -19,10 +19,6 @@ function buildSimulador(){
     <div class="toggle-row"><div class="toggle-lbl"><strong>Activar campaña 2026</strong><br><span style="font-size:11px;color:var(--g400)">APV 100% AE · topes ampliados</span></div>
     <label class="toggle-sw"><input type="checkbox" id="campana-toggle" checked><span class="toggle-sl"></span></label></div>
     <div id="campana-info" class="ib bl" style="font-size:11px"></div>
-    <div class="stitle">Prospectos Referidos por Contactos / Nodos Referidores</div>
-    <div class="ib am" style="font-size:11px"><strong>Define el % de prospectos por método</strong> (pasos de 5%). Meta: ≥80% Contactos/Nodos Referidores.</div>
-    <div id="sim-metodos-grid"></div>
-    <div id="sim-pct-warn"></div>
     <div class="stitle">Mix de productos mensual</div>
     <div class="ib am" style="font-size:11px"><strong>Número de pólizas por tipo en un mes típico.</strong></div>
     <div id="sim-mix-grid"></div>
@@ -104,7 +100,11 @@ function buildSimulador(){
         <div><div style="font-size:12px;font-weight:500">💼 Gratificación legal</div><div style="font-size:10px;color:var(--g400)">Art. 50 CT · 25% IMM mensual</div></div>
         <input type="checkbox" id="ck-grati" checked style="width:16px;height:16px;cursor:pointer">
       </div>
-    </div>`;
+    </div>
+    <div class="stitle">Prospectos Referidos por Contactos / Nodos Referidores</div>
+    <div class="ib am" style="font-size:11px"><strong>Define el % de prospectos por método</strong> (pasos de 5%). Meta: ≥80% Contactos/Nodos Referidores.</div>
+    <div id="sim-metodos-grid"></div>
+    <div id="sim-pct-warn"></div>`;
 
   // Asesor select
   const asel=document.getElementById('asesor-sel');
