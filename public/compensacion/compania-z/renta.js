@@ -269,12 +269,11 @@ function simRender(){
       return a+prosp;},0)
   ));
   const alertHtml = Math.abs(diff)<30000
-    ?`<div class="ib gn"><strong>Meta prácticamente alcanzada.</strong> Ingreso: ${fmt(total)} · Asesor: ${ss.asesor}</div>`
-    :diff>=0?`<div class="ib gn"><strong>Meta alcanzable.</strong> Ingreso: ${fmt(total)} · Excedente: ${fmt(diff)}</div>`
-    :`<div class="ib rd"><strong>Meta no alcanzada.</strong> Ingreso: ${fmt(total)} · Brecha: ${fmt(Math.abs(diff))}.</div>`;
-  setEl('alert-box', alertHtml + `<div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    ?`<div class="ib gn" style="text-align:center"><strong>Meta prácticamente alcanzada.</strong> Ingreso: ${fmt(total)} · Asesor: ${ss.asesor}</div>`
+    :diff>=0?`<div class="ib gn" style="text-align:center"><strong>Meta alcanzable.</strong> Ingreso: ${fmt(total)} · Excedente: ${fmt(diff)}</div>`
+    :`<div class="ib rd" style="text-align:center"><strong>Meta no alcanzada.</strong> Ingreso: ${fmt(total)} · Brecha: ${fmt(Math.abs(diff))}.</div>`;
+  setEl('alert-box', alertHtml + `<div style="margin-top:10px;display:flex;justify-content:center">
     <button class="btn btn-success" onclick="guardarMetasEnTracker()">💾 Guardar metas de ${ss.asesor} en Tracker</button>
-    <span style="font-size:11px;color:var(--g400)">Contactos/sem: <strong>${metaContactos}</strong> · Prospectos/mes: <strong>${metaProspectos}</strong> · Ventas/mes: <strong>${ventas}</strong> · Meta ingresos: <strong>${fmt(total)}</strong></span>
   </div>`);
   // Store for save function
   window._simMeta = {asesor:ss.asesor, meta_contactos_semana:metaContactos, meta_prospectos_mes:metaProspectos, meta_ventas_mes:ventas, meta_ingresos:Math.round(total)};
@@ -285,9 +284,9 @@ function simRender(){
   // metric cards
   const t5st=zTotal>200?(t5Hab?'<span style="color:var(--teal);font-size:10px">✓ T5</span>':'<span style="color:var(--red);font-size:10px">✗ T5</span>'):'';
   setEl('metric-row',`
-    <div class="smc"><div class="smc-lbl">Sueldo base</div><div class="smc-val">${fmt(SUELDO_BASE)}</div><div class="smc-sub">Mín. legal $539.000</div></div>
-    <div class="smc"><div class="smc-lbl">Bono producción AE</div><div class="smc-val">${fmt(bonoNeto)}</div><div class="smc-sub">${zTotal.toFixed(1)}AE → ${fmtUF(bUF)} × ${Math.round(fp*100)}% ${t5st}</div></div>
-    <div class="smc ${mc} smc-ingreso"><div class="smc-lbl">* Ingreso Bruto Aproximado Total</div><div class="smc-val">${fmt(total)}</div><div class="smc-sub">UF: ${fmt(UF_VAL)} · AE VI+GI: ${zTotal.toFixed(1)}</div></div>
+    <div class="smc" style="text-align:center"><div class="smc-lbl">Sueldo base</div><div class="smc-val">${fmt(SUELDO_BASE)}</div><div class="smc-sub">Mín. legal $539.000</div></div>
+    <div class="smc" style="text-align:center"><div class="smc-lbl">Bono producción AE</div><div class="smc-val">${fmt(bonoNeto)}</div><div class="smc-sub">${zTotal.toFixed(1)}AE → ${fmtUF(bUF)} × ${Math.round(fp*100)}% ${t5st}</div></div>
+    <div class="smc ${mc} smc-ingreso" style="text-align:center"><div class="smc-lbl">* Ingreso Bruto Aproximado Total</div><div class="smc-val">${fmt(total)}</div><div class="smc-sub">UF: ${fmt(UF_VAL)} · AE VI+GI: ${zTotal.toFixed(1)}</div></div>
 `);
   
   // mix table title

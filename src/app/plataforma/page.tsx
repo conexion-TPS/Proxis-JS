@@ -442,10 +442,12 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
             <div className="left" id="sim-left"></div>
             <div className="right" id="sim-right">
               <div id="alert-box" style={{marginBottom:'12px'}}></div>
-              <button className="btn btn-primary report-btn" onClick={() => window.print()} style={{marginBottom:'14px',display:'flex',alignItems:'center',gap:'7px'}}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9H3V2z" stroke="white" strokeWidth="1.3" fill="none" strokeLinejoin="round"/><path d="M10 2v3h3M5 7h6M5 9.5h6M5 12h4" stroke="white" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                Generar informe PDF — <span id="btn-asesor" style={{fontStyle:'italic'}}>—</span>
-              </button>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:'14px'}}>
+                <button className="btn btn-primary report-btn" onClick={() => window.print()} style={{display:'flex',alignItems:'center',gap:'7px'}}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9H3V2z" stroke="white" strokeWidth="1.3" fill="none" strokeLinejoin="round"/><path d="M10 2v3h3M5 7h6M5 9.5h6M5 12h4" stroke="white" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                  Generar informe PDF — <span id="btn-asesor" style={{fontStyle:'italic'}}>—</span>
+                </button>
+              </div>
               <div className="mcrow" id="metric-row"></div>
               <div style={{fontSize:'11px',color:'#185FA5',lineHeight:1.6,marginTop:'10px',padding:'9px 12px',background:'#E6F1FB',borderLeft:'3px solid #185FA5',borderRadius:'0 6px 6px 0'}}>ⓘ * Cifra referencial. Valores aproximados. Es posible que haya diferencias con los valores reales. El objetivo del &quot;Ingreso Bruto Aproximado Total&quot; es servir solo de referencia general para el cálculo de las metas de prospección.</div>
               <div id="metric-contacts"></div>
@@ -459,7 +461,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
               </div>
               <div className="card card-collapsible" id="card-mix">
                 <div className="card-title" id="mix-card-title" onClick={() => (window as any).toggleCard('card-mix')}>Desglose del mix de productos — Contrato original <span className="coll-arrow">▾</span></div>
-                <div className="card-body">
+                <div className="card-body" style={{textAlign:'left'}}>
                   <table className="dt"><thead><tr><th>Producto</th><th>Pólizas</th><th>Factor AE</th><th>PPA (UF)</th><th>AE Puntos</th><th>Nota</th></tr></thead>
                   <tbody id="mix-tbody"></tbody><tfoot id="mix-tfoot"></tfoot></table>
                   <p style={{fontSize:'11px',color:'var(--g400)',marginTop:'8px',lineHeight:1.6}}>*Valores aproximados de referencia general. Es posible que haya diferencias con los valores reales.</p>
