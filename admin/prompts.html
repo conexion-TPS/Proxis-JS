@@ -316,7 +316,7 @@ async function loadVersions() {
         <span class="version-num">v${v.version}</span>
         <span class="${v.activo ? 'badge-active' : 'badge-inactive'}">${v.activo ? 'Activa' : 'Inactiva'}</span>
         <span class="version-date">${formatDate(v.created_at)}</span>
-        ${!v.activo ? `<button class="btn-del-ver" title="Eliminar versión" onclick="eliminarVersion(event,'${v.id}',${v.version})">✕</button>` : ''}`;
+        <button class="btn-del-ver" title="Eliminar versión" onclick="eliminarVersion(event,'${v.id}',${v.version},${v.activo})">✕</button>`;
       li.onclick = (e) => { if (!e.target.classList.contains('btn-del-ver')) selectVersion(v, li); };
       list.appendChild(li);
 
@@ -382,9 +382,10 @@ async function activarVersion() {
 }
 
 /* ── ELIMINAR VERSIÓN ── */
-async function eliminarVersion(e, id, num) {
+async function eliminarVersion(e, id, num, activa) {
   e.stopPropagation();
-  if (!confirm(`¿Eliminar la versión ${num}? Esta acción no se puede deshacer.`)) return;
+  const aviso = activa ? `La versión ${num} está ACTIVA. Si la eliminas el trigger quedará sin prompt.\n\n¿Continuar?` : `¿Eliminar la versión ${num}? Esta acción no se puede deshacer.`;
+  if (!confirm(aviso)) return;
   try {
     await SBC.del('prompts', `id=eq.${id}`);
     showToast(`Versión ${num} eliminada.`);
