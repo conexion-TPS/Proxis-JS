@@ -21,7 +21,7 @@ const CORE_SB_KEY = IS_DEV ? _SB_KEY_DEV  : _SB_KEY_PROD;
 
 // Pegar aquí cuando estén disponibles:
 const GEMINI_KEY = 'REDACTED';
-const RESEND_KEY = '';
+const RESEND_KEY = 're_2iEP2Kbw_9DNXTUW519CRzDzmVKknQ64Y';
 
 /* ── SUPABASE CLIENT ──────────────────────────────────────── */
 const SBC = {
