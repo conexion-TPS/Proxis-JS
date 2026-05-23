@@ -69,14 +69,15 @@ async function buildContext(asesor: string) {
   const [y, m] = mes.split('-').map(Number)
   const next   = m === 12 ? `${y+1}-01` : `${y}-${String(m+1).padStart(2,'0')}`
 
-  const [metaRes, reportesRes, ingresoRes] = await Promise.all([
+  const [metaRes, reportesRes, ingresoRes, perfilRes] = await Promise.all([
     sb.from('metas').select('*').eq('asesor', asesor),
     sb.from('reportes').select('*')
       .eq('asesor', asesor)
       .gte('semana_inicio', `${mes}-01`)
       .lt('semana_inicio', `${next}-01`)
       .order('semana_inicio', { ascending: false }),
-    sb.from('ingresos').select('*').eq('asesor', asesor).eq('mes', mes)
+    sb.from('ingresos').select('*').eq('asesor', asesor).eq('mes', mes),
+    sb.from('asesor_perfil').select('resumen_ia').eq('asesor', asesor).limit(1)
   ])
 
   const meta     = metaRes.data?.[0]     || {}
@@ -107,7 +108,8 @@ async function buildContext(asesor: string) {
     mes_actual:            mes,
     pc_promedio:           calcPcPromedio(ultimas4),
     z_proyectados:         calcZProyectados(ultimas4),
-    persistencia_actual:   calcPersistencia(ultimas4, meta.meta_contactos_semana || 3)
+    persistencia_actual:   calcPersistencia(ultimas4, meta.meta_contactos_semana || 3),
+    perfil_resumen:        perfilRes.data?.[0]?.resumen_ia || null
   }
 }
 
@@ -250,8 +252,11 @@ Deno.serve(async (_req: Request) => {
           item.status = 'no_prompt'; results.push(item); continue
         }
 
-        const compilado = compileTemplate(prompts[0].body, ctx)
-        const body      = await callGemini(compilado)
+        const compilado    = compileTemplate(prompts[0].body, ctx)
+        const perfilBlock  = ctx.perfil_resumen
+          ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n`
+          : ''
+        const body         = await callGemini(perfilBlock + compilado)
 
         await sb.from('message_log').insert({
           asesor,
