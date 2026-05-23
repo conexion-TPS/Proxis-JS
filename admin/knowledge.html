@@ -205,7 +205,6 @@ a{color:inherit;text-decoration:none}
 })();
 
 /* ── Env badge ── */
-const IS_DEV = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.includes('proxis-dev');
 document.getElementById('env-badge').textContent = IS_DEV ? 'DEV' : 'PROD';
 document.getElementById('env-badge').className = 'hdr-badge ' + (IS_DEV ? 'badge-dev' : 'badge-prod');
 
