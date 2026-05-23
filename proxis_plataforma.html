@@ -98,6 +98,31 @@ body{font-family:var(--font);background:var(--g100);color:var(--g900);font-size:
 .tab.active{color:#0b0a09;border-bottom-color:#0b0a09;font-weight:600}
 .tab-panel{display:none;padding:24px}.tab-panel.active{display:block}
 
+/* ── ASSESSMENT CONDUCTUAL ── */
+#assessment-overlay{position:fixed;inset:0;z-index:500;background:#0b0a09;display:none;align-items:center;justify-content:center;padding:24px;background-image:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(203,241,53,0.07),transparent 60%)}
+#assessment-overlay::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,0.025) 1px,transparent 1px);background-size:24px 24px;pointer-events:none}
+.as-card{position:relative;z-index:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:40px 44px;width:100%;max-width:560px;backdrop-filter:blur(12px);box-shadow:0 24px 80px rgba(0,0,0,0.5)}
+.as-logo{display:flex;align-items:center;gap:8px;margin-bottom:32px}
+.as-logo-word{font-weight:800;font-size:18px;color:white;letter-spacing:-0.04em}
+.as-logo-word span{color:#cbf135}
+.as-progress-wrap{background:rgba(255,255,255,0.08);border-radius:4px;height:3px;margin-bottom:28px;overflow:hidden}
+.as-progress-bar{height:100%;background:#cbf135;border-radius:4px;transition:width 0.4s ease}
+.as-step{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:10px}
+.as-question{font-size:18px;font-weight:700;color:white;letter-spacing:-0.02em;line-height:1.4;margin-bottom:28px}
+.as-options{display:flex;flex-direction:column;gap:10px}
+.as-option{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px 18px;font-size:13.5px;color:rgba(255,255,255,0.8);cursor:pointer;transition:all 0.18s;text-align:left;font-family:'Plus Jakarta Sans',sans-serif;line-height:1.5}
+.as-option:hover{background:rgba(203,241,53,0.1);border-color:rgba(203,241,53,0.4);color:white;transform:translateX(4px)}
+.as-result{text-align:center;padding:12px 0}
+.as-result-icon{font-size:48px;margin-bottom:16px}
+.as-result-title{font-size:20px;font-weight:800;color:white;letter-spacing:-0.03em;margin-bottom:8px}
+.as-result-sub{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6;margin-bottom:28px}
+.as-result-perfil{display:flex;gap:12px;justify-content:center;margin-bottom:28px}
+.as-perfil-chip{background:rgba(203,241,53,0.12);border:1px solid rgba(203,241,53,0.25);border-radius:10px;padding:10px 18px;text-align:center}
+.as-perfil-chip .pct{font-size:22px;font-weight:800;color:#cbf135;display:block}
+.as-perfil-chip .lbl{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-top:2px;display:block}
+.as-btn{width:100%;padding:14px;background:#cbf135;color:#0b0a09;border:none;border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:all 0.15s;letter-spacing:-0.01em}
+.as-btn:hover{background:#a8cc1a;transform:translateY(-1px)}
+
 /* ── BANNER MENSAJES IA ── */
 #msg-banner{display:none;background:linear-gradient(135deg,rgba(203,241,53,0.10),rgba(168,204,26,0.04));border:1px solid rgba(168,204,26,0.35);border-radius:12px;padding:16px 20px;margin:16px 24px 0;position:relative}
 .banner-label{font-family:var(--mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--lime-dk);margin-bottom:8px;display:flex;align-items:center;gap:6px}
@@ -366,6 +391,28 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 
 <!-- APP -->
 <div id="screen-app">
+
+  <!-- Assessment conductual -->
+  <div id="assessment-overlay">
+    <div class="as-card">
+      <div class="as-logo">
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/>
+          <circle cx="6" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/>
+          <circle cx="26" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/>
+          <circle cx="6" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+          <circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+          <line x1="8.6" y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+          <line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+          <line x1="8.6" y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+          <line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+        </svg>
+        <span class="as-logo-word">Pro<span>xis</span></span>
+      </div>
+      <div class="as-progress-wrap"><div class="as-progress-bar" id="as-bar"></div></div>
+      <div id="as-content"></div>
+    </div>
+  </div>
 
   <!-- Banner mensajes IA -->
   <div id="msg-banner">
@@ -968,7 +1015,7 @@ function buildApp(){
     if(oldKey2!==newKey) localStorage.removeItem(oldKey2);
   }catch{}
   // Check onboarding after DOM settles
-  setTimeout(()=>checkOnboarding(), 800);
+  setTimeout(()=>checkAssessmentOrOnboarding(), 800);
 }
 
 function buildTrackerTabs(){
@@ -3503,6 +3550,150 @@ function toggleCard(id){
   if(el) el.classList.toggle('open');
 }
 buildLoginSelect();
+
+/* ══════════════════════════════════════════════════════════════
+   ASSESSMENT CONDUCTUAL (Bloque 3)
+══════════════════════════════════════════════════════════════ */
+const AS_QS = [
+  { q:'Un prospecto te dice "necesito pensarlo". ¿Cuál es tu reacción natural?',
+    ops:[
+      {t:'D', txt:'Le digo que el tiempo es clave y propongo una fecha concreta para decidir esta semana.'},
+      {t:'R', txt:'Le pregunto qué le genera dudas y lo acompaño para resolver su preocupación con calma.'},
+      {t:'S', txt:'Le envío un resumen con todos los números para que pueda evaluar con datos concretos.'}
+    ]},
+  { q:'Tienes una semana con pocos contactos nuevos. ¿Qué haces?',
+    ops:[
+      {t:'D', txt:'Me fijo una meta más alta para los próximos días y salgo activamente a buscar.'},
+      {t:'R', txt:'Llamo a personas de mi red de confianza que me pueden referir a alguien interesado.'},
+      {t:'S', txt:'Reviso mis estadísticas para identificar qué días y métodos me generaron más contactos.'}
+    ]},
+  { q:'Conoces a alguien nuevo en un evento social. ¿Cómo actúas?',
+    ops:[
+      {t:'D', txt:'Evalúo rápidamente si es un prospecto potencial y voy al tema si veo la oportunidad.'},
+      {t:'R', txt:'Me enfoco en conocerlo como persona primero, sin apurar nada relacionado al trabajo.'},
+      {t:'S', txt:'Recopilo información sobre su perfil antes de mencionar algo relacionado a seguros.'}
+    ]},
+  { q:'Una reunión no termina en venta. ¿Qué piensas al salir?',
+    ops:[
+      {t:'D', txt:'Analizo qué objeción no manejé bien y ajusto mi estrategia para la próxima oportunidad.'},
+      {t:'R', txt:'Reflexiono si conecté bien con la persona y cómo puedo mantener esa relación.'},
+      {t:'S', txt:'Reviso cada etapa de la reunión para identificar exactamente en qué punto se perdió.'}
+    ]},
+  { q:'Un nodo te dice "llámame cuando puedas". ¿Cómo respondes?',
+    ops:[
+      {t:'D', txt:'Le propongo un horario específico para esta misma semana y lo agendo ahí mismo.'},
+      {t:'R', txt:'Le pregunto cuándo le viene mejor y me adapto completamente a su disponibilidad.'},
+      {t:'S', txt:'Calendarizo la llamada, preparo la información relevante y le envío un recordatorio.'}
+    ]},
+  { q:'Tienes 3 prospectos en distintas etapas. ¿Cómo priorizas?',
+    ops:[
+      {t:'D', txt:'Voy primero al que está más cerca del cierre para asegurar el resultado.'},
+      {t:'R', txt:'Me enfoco en el que tiene más confianza conmigo; es donde tengo más posibilidades.'},
+      {t:'S', txt:'Armo un plan de seguimiento para los tres, con criterios claros de priorización.'}
+    ]},
+  { q:'Un prospecto pide una rebaja o condición especial. ¿Qué haces?',
+    ops:[
+      {t:'D', txt:'Mantengo el precio con seguridad y explico por qué el valor justifica la inversión.'},
+      {t:'R', txt:'Escucho su situación y busco una solución que le acomode sin comprometer la relación.'},
+      {t:'S', txt:'Le presento el desglose costo-beneficio con datos concretos para justificar el precio.'}
+    ]},
+  { q:'¿Cómo describirías tu estilo natural al prospectar?',
+    ops:[
+      {t:'D', txt:'Soy directo y orientado a resultados; tomo decisiones rápidas y me enfoco en cerrar.'},
+      {t:'R', txt:'Me importa la relación antes que la venta; genero confianza y eso abre las puertas.'},
+      {t:'S', txt:'Soy ordenado y metódico; preparo bien cada contacto y sigo un proceso probado.'}
+    ]}
+];
+
+const PERFIL_NOMBRE = { D:'Directivo', R:'Relacional', S:'Sistemático' };
+
+let _asAnswers = [];
+let _asCurrent = 0;
+
+async function checkAssessmentOrOnboarding(){
+  if(G.rol !== 'asesor'){ checkOnboarding(); return; }
+  try{
+    const r = await fetch(
+      `${_BNR_URL}/rest/v1/metas?asesor=eq.${encodeURIComponent(G.usuario)}&select=perfil_conductual`,
+      {headers:{apikey:_BNR_KEY, Authorization:`Bearer ${_BNR_KEY}`}}
+    );
+    const data = await r.json();
+    if(data[0]?.perfil_conductual){ checkOnboarding(); return; }
+    // Sin perfil → mostrar assessment
+    _asAnswers = []; _asCurrent = 0;
+    document.getElementById('assessment-overlay').style.display = 'flex';
+    renderAsQuestion();
+  }catch(e){
+    checkOnboarding(); // si falla, no bloquear
+  }
+}
+
+function renderAsQuestion(){
+  const q = AS_QS[_asCurrent];
+  const pct = Math.round((_asCurrent / AS_QS.length) * 100);
+  document.getElementById('as-bar').style.width = pct + '%';
+  // Barajar opciones para evitar sesgo posicional
+  const ops = [...q.ops].sort(()=>Math.random()-0.5);
+  document.getElementById('as-content').innerHTML = `
+    <div class="as-step">Pregunta ${_asCurrent + 1} de ${AS_QS.length}</div>
+    <div class="as-question">${q.q}</div>
+    <div class="as-options">
+      ${ops.map(o=>`<button class="as-option" onclick="asSelectAnswer('${o.t}')">${o.txt}</button>`).join('')}
+    </div>`;
+}
+
+function asSelectAnswer(tipo){
+  _asAnswers.push(tipo);
+  _asCurrent++;
+  if(_asCurrent >= AS_QS.length){
+    asFinalize();
+  } else {
+    renderAsQuestion();
+  }
+}
+
+async function asFinalize(){
+  document.getElementById('as-bar').style.width = '100%';
+  const counts = {D:0,R:0,S:0};
+  _asAnswers.forEach(a=>counts[a]++);
+  const total = _asAnswers.length;
+  const perfil = {
+    D: Math.round(counts.D/total*100),
+    R: Math.round(counts.R/total*100),
+    S: Math.round(counts.S/total*100)
+  };
+  // Perfil dominante
+  const dom = Object.entries(perfil).sort((a,b)=>b[1]-a[1])[0][0];
+
+  // Mostrar resultado
+  document.getElementById('as-content').innerHTML = `
+    <div class="as-result">
+      <div class="as-result-icon">🎯</div>
+      <div class="as-result-title">Tu perfil: ${PERFIL_NOMBRE[dom]}</div>
+      <div class="as-result-sub">Este es tu estilo natural de prospección. Proxis lo usará para personalizar tus mensajes y recomendaciones.</div>
+      <div class="as-result-perfil">
+        <div class="as-perfil-chip"><span class="pct">${perfil.D}%</span><span class="lbl">Directivo</span></div>
+        <div class="as-perfil-chip"><span class="pct">${perfil.R}%</span><span class="lbl">Relacional</span></div>
+        <div class="as-perfil-chip"><span class="pct">${perfil.S}%</span><span class="lbl">Sistemático</span></div>
+      </div>
+      <button class="as-btn" onclick="asCerrar()">Comenzar →</button>
+    </div>`;
+
+  // Guardar en Supabase
+  try{
+    await fetch(
+      `${_BNR_URL}/rest/v1/metas?asesor=eq.${encodeURIComponent(G.usuario)}`,
+      {method:'PATCH',
+       headers:{apikey:_BNR_KEY,Authorization:`Bearer ${_BNR_KEY}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+       body:JSON.stringify({perfil_conductual:perfil})}
+    );
+  }catch(e){ console.warn('Assessment save error:',e); }
+}
+
+function asCerrar(){
+  document.getElementById('assessment-overlay').style.display='none';
+  checkOnboarding();
+}
 
 /* ══════════════════════════════════════════════════════════════
    BANNER MENSAJES IA (Bloque 7)
