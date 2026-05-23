@@ -166,7 +166,7 @@ async function callGemini(prompt: string): Promise<string> {
 
 /* ── Email vía Resend ───────────────────────────────────────── */
 
-async function sendEmail(asesor: string, asunto: string, cuerpo: string): Promise<void> {
+async function sendEmail(asesor: string, asunto: string, cuerpo: string, remitente = 'Proxis Coach'): Promise<void> {
   if (!RESEND_KEY) {
     console.log(`[DRY-RUN] Email a ${asesor}: ${cuerpo.slice(0, 100)}…`)
     return
@@ -178,7 +178,7 @@ async function sendEmail(asesor: string, asunto: string, cuerpo: string): Promis
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from:    'Proxis Coach <proxis@theprecisionselling.com>',
+      from:    `${remitente} <proxis@theprecisionselling.com>`,
       to:      emailArr[0].email,
       subject: asunto,
       text:    cuerpo
@@ -203,19 +203,6 @@ async function cooldownOk(asesor: string, triggerId: string, days: number): Prom
   return !data?.length
 }
 
-/* ── Subject por trigger ────────────────────────────────────── */
-
-function subjectForTrigger(triggerId: string): string {
-  const map: Record<string, string> = {
-    'semana-sin-reporte-alerta': 'Tu actividad semanal necesita atención',
-    'bajo-meta-miercoles':       'Chequeo de mitad de semana — tu coach Proxis',
-    'persistencia-umbral':       'Hay algo que quiero conversar contigo',
-    'meta-superada':             '¡Vas muy bien este mes!',
-    'primer-lunes-mes':          'Arrancamos un nuevo mes — tu coach Proxis',
-  }
-  return map[triggerId] || 'Mensaje de tu coach Proxis'
-}
-
 /* ── Handler principal ──────────────────────────────────────── */
 
 Deno.serve(async (_req: Request) => {
@@ -227,6 +214,10 @@ Deno.serve(async (_req: Request) => {
   if (tErr) return new Response(JSON.stringify({ ok: false, error: tErr.message }), { status: 500 })
   if (!triggers?.length)
     return new Response(JSON.stringify({ ok: true, msg: 'Sin triggers activos' }), { status: 200 })
+
+  // Remitente configurable
+  const { data: configArr } = await sb.from('config').select('value').eq('key', 'remitente').limit(1)
+  const remitente = configArr?.[0]?.value || 'Proxis Coach'
 
   // 2. Todos los asesores
   const { data: metasArr } = await sb.from('metas').select('asesor')
@@ -264,12 +255,13 @@ Deno.serve(async (_req: Request) => {
 
         await sb.from('message_log').insert({
           asesor,
-          trigger_id:     trigger.id,
+          trigger_id:     tid,
           body,
           prompt_version: prompts[0].version
         })
 
-        await sendEmail(asesor, subjectForTrigger(tid), body)
+        const asunto = trigger.asunto || 'Mensaje de tu coach Proxis'
+        await sendEmail(asesor, asunto, body, remitente)
 
         item.status = 'sent'
       } catch (e: any) {

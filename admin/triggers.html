@@ -88,6 +88,14 @@ textarea.inline:focus{border-color:var(--black)}
 /* ── EMPTY ── */
 .empty-row td{text-align:center;color:var(--gray-3);font-size:13px;padding:32px}
 
+/* ── CONFIG PANEL ── */
+.config-panel{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.config-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray-3);white-space:nowrap}
+.config-input{flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);outline:none;transition:border-color 0.15s}
+.config-input:focus{border-color:var(--black)}
+.btn-save-config{padding:8px 16px;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;background:var(--black);color:white;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.btn-save-config:hover{opacity:.85}
+
 /* ── TOAST ── */
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:white;font-size:13px;font-weight:500;padding:10px 22px;border-radius:30px;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -134,12 +142,20 @@ textarea.inline:focus{border-color:var(--black)}
     </button>
   </div>
 
+  <!-- Remitente global -->
+  <div class="config-panel">
+    <span class="config-label">Nombre del remitente</span>
+    <input class="config-input" id="remitente-input" type="text" placeholder="Ej: Proxis Coach" value="">
+    <button class="btn-save-config" onclick="saveRemitente()">Guardar</button>
+  </div>
+
   <div class="card">
     <table>
       <thead>
         <tr>
           <th>Trigger ID</th>
           <th>Descripción</th>
+          <th>Asunto del email</th>
           <th style="width:90px">Cooldown (días)</th>
           <th style="width:80px">Umbral</th>
           <th style="width:90px">Estado</th>
@@ -172,19 +188,19 @@ let editingId = null; // trigger_id en edición
 /* ── LOAD ── */
 async function loadTriggers() {
   const tbody = document.getElementById('triggerTableBody');
-  tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Cargando…</td></tr>';
   try {
     triggers = await SBC.get('trigger_config', 'order=trigger_id.asc');
     renderTable();
   } catch(e) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Error: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Error: ${e.message}</td></tr>`;
   }
 }
 
 function renderTable() {
   const tbody = document.getElementById('triggerTableBody');
   if (!triggers.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Sin triggers. Crea el primero.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Sin triggers. Crea el primero.</td></tr>';
     return;
   }
   tbody.innerHTML = '';
@@ -202,6 +218,7 @@ function readRow(t) {
   return `
     <td class="cell-mono">${esc(t.trigger_id)}</td>
     <td class="cell-text">${esc(t.descripcion || '—')}</td>
+    <td class="cell-text" style="font-size:12px;color:var(--gray-2)">${esc(t.asunto || '—')}</td>
     <td class="cell-text" style="text-align:center">${t.cooldown_dias ?? '—'}</td>
     <td class="cell-text" style="text-align:center">${t.umbral ?? '—'}</td>
     <td>
@@ -222,6 +239,7 @@ function editingRow(t) {
   return `
     <td><input class="inline mono" id="e-id" value="${esc(t.trigger_id)}" placeholder="trigger-id" ${t._isNew ? '' : 'readonly'}></td>
     <td><textarea class="inline" id="e-desc" rows="2" placeholder="Descripción">${esc(t.descripcion || '')}</textarea></td>
+    <td><input class="inline" id="e-asunto" type="text" placeholder="Asunto del email" value="${esc(t.asunto || '')}"></td>
     <td><input class="inline narrow" id="e-cool" type="number" min="1" value="${t.cooldown_dias ?? ''}"></td>
     <td><input class="inline narrow" id="e-umbral" type="number" step="0.01" value="${t.umbral ?? ''}"></td>
     <td>
@@ -255,20 +273,21 @@ function cancelEdit() {
 async function guardarFila(originalId, isNew) {
   const id      = document.getElementById('e-id').value.trim();
   const desc    = document.getElementById('e-desc').value.trim();
+  const asunto  = document.getElementById('e-asunto').value.trim();
   const cool    = parseInt(document.getElementById('e-cool').value) || null;
   const umbral  = parseFloat(document.getElementById('e-umbral').value) || null;
   const activo  = document.getElementById('e-activo').checked;
 
   if (!id) { showToast('El Trigger ID no puede estar vacío.', true); return; }
 
-  const payload = { trigger_id: id, descripcion: desc, cooldown_dias: cool, umbral, activo, updated_at: new Date().toISOString() };
+  const payload = { trigger_id: id, descripcion: desc, asunto, cooldown_dias: cool, umbral, activo, updated_at: new Date().toISOString() };
 
   try {
     if (isNew) {
       await SBC.post('trigger_config', payload);
       showToast(`Trigger "${id}" creado.`);
     } else {
-      await SBC.patch('trigger_config', { descripcion: desc, cooldown_dias: cool, umbral, activo, updated_at: new Date().toISOString() },
+      await SBC.patch('trigger_config', { descripcion: desc, asunto, cooldown_dias: cool, umbral, activo, updated_at: new Date().toISOString() },
         `trigger_id=eq.${encodeURIComponent(originalId)}`);
       showToast(`Trigger "${id}" guardado.`);
     }
@@ -297,7 +316,7 @@ async function toggleActivo(triggerId, activo) {
 /* ── NUEVO TRIGGER ── */
 function nuevoTrigger() {
   if (triggers.find(t => t._isNew)) return; // ya hay uno nuevo pendiente
-  const nuevo = { trigger_id: '', descripcion: '', cooldown_dias: 7, umbral: null, activo: true, _isNew: true };
+  const nuevo = { trigger_id: '', descripcion: '', asunto: '', cooldown_dias: 7, umbral: null, activo: true, _isNew: true };
   triggers.unshift(nuevo);
   editingId = '';
   renderTable();
@@ -321,6 +340,28 @@ function logout() {
   window.location.href = '../proxis_plataforma.html';
 }
 
+/* ── REMITENTE ── */
+async function loadRemitente() {
+  try {
+    const rows = await SBC.get('config', 'key=eq.remitente');
+    if (rows.length) document.getElementById('remitente-input').value = rows[0].value || '';
+  } catch(e) {
+    // silencioso — campo queda vacío
+  }
+}
+
+async function saveRemitente() {
+  const val = document.getElementById('remitente-input').value.trim();
+  if (!val) { showToast('El nombre del remitente no puede estar vacío.', true); return; }
+  try {
+    await SBC.patch('config', { value: val }, 'key=eq.remitente');
+    showToast('Remitente guardado.');
+  } catch(e) {
+    showToast('Error al guardar remitente: ' + e.message, true);
+  }
+}
+
+loadRemitente();
 loadTriggers();
 </script>
 </body>
