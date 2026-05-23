@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxis Admin · Prompts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --lime:#cbf135; --lime-dk:#a8cc1a; --black:#0b0a09;
+  --gray-1:#1a1916; --gray-2:#4a4844; --gray-3:#8a8885;
+  --gray-4:#c8c6c3; --gray-5:#e8e6e3; --white:#ffffff;
+  --teal:#1f6f56; --teal-lt:#e6f3ed;
+  --red:#b03a3a; --red-lt:#fbe9e9;
+  --amber:#a8691a; --amber-lt:#f8ecd6;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--black);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── HEADER ── */
+.header{background:var(--black);padding:0 28px;height:56px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 0 var(--lime-dk);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.logo-wordmark{font-weight:800;font-size:18px;color:var(--white);letter-spacing:-0.04em}
+.logo-wordmark span{color:var(--lime)}
+.header-div{width:1px;height:20px;background:rgba(255,255,255,0.12)}
+.header-tag{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray-4)}
+.header-tag a{color:var(--gray-3);text-decoration:none}
+.header-tag a:hover{color:var(--white)}
+.header-env{margin-left:4px;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 10px;border-radius:20px;letter-spacing:0.08em;text-transform:uppercase}
+.header-env.dev{background:rgba(168,204,26,0.15);color:var(--lime-dk);border:1px solid rgba(168,204,26,0.3)}
+.header-env.prod{background:rgba(176,58,58,0.15);color:#e07070;border:1px solid rgba(176,58,58,0.3)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.btn-logout{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.7);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s}
+.btn-logout:hover{background:rgba(255,255,255,0.14);color:white}
+
+/* ── LAYOUT ── */
+.main{max-width:1200px;margin:0 auto;padding:32px 28px}
+.page-header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.back-link{font-size:12px;color:var(--gray-3);text-decoration:none;display:flex;align-items:center;gap:5px;transition:color 0.15s}
+.back-link:hover{color:var(--black)}
+.page-title{font-size:22px;font-weight:800;letter-spacing:-0.03em}
+
+/* Trigger selector */
+.trigger-bar{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:18px 22px;margin-bottom:24px;display:flex;align-items:center;gap:16px}
+.trigger-bar label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray-3);white-space:nowrap}
+.trigger-bar select{flex:1;padding:9px 14px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);background:white;outline:none;cursor:pointer;transition:border-color 0.15s}
+.trigger-bar select:focus{border-color:var(--black)}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start}
+
+/* Version list */
+.card{background:white;border:1px solid var(--gray-5);border-radius:12px;overflow:hidden}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--gray-5);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:12px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--gray-3)}
+.version-list{list-style:none}
+.version-item{padding:12px 18px;border-bottom:1px solid #f5f3ef;cursor:pointer;transition:background 0.12s;display:flex;align-items:center;gap:10px}
+.version-item:last-child{border-bottom:none}
+.version-item:hover{background:#fafaf7}
+.version-item.selected{background:#f0ede8}
+.version-num{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--gray-2)}
+.version-date{font-size:11px;color:var(--gray-3);margin-left:auto}
+.badge-active{background:var(--teal-lt);color:var(--teal);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.06em}
+.badge-inactive{background:#f0ede8;color:var(--gray-3);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px}
+.empty-state{padding:24px 18px;text-align:center;font-size:12px;color:var(--gray-3)}
+
+/* Editor panel */
+.editor-card{background:white;border:1px solid var(--gray-5);border-radius:12px;overflow:hidden}
+.editor-body{padding:20px}
+.editor-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray-3);margin-bottom:8px;display:block}
+textarea.editor{width:100%;min-height:200px;padding:14px;border:1px solid var(--gray-5);border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;line-height:1.65;color:var(--black);resize:vertical;outline:none;transition:border-color 0.15s}
+textarea.editor:focus{border-color:var(--black)}
+textarea.editor::placeholder{color:var(--gray-4)}
+
+/* Variables reference */
+.vars-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.var-chip{font-family:'DM Mono',monospace;font-size:11px;background:#f5f3ef;border:1px solid var(--gray-5);border-radius:6px;padding:3px 9px;color:var(--gray-2);cursor:pointer;transition:all 0.12s;user-select:none}
+.var-chip:hover{background:var(--black);color:var(--lime);border-color:var(--black)}
+.var-hint{font-size:11px;color:var(--gray-3);margin-top:6px}
+
+/* Buttons */
+.btn-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.btn{padding:9px 18px;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:7px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-dark{background:var(--black);color:white}
+.btn-dark:not(:disabled):hover{background:#2a2926}
+.btn-teal{background:var(--teal);color:white}
+.btn-teal:not(:disabled):hover{background:#175743}
+.btn-outline{background:white;color:var(--gray-2);border:1px solid var(--gray-5)}
+.btn-outline:not(:disabled):hover{border-color:var(--black);color:var(--black)}
+
+/* Divider */
+.divider{border:none;border-top:1px solid var(--gray-5);margin:20px 0}
+
+/* Preview */
+.preview-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.preview-row select{padding:9px 14px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);background:white;outline:none;flex:1;min-width:180px}
+.preview-result{background:#f5f3ef;border:1px solid var(--gray-5);border-radius:8px;padding:16px;font-size:13px;line-height:1.7;color:var(--black);white-space:pre-wrap;margin-top:14px;min-height:60px;font-family:'Plus Jakarta Sans',sans-serif}
+.preview-result.empty{color:var(--gray-3);font-style:italic}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:white;font-size:13px;font-weight:500;padding:10px 22px;border-radius:30px;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error{background:var(--red)}
+
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a href="index.html" class="logo">
+    <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/>
+      <circle cx="6"  cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="26" cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="6"  cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <line x1="8.6"  y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="8.6"  y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      <line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+    <span class="logo-wordmark">Pro<span>xis</span></span>
+  </a>
+  <div class="header-div"></div>
+  <span class="header-tag"><a href="index.html">Admin</a> / Prompts</span>
+  <span class="header-env" id="envBadge">···</span>
+  <div class="header-right">
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</header>
+
+<main class="main">
+  <div class="page-header">
+    <a href="index.html" class="back-link">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Panel admin
+    </a>
+    <h1 class="page-title">Prompts</h1>
+  </div>
+
+  <!-- Trigger selector -->
+  <div class="trigger-bar">
+    <label for="triggerSelect">Trigger</label>
+    <select id="triggerSelect" onchange="onTriggerChange()">
+      <option value="">— Selecciona un trigger —</option>
+    </select>
+  </div>
+
+  <div class="grid">
+    <!-- Versiones -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Versiones</span>
+      </div>
+      <ul class="version-list" id="versionList">
+        <li class="empty-state">Selecciona un trigger</li>
+      </ul>
+    </div>
+
+    <!-- Editor -->
+    <div class="editor-card">
+      <div class="editor-body">
+        <label class="editor-label">Plantilla del mensaje</label>
+        <textarea class="editor" id="editorTA" rows="10"
+          placeholder="Selecciona un trigger para cargar su plantilla activa, o escribe una nueva..."></textarea>
+
+        <!-- Variables disponibles -->
+        <div style="margin-top:14px">
+          <div class="editor-label" style="margin-bottom:6px">Variables disponibles <span style="font-weight:400;text-transform:none;letter-spacing:0">(clic para insertar)</span></div>
+          <div class="vars-grid">
+            <span class="var-chip" onclick="insertVar('{{nombre}}')">{{nombre}}</span>
+            <span class="var-chip" onclick="insertVar('{{perfil}}')">{{perfil}}</span>
+            <span class="var-chip" onclick="insertVar('{{zPuntos}}')">{{zPuntos}}</span>
+            <span class="var-chip" onclick="insertVar('{{meta}}')">{{meta}}</span>
+            <span class="var-chip" onclick="insertVar('{{metaContactos}}')">{{metaContactos}}</span>
+            <span class="var-chip" onclick="insertVar('{{semanasSinReporte}}')">{{semanasSinReporte}}</span>
+            <span class="var-chip" onclick="insertVar('{{pcPromedio}}')">{{pcPromedio}}</span>
+            <span class="var-chip" onclick="insertVar('{{ingresoMes}}')">{{ingresoMes}}</span>
+            <span class="var-chip" onclick="insertVar('{{nodosActivos}}')">{{nodosActivos}}</span>
+            <span class="var-chip" onclick="insertVar('{{persistencia}}')">{{persistencia}}</span>
+            <span class="var-chip" onclick="insertVar('{{mes}}')">{{mes}}</span>
+          </div>
+          <p class="var-hint">{{perfil}} = D, R o S según perfil conductual dominante del asesor.</p>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Botones guardar / activar -->
+        <div class="btn-row">
+          <button class="btn btn-dark" id="btnGuardar" onclick="guardarVersion()" disabled>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 2h7l2 2v7H2V2z" stroke="currentColor" stroke-width="1.2"/><path d="M4 2v3h5V2M4 8h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+            Guardar nueva versión
+          </button>
+          <button class="btn btn-teal" id="btnActivar" onclick="activarVersion()" disabled>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2.5 6.5l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Activar esta versión
+          </button>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Preview -->
+        <div>
+          <label class="editor-label">Previsualizar con asesor</label>
+          <div class="preview-row">
+            <select id="asesorSelect">
+              <option value="">— Selecciona asesor —</option>
+            </select>
+            <button class="btn btn-outline" id="btnPreview" onclick="previsualizarMensaje()" disabled>
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 6.5S3 2 6.5 2 12 6.5 12 6.5 10 11 6.5 11 1 6.5 1 6.5z" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="1.5" stroke="currentColor" stroke-width="1.2"/></svg>
+              Previsualizar
+            </button>
+          </div>
+          <div class="preview-result empty" id="previewResult">
+            El resultado del mensaje generado por Gemini aparecerá aquí.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="_core.js"></script>
+<script>
+/* ── AUTH ── */
+const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
+if (G.role !== 'admin') { window.location.href = 'index.html'; }
+
+/* ── ENV BADGE ── */
+const envBadge = document.getElementById('envBadge');
+envBadge.textContent = IS_DEV ? 'DEV' : 'PROD';
+envBadge.className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
+
+/* ── STATE ── */
+let currentTriggerId  = null;
+let currentVersionId  = null;
+let currentVersionNum = null;
+let allVersions       = [];
+
+/* ── INIT ── */
+async function init() {
+  await Promise.all([loadTriggers(), loadAsesores()]);
+}
+
+async function loadTriggers() {
+  try {
+    const triggers = await SBC.get('trigger_config', 'order=trigger_id.asc');
+    const sel = document.getElementById('triggerSelect');
+    triggers.forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.trigger_id;
+      o.textContent = `${t.trigger_id} — ${t.descripcion || ''}`;
+      sel.appendChild(o);
+    });
+  } catch(e) { showToast('Error cargando triggers: ' + e.message, true); }
+}
+
+async function loadAsesores() {
+  try {
+    const rows = await SBC.get('metas', 'select=asesor&order=asesor.asc');
+    const sel  = document.getElementById('asesorSelect');
+    rows.forEach(r => {
+      const o = document.createElement('option');
+      o.value = o.textContent = r.asesor;
+      sel.appendChild(o);
+    });
+  } catch(e) { /* silencioso — no bloquea */ }
+}
+
+/* ── TRIGGER CHANGE ── */
+async function onTriggerChange() {
+  currentTriggerId  = document.getElementById('triggerSelect').value || null;
+  currentVersionId  = null;
+  currentVersionNum = null;
+  document.getElementById('editorTA').value = '';
+  document.getElementById('btnGuardar').disabled = !currentTriggerId;
+  document.getElementById('btnActivar').disabled = true;
+  document.getElementById('btnPreview').disabled = !currentTriggerId;
+  document.getElementById('previewResult').textContent = 'El resultado del mensaje generado por Gemini aparecerá aquí.';
+  document.getElementById('previewResult').classList.add('empty');
+
+  if (!currentTriggerId) {
+    document.getElementById('versionList').innerHTML = '<li class="empty-state">Selecciona un trigger</li>';
+    return;
+  }
+  await loadVersions();
+}
+
+async function loadVersions() {
+  const list = document.getElementById('versionList');
+  list.innerHTML = '<li class="empty-state">Cargando…</li>';
+  try {
+    allVersions = await SBC.get('prompts',
+      `trigger_id=eq.${encodeURIComponent(currentTriggerId)}&order=version.desc`);
+
+    if (!allVersions.length) {
+      list.innerHTML = '<li class="empty-state">Sin versiones — escribe la primera plantilla.</li>';
+      return;
+    }
+
+    list.innerHTML = '';
+    allVersions.forEach(v => {
+      const li = document.createElement('li');
+      li.className = 'version-item';
+      li.dataset.id = v.id;
+      li.innerHTML = `
+        <span class="version-num">v${v.version}</span>
+        <span class="${v.activo ? 'badge-active' : 'badge-inactive'}">${v.activo ? 'Activa' : 'Inactiva'}</span>
+        <span class="version-date">${formatDate(v.created_at)}</span>`;
+      li.onclick = () => selectVersion(v, li);
+      list.appendChild(li);
+
+      // Auto-seleccionar la activa (o la primera si no hay activa)
+      if (v.activo || (!currentVersionId && allVersions[0] === v)) {
+        selectVersion(v, li);
+      }
+    });
+  } catch(e) { list.innerHTML = '<li class="empty-state">Error cargando versiones.</li>'; }
+}
+
+function selectVersion(v, li) {
+  document.querySelectorAll('.version-item').forEach(el => el.classList.remove('selected'));
+  li.classList.add('selected');
+  currentVersionId  = v.id;
+  currentVersionNum = v.version;
+  document.getElementById('editorTA').value = v.body;
+  document.getElementById('btnActivar').disabled = v.activo;
+}
+
+/* ── GUARDAR NUEVA VERSIÓN ── */
+async function guardarVersion() {
+  const body = document.getElementById('editorTA').value.trim();
+  if (!body) { showToast('La plantilla no puede estar vacía.', true); return; }
+  if (!currentTriggerId) { showToast('Selecciona un trigger primero.', true); return; }
+
+  const maxVersion = allVersions.length ? Math.max(...allVersions.map(v => v.version)) : 0;
+
+  document.getElementById('btnGuardar').disabled = true;
+  try {
+    await SBC.post('prompts', {
+      trigger_id: currentTriggerId,
+      version:    maxVersion + 1,
+      body,
+      activo:     false
+    });
+    showToast(`Versión ${maxVersion + 1} guardada.`);
+    await loadVersions();
+  } catch(e) {
+    showToast('Error al guardar: ' + e.message, true);
+  }
+  document.getElementById('btnGuardar').disabled = false;
+}
+
+/* ── ACTIVAR VERSIÓN ── */
+async function activarVersion() {
+  if (!currentVersionId || !currentTriggerId) return;
+  document.getElementById('btnActivar').disabled = true;
+  try {
+    // Desactivar todas las versiones del trigger
+    await SBC.patch('prompts', { activo: false },
+      `trigger_id=eq.${encodeURIComponent(currentTriggerId)}`);
+    // Activar la seleccionada
+    await SBC.patch('prompts', { activo: true }, `id=eq.${currentVersionId}`);
+    showToast(`Versión ${currentVersionNum} activada.`);
+    await loadVersions();
+  } catch(e) {
+    showToast('Error al activar: ' + e.message, true);
+    document.getElementById('btnActivar').disabled = false;
+  }
+}
+
+/* ── PREVIEW ── */
+async function previsualizarMensaje() {
+  const asesor = document.getElementById('asesorSelect').value;
+  if (!asesor)          { showToast('Selecciona un asesor para previsualizar.', true); return; }
+  if (!currentTriggerId){ showToast('Selecciona un trigger primero.', true); return; }
+
+  const result = document.getElementById('previewResult');
+  result.classList.remove('empty');
+  result.textContent = '⏳ Generando con Gemini…';
+
+  const btn = document.getElementById('btnPreview');
+  btn.disabled = true;
+
+  try {
+    // Usar la plantilla actual del editor (no la activa de BD) para que el preview refleje lo que se está editando
+    const bodyEditor = document.getElementById('editorTA').value.trim();
+    let mensajeGenerado;
+
+    if (bodyEditor && GEMINI_KEY) {
+      const ctx = await buildContext(asesor);
+      const compilado = compileTemplate(bodyEditor, ctx);
+      mensajeGenerado = await callGemini(compilado);
+    } else if (!GEMINI_KEY) {
+      // Sin key: simular con contexto compilado sin pasar por Gemini
+      const ctx = await buildContext(asesor);
+      const compilado = compileTemplate(bodyEditor || '[sin plantilla]', ctx);
+      mensajeGenerado = `[GEMINI_KEY no configurada — mostrando plantilla compilada]\n\n${compilado}`;
+    } else {
+      const { body } = await generateMessage(asesor, currentTriggerId, true);
+      mensajeGenerado = body;
+    }
+
+    result.textContent = mensajeGenerado;
+  } catch(e) {
+    result.classList.add('empty');
+    result.textContent = 'Error: ' + e.message;
+    showToast(e.message, true);
+  }
+  btn.disabled = false;
+}
+
+/* ── INSERTAR VARIABLE EN CURSOR ── */
+function insertVar(variable) {
+  const ta = document.getElementById('editorTA');
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const text  = ta.value;
+  ta.value = text.slice(0, start) + variable + text.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + variable.length;
+  ta.focus();
+}
+
+/* ── HELPERS ── */
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-CL', { day:'2-digit', month:'short' });
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => { t.className = 'toast'; }, 3000);
+}
+
+function logout() {
+  localStorage.removeItem('proxis_user');
+  window.location.href = '../proxis_plataforma.html';
+}
+
+init();
+</script>
+</body>
+</html>

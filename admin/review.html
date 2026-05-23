@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxis Admin · Revisión</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --lime:#cbf135;--lime-dk:#a8cc1a;--black:#0b0a09;
+  --gray-2:#4a4844;--gray-3:#8a8885;--gray-4:#c8c6c3;--gray-5:#e8e6e3;--white:#ffffff;
+  --teal:#1f6f56;--teal-lt:#e6f3ed;
+  --red:#b03a3a;--red-lt:#fbe9e9;
+  --amber:#a8691a;--amber-lt:#f8ecd6;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--black);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── HEADER ── */
+.header{background:var(--black);padding:0 28px;height:56px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 0 var(--lime-dk);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.logo-wordmark{font-weight:800;font-size:18px;color:var(--white);letter-spacing:-0.04em}
+.logo-wordmark span{color:var(--lime)}
+.header-div{width:1px;height:20px;background:rgba(255,255,255,0.12)}
+.header-tag{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray-4)}
+.header-tag a{color:var(--gray-3);text-decoration:none}.header-tag a:hover{color:var(--white)}
+.header-env{margin-left:4px;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 10px;border-radius:20px;letter-spacing:0.08em;text-transform:uppercase}
+.header-env.dev{background:rgba(168,204,26,0.15);color:var(--lime-dk);border:1px solid rgba(168,204,26,0.3)}
+.header-env.prod{background:rgba(176,58,58,0.15);color:#e07070;border:1px solid rgba(176,58,58,0.3)}
+.header-right{margin-left:auto}
+.btn-logout{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.7);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s}
+.btn-logout:hover{background:rgba(255,255,255,0.14);color:white}
+
+/* ── LAYOUT ── */
+.main{max-width:1200px;margin:0 auto;padding:32px 28px}
+.page-header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.back-link{font-size:12px;color:var(--gray-3);text-decoration:none;display:flex;align-items:center;gap:5px;transition:color 0.15s}
+.back-link:hover{color:var(--black)}
+.page-title{font-size:22px;font-weight:800;letter-spacing:-0.03em}
+
+.two-col{display:grid;grid-template-columns:1fr 400px;gap:20px;align-items:start}
+
+/* ── TABLA ── */
+.card{background:white;border:1px solid var(--gray-5);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{padding:11px 16px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--gray-3);background:#fafaf7;border-bottom:1px solid var(--gray-5)}
+tbody tr{border-bottom:1px solid #f5f3ef;cursor:pointer;transition:background 0.1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#fafaf7}
+tbody tr.selected{background:#f0ede8}
+td{padding:11px 16px;font-size:13px;vertical-align:middle}
+.td-asesor{font-weight:600;color:var(--black)}
+.td-trigger{font-family:'DM Mono',monospace;font-size:11px;color:var(--gray-3)}
+.td-date{font-size:12px;color:var(--gray-3);white-space:nowrap}
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.05em}
+.badge-leido{background:#f0ede8;color:var(--gray-3)}
+.badge-noleido{background:rgba(168,204,26,0.15);color:var(--lime-dk);border:1px solid rgba(168,204,26,0.25)}
+.badge-pos{background:var(--teal-lt);color:var(--teal)}
+.badge-neg{background:var(--red-lt);color:var(--red)}
+.empty-row td{text-align:center;color:var(--gray-3);font-size:13px;padding:40px}
+
+/* ── PAGINACIÓN ── */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--gray-5);background:#fafaf7}
+.page-info{font-size:12px;color:var(--gray-3)}
+.page-btns{display:flex;gap:6px}
+.btn-page{padding:5px 12px;border:1px solid var(--gray-5);border-radius:6px;background:white;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;color:var(--gray-2);cursor:pointer;transition:all 0.15s}
+.btn-page:hover:not(:disabled){border-color:var(--black);color:var(--black)}
+.btn-page:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── PANEL DETALLE ── */
+.detail-panel{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:22px;position:sticky;top:72px}
+.detail-empty{text-align:center;color:var(--gray-3);font-size:13px;padding:40px 0}
+.detail-header{margin-bottom:16px}
+.detail-asesor{font-size:16px;font-weight:700;color:var(--black);margin-bottom:4px}
+.detail-meta{font-size:12px;color:var(--gray-3);display:flex;gap:10px;flex-wrap:wrap}
+.detail-meta span{display:flex;align-items:center;gap:4px}
+.detail-body{background:#f5f3ef;border-radius:8px;padding:14px;font-size:13px;line-height:1.75;color:var(--black);white-space:pre-wrap;margin-bottom:16px;max-height:220px;overflow-y:auto}
+
+/* Feedback buttons */
+.feedback-row{display:flex;gap:10px;margin-bottom:16px}
+.btn-feedback{flex:1;padding:10px;border:2px solid var(--gray-5);border-radius:10px;background:white;font-size:22px;cursor:pointer;transition:all 0.15s;text-align:center}
+.btn-feedback:hover{border-color:var(--gray-3);transform:scale(1.05)}
+.btn-feedback.active-pos{border-color:var(--teal);background:var(--teal-lt)}
+.btn-feedback.active-neg{border-color:var(--red);background:var(--red-lt)}
+
+/* Corrección */
+.correction-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray-3);margin-bottom:8px;display:block}
+textarea.correction{width:100%;padding:11px 14px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;line-height:1.6;color:var(--black);resize:vertical;outline:none;transition:border-color 0.15s;min-height:100px}
+textarea.correction:focus{border-color:var(--black)}
+.btn-save-correction{width:100%;margin-top:10px;padding:10px;border:none;border-radius:8px;background:var(--black);color:white;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.15s}
+.btn-save-correction:hover{background:#2a2926}
+.btn-save-correction:disabled{opacity:.45;cursor:not-allowed}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:white;font-size:13px;font-weight:500;padding:10px 22px;border-radius:30px;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error{background:var(--red)}
+
+@media(max-width:900px){.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a href="index.html" class="logo">
+    <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/>
+      <circle cx="6"  cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="26" cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="6"  cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <line x1="8.6"  y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="8.6"  y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      <line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+    <span class="logo-wordmark">Pro<span>xis</span></span>
+  </a>
+  <div class="header-div"></div>
+  <span class="header-tag"><a href="index.html">Admin</a> / Revisión</span>
+  <span class="header-env" id="envBadge">···</span>
+  <div class="header-right">
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</header>
+
+<main class="main">
+  <div class="page-header">
+    <a href="index.html" class="back-link">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Panel admin
+    </a>
+    <h1 class="page-title">Revisión de mensajes</h1>
+  </div>
+
+  <div class="two-col">
+    <!-- Lista -->
+    <div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Asesor</th>
+              <th>Trigger</th>
+              <th>Fecha</th>
+              <th style="width:80px">Leído</th>
+              <th style="width:80px">Feedback</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody">
+            <tr class="empty-row"><td colspan="5">Cargando…</td></tr>
+          </tbody>
+        </table>
+        <div class="pagination">
+          <span class="page-info" id="pageInfo">—</span>
+          <div class="page-btns">
+            <button class="btn-page" id="btnPrev" onclick="changePage(-1)" disabled>← Anterior</button>
+            <button class="btn-page" id="btnNext" onclick="changePage(1)"  disabled>Siguiente →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detalle -->
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-empty">Selecciona un mensaje para revisarlo</div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="_core.js"></script>
+<script>
+/* ── AUTH ── */
+const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
+if (G.role !== 'admin') { window.location.href = 'index.html'; }
+
+const envBadge = document.getElementById('envBadge');
+envBadge.textContent = IS_DEV ? 'DEV' : 'PROD';
+envBadge.className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
+
+/* ── STATE ── */
+const PAGE_SIZE = 20;
+let currentPage = 0;
+let totalCount  = 0;
+let logs        = [];
+let selectedLog = null;
+let feedbackMap = {}; // message_id → feedback row
+
+/* ── LOAD ── */
+async function loadLogs() {
+  const tbody = document.getElementById('logTableBody');
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Cargando…</td></tr>';
+
+  const offset = currentPage * PAGE_SIZE;
+  try {
+    // Contar total
+    const countRes = await fetch(
+      `${CORE_SB_URL}/rest/v1/message_log?select=id`,
+      { headers: { apikey: CORE_SB_KEY, Authorization: `Bearer ${CORE_SB_KEY}`, Prefer: 'count=exact', Range: '0-0' } }
+    );
+    const rangeHeader = countRes.headers.get('content-range') || '0/0';
+    totalCount = parseInt(rangeHeader.split('/')[1]) || 0;
+
+    // Cargar página
+    logs = await SBC.get('message_log',
+      `order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`);
+
+    // Cargar feedback de estos mensajes
+    if (logs.length) {
+      const ids = logs.map(l => l.id).join(',');
+      const fb = await SBC.get('feedback', `message_id=in.(${ids})`);
+      feedbackMap = {};
+      fb.forEach(f => { feedbackMap[f.message_id] = f; });
+    }
+
+    renderTable();
+    updatePagination();
+  } catch(e) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Error: ${e.message}</td></tr>`;
+  }
+}
+
+function renderTable() {
+  const tbody = document.getElementById('logTableBody');
+  if (!logs.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Sin mensajes registrados aún.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  logs.forEach(log => {
+    const fb = feedbackMap[log.id];
+    const tr = document.createElement('tr');
+    if (selectedLog?.id === log.id) tr.classList.add('selected');
+
+    const fbBadge = fb
+      ? `<span class="badge ${fb.score > 0 ? 'badge-pos' : 'badge-neg'}">${fb.score > 0 ? '👍' : '👎'}</span>`
+      : '—';
+
+    tr.innerHTML = `
+      <td class="td-asesor">${esc(log.asesor)}</td>
+      <td class="td-trigger">${esc(log.trigger_id || '—')}</td>
+      <td class="td-date">${formatDateTime(log.created_at)}</td>
+      <td><span class="badge ${log.leido ? 'badge-leido' : 'badge-noleido'}">${log.leido ? 'Leído' : 'Nuevo'}</span></td>
+      <td>${fbBadge}</td>`;
+    tr.onclick = () => selectLog(log, tr);
+    tbody.appendChild(tr);
+  });
+}
+
+function updatePagination() {
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  document.getElementById('pageInfo').textContent =
+    totalCount ? `Página ${currentPage + 1} de ${totalPages} — ${totalCount} mensajes` : 'Sin mensajes';
+  document.getElementById('btnPrev').disabled = currentPage === 0;
+  document.getElementById('btnNext').disabled = (currentPage + 1) * PAGE_SIZE >= totalCount;
+}
+
+function changePage(dir) {
+  currentPage += dir;
+  selectedLog = null;
+  document.getElementById('detailPanel').innerHTML = '<div class="detail-empty">Selecciona un mensaje para revisarlo</div>';
+  loadLogs();
+}
+
+/* ── SELECT LOG ── */
+function selectLog(log, tr) {
+  selectedLog = log;
+  document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
+  tr.classList.add('selected');
+  renderDetail(log);
+}
+
+function renderDetail(log) {
+  const fb = feedbackMap[log.id];
+  const panel = document.getElementById('detailPanel');
+
+  panel.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-asesor">${esc(log.asesor)}</div>
+      <div class="detail-meta">
+        <span>⚡ ${esc(log.trigger_id || '—')}</span>
+        <span>🕐 ${formatDateTime(log.created_at)}</span>
+        <span>v${log.prompt_version || '—'}</span>
+      </div>
+    </div>
+
+    <div class="detail-body">${esc(log.body || '[sin contenido]')}</div>
+
+    <div class="feedback-row">
+      <button class="btn-feedback ${fb?.score === 1 ? 'active-pos' : ''}"
+        id="btnPos" onclick="darFeedback(1)">👍</button>
+      <button class="btn-feedback ${fb?.score === -1 ? 'active-neg' : ''}"
+        id="btnNeg" onclick="darFeedback(-1)">👎</button>
+    </div>
+
+    <label class="correction-label">Reescribir como debería ser</label>
+    <textarea class="correction" id="correctionTA" rows="4"
+      placeholder="Escribe aquí cómo debería ser el mensaje ideal…">${esc(fb?.correccion || '')}</textarea>
+    <button class="btn-save-correction" onclick="guardarCorreccion()">
+      Guardar corrección
+    </button>`;
+}
+
+/* ── FEEDBACK ── */
+async function darFeedback(score) {
+  if (!selectedLog) return;
+  const existing = feedbackMap[selectedLog.id];
+  try {
+    if (existing) {
+      await SBC.patch('feedback', { score }, `id=eq.${existing.id}`);
+      feedbackMap[selectedLog.id] = { ...existing, score };
+    } else {
+      const [created] = await SBC.post('feedback', { message_id: selectedLog.id, score });
+      feedbackMap[selectedLog.id] = created;
+    }
+    showToast(score > 0 ? '👍 Feedback positivo guardado.' : '👎 Feedback negativo guardado.');
+    renderDetail(selectedLog);
+    renderTable();
+  } catch(e) {
+    showToast('Error al guardar feedback: ' + e.message, true);
+  }
+}
+
+/* ── CORRECCIÓN ── */
+async function guardarCorreccion() {
+  if (!selectedLog) return;
+  const correccion = document.getElementById('correctionTA').value.trim();
+  if (!correccion) { showToast('Escribe la corrección antes de guardar.', true); return; }
+
+  const btn = document.querySelector('.btn-save-correction');
+  btn.disabled = true;
+
+  try {
+    const existing = feedbackMap[selectedLog.id];
+
+    // 1. Guardar en feedback
+    if (existing) {
+      await SBC.patch('feedback', { correccion }, `id=eq.${existing.id}`);
+      feedbackMap[selectedLog.id] = { ...existing, correccion };
+    } else {
+      const [created] = await SBC.post('feedback', { message_id: selectedLog.id, score: -1, correccion });
+      feedbackMap[selectedLog.id] = created;
+    }
+
+    // 2. Appendear como few-shot example en notas del prompt activo del trigger
+    if (selectedLog.trigger_id) {
+      const prompts = await SBC.get('prompts',
+        `trigger_id=eq.${encodeURIComponent(selectedLog.trigger_id)}&activo=eq.true&order=version.desc&limit=1`);
+      if (prompts.length) {
+        const notasActuales = prompts[0].notas || '';
+        const fewShot = `\n\n---\nEjemplo esperado (${new Date().toLocaleDateString('es-CL')}):\n${correccion}`;
+        await SBC.patch('prompts',
+          { notas: notasActuales + fewShot },
+          `id=eq.${prompts[0].id}`);
+      }
+    }
+
+    showToast('Corrección guardada y agregada al prompt.');
+    renderDetail(selectedLog);
+    renderTable();
+  } catch(e) {
+    showToast('Error: ' + e.message, true);
+  }
+  btn.disabled = false;
+}
+
+/* ── HELPERS ── */
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('es-CL', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => { t.className = 'toast'; }, 3000);
+}
+
+function logout() {
+  localStorage.removeItem('proxis_user');
+  window.location.href = '../proxis_plataforma.html';
+}
+
+loadLogs();
+</script>
+</body>
+</html>

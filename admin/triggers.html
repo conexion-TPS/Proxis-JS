@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxis Admin · Triggers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --lime:#cbf135;--lime-dk:#a8cc1a;--black:#0b0a09;
+  --gray-1:#1a1916;--gray-2:#4a4844;--gray-3:#8a8885;
+  --gray-4:#c8c6c3;--gray-5:#e8e6e3;--white:#ffffff;
+  --teal:#1f6f56;--teal-lt:#e6f3ed;
+  --red:#b03a3a;--red-lt:#fbe9e9;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--black);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── HEADER ── */
+.header{background:var(--black);padding:0 28px;height:56px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 0 var(--lime-dk);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.logo-wordmark{font-weight:800;font-size:18px;color:var(--white);letter-spacing:-0.04em}
+.logo-wordmark span{color:var(--lime)}
+.header-div{width:1px;height:20px;background:rgba(255,255,255,0.12)}
+.header-tag{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray-4)}
+.header-tag a{color:var(--gray-3);text-decoration:none}.header-tag a:hover{color:var(--white)}
+.header-env{margin-left:4px;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 10px;border-radius:20px;letter-spacing:0.08em;text-transform:uppercase}
+.header-env.dev{background:rgba(168,204,26,0.15);color:var(--lime-dk);border:1px solid rgba(168,204,26,0.3)}
+.header-env.prod{background:rgba(176,58,58,0.15);color:#e07070;border:1px solid rgba(176,58,58,0.3)}
+.header-right{margin-left:auto}
+.btn-logout{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.7);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s}
+.btn-logout:hover{background:rgba(255,255,255,0.14);color:white}
+
+/* ── LAYOUT ── */
+.main{max-width:960px;margin:0 auto;padding:32px 28px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;gap:12px;flex-wrap:wrap}
+.page-header-left{display:flex;align-items:center;gap:12px}
+.back-link{font-size:12px;color:var(--gray-3);text-decoration:none;display:flex;align-items:center;gap:5px;transition:color 0.15s}
+.back-link:hover{color:var(--black)}
+.page-title{font-size:22px;font-weight:800;letter-spacing:-0.03em}
+
+/* ── BOTÓN NUEVO ── */
+.btn{padding:9px 18px;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:7px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-dark{background:var(--black);color:white}
+.btn-dark:not(:disabled):hover{background:#2a2926}
+.btn-teal{background:var(--teal);color:white}
+.btn-teal:not(:disabled):hover{background:#175743}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-ghost{background:transparent;color:var(--gray-2);border:1px solid var(--gray-5)}
+.btn-ghost:not(:disabled):hover{border-color:var(--black);color:var(--black)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid rgba(176,58,58,0.25)}
+.btn-danger:not(:disabled):hover{background:var(--red-lt)}
+
+/* ── TABLA ── */
+.card{background:white;border:1px solid var(--gray-5);border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{padding:11px 16px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--gray-3);background:#fafaf7;border-bottom:1px solid var(--gray-5)}
+tbody tr{border-bottom:1px solid #f5f3ef;transition:background 0.1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#fdfcfb}
+tbody tr.editing{background:#fffdf5}
+td{padding:12px 16px;font-size:13px;vertical-align:middle}
+
+/* ── CELDAS EDITABLES ── */
+.cell-text{color:var(--black)}
+.cell-mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--gray-2)}
+input.inline{width:100%;padding:6px 10px;border:1px solid var(--gray-5);border-radius:6px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);background:white;outline:none;transition:border-color 0.15s}
+input.inline:focus{border-color:var(--black)}
+input.inline.mono{font-family:'DM Mono',monospace;font-size:12px}
+input.inline.narrow{width:80px}
+textarea.inline{width:100%;padding:6px 10px;border:1px solid var(--gray-5);border-radius:6px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);background:white;outline:none;resize:none;transition:border-color 0.15s}
+textarea.inline:focus{border-color:var(--black)}
+
+/* ── TOGGLE ── */
+.toggle-wrap{display:flex;align-items:center;gap:8px}
+.toggle{appearance:none;-webkit-appearance:none;width:36px;height:20px;border-radius:20px;background:var(--gray-4);cursor:pointer;transition:background 0.2s;position:relative;flex-shrink:0}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:white;top:3px;left:3px;transition:transform 0.2s}
+.toggle:checked{background:var(--teal)}
+.toggle:checked::after{transform:translateX(16px)}
+.toggle-label{font-size:12px;color:var(--gray-2)}
+
+/* ── ACCIONES ── */
+.actions-cell{display:flex;gap:6px;align-items:center}
+
+/* ── EMPTY ── */
+.empty-row td{text-align:center;color:var(--gray-3);font-size:13px;padding:32px}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:white;font-size:13px;font-weight:500;padding:10px 22px;border-radius:30px;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error{background:var(--red)}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a href="index.html" class="logo">
+    <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/>
+      <circle cx="6"  cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="26" cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="6"  cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <line x1="8.6"  y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="8.6"  y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      <line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+    <span class="logo-wordmark">Pro<span>xis</span></span>
+  </a>
+  <div class="header-div"></div>
+  <span class="header-tag"><a href="index.html">Admin</a> / Triggers</span>
+  <span class="header-env" id="envBadge">···</span>
+  <div class="header-right">
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</header>
+
+<main class="main">
+  <div class="page-header">
+    <div class="page-header-left">
+      <a href="index.html" class="back-link">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Panel admin
+      </a>
+      <h1 class="page-title">Triggers</h1>
+    </div>
+    <button class="btn btn-dark" onclick="nuevoTrigger()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 2v9M2 6.5h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Nuevo trigger
+    </button>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Trigger ID</th>
+          <th>Descripción</th>
+          <th style="width:90px">Cooldown (días)</th>
+          <th style="width:80px">Umbral</th>
+          <th style="width:90px">Estado</th>
+          <th style="width:120px">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="triggerTableBody">
+        <tr class="empty-row"><td colspan="6">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="_core.js"></script>
+<script>
+/* ── AUTH ── */
+const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
+if (G.role !== 'admin') { window.location.href = 'index.html'; }
+
+const envBadge = document.getElementById('envBadge');
+envBadge.textContent = IS_DEV ? 'DEV' : 'PROD';
+envBadge.className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
+
+/* ── STATE ── */
+let triggers = [];
+let editingId = null; // trigger_id en edición
+
+/* ── LOAD ── */
+async function loadTriggers() {
+  const tbody = document.getElementById('triggerTableBody');
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Cargando…</td></tr>';
+  try {
+    triggers = await SBC.get('trigger_config', 'order=trigger_id.asc');
+    renderTable();
+  } catch(e) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Error: ${e.message}</td></tr>`;
+  }
+}
+
+function renderTable() {
+  const tbody = document.getElementById('triggerTableBody');
+  if (!triggers.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Sin triggers. Crea el primero.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  triggers.forEach(t => {
+    const isEditing = editingId === t.trigger_id;
+    const tr = document.createElement('tr');
+    if (isEditing) tr.classList.add('editing');
+
+    tr.innerHTML = isEditing ? editingRow(t) : readRow(t);
+    tbody.appendChild(tr);
+  });
+}
+
+function readRow(t) {
+  return `
+    <td class="cell-mono">${esc(t.trigger_id)}</td>
+    <td class="cell-text">${esc(t.descripcion || '—')}</td>
+    <td class="cell-text" style="text-align:center">${t.cooldown_dias ?? '—'}</td>
+    <td class="cell-text" style="text-align:center">${t.umbral ?? '—'}</td>
+    <td>
+      <div class="toggle-wrap">
+        <input type="checkbox" class="toggle" ${t.activo ? 'checked' : ''}
+          onchange="toggleActivo('${esc(t.trigger_id)}', this.checked)">
+        <span class="toggle-label">${t.activo ? 'Activo' : 'Pausado'}</span>
+      </div>
+    </td>
+    <td>
+      <div class="actions-cell">
+        <button class="btn btn-sm btn-ghost" onclick="startEdit('${esc(t.trigger_id)}')">Editar</button>
+      </div>
+    </td>`;
+}
+
+function editingRow(t) {
+  return `
+    <td><input class="inline mono" id="e-id" value="${esc(t.trigger_id)}" placeholder="trigger-id" ${t._isNew ? '' : 'readonly'}></td>
+    <td><textarea class="inline" id="e-desc" rows="2" placeholder="Descripción">${esc(t.descripcion || '')}</textarea></td>
+    <td><input class="inline narrow" id="e-cool" type="number" min="1" value="${t.cooldown_dias ?? ''}"></td>
+    <td><input class="inline narrow" id="e-umbral" type="number" step="0.01" value="${t.umbral ?? ''}"></td>
+    <td>
+      <div class="toggle-wrap">
+        <input type="checkbox" class="toggle" id="e-activo" ${t.activo ? 'checked' : ''}>
+        <span class="toggle-label">Activo</span>
+      </div>
+    </td>
+    <td>
+      <div class="actions-cell">
+        <button class="btn btn-sm btn-teal" onclick="guardarFila('${esc(t.trigger_id)}', ${!!t._isNew})">Guardar</button>
+        <button class="btn btn-sm btn-ghost" onclick="cancelEdit()">Cancelar</button>
+      </div>
+    </td>`;
+}
+
+/* ── EDIT / CANCEL ── */
+function startEdit(triggerId) {
+  editingId = triggerId;
+  renderTable();
+}
+
+function cancelEdit() {
+  // Si era nuevo, descartarlo
+  triggers = triggers.filter(t => !t._isNew);
+  editingId = null;
+  renderTable();
+}
+
+/* ── GUARDAR FILA ── */
+async function guardarFila(originalId, isNew) {
+  const id      = document.getElementById('e-id').value.trim();
+  const desc    = document.getElementById('e-desc').value.trim();
+  const cool    = parseInt(document.getElementById('e-cool').value) || null;
+  const umbral  = parseFloat(document.getElementById('e-umbral').value) || null;
+  const activo  = document.getElementById('e-activo').checked;
+
+  if (!id) { showToast('El Trigger ID no puede estar vacío.', true); return; }
+
+  const payload = { trigger_id: id, descripcion: desc, cooldown_dias: cool, umbral, activo, updated_at: new Date().toISOString() };
+
+  try {
+    if (isNew) {
+      await SBC.post('trigger_config', payload);
+      showToast(`Trigger "${id}" creado.`);
+    } else {
+      await SBC.patch('trigger_config', { descripcion: desc, cooldown_dias: cool, umbral, activo, updated_at: new Date().toISOString() },
+        `trigger_id=eq.${encodeURIComponent(originalId)}`);
+      showToast(`Trigger "${id}" guardado.`);
+    }
+    editingId = null;
+    await loadTriggers();
+  } catch(e) {
+    showToast('Error al guardar: ' + e.message, true);
+  }
+}
+
+/* ── TOGGLE ACTIVO (inline, sin abrir edición) ── */
+async function toggleActivo(triggerId, activo) {
+  try {
+    await SBC.patch('trigger_config', { activo, updated_at: new Date().toISOString() },
+      `trigger_id=eq.${encodeURIComponent(triggerId)}`);
+    const t = triggers.find(x => x.trigger_id === triggerId);
+    if (t) t.activo = activo;
+    showToast(`${triggerId} ${activo ? 'activado' : 'pausado'}.`);
+    renderTable();
+  } catch(e) {
+    showToast('Error: ' + e.message, true);
+    await loadTriggers(); // recargar para revertir el toggle visualmente
+  }
+}
+
+/* ── NUEVO TRIGGER ── */
+function nuevoTrigger() {
+  if (triggers.find(t => t._isNew)) return; // ya hay uno nuevo pendiente
+  const nuevo = { trigger_id: '', descripcion: '', cooldown_dias: 7, umbral: null, activo: true, _isNew: true };
+  triggers.unshift(nuevo);
+  editingId = '';
+  renderTable();
+  document.getElementById('e-id')?.focus();
+}
+
+/* ── HELPERS ── */
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => { t.className = 'toast'; }, 3000);
+}
+
+function logout() {
+  localStorage.removeItem('proxis_user');
+  window.location.href = '../proxis_plataforma.html';
+}
+
+loadTriggers();
+</script>
+</body>
+</html>

@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxis — Prospección en Práctica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+/* ─── TOKENS ─────────────────────────────────────── */
+:root {
+  --white:   #ffffff;
+  --black:   #0b0a09;
+  --gray-bg: #f0eeeb;
+  --gray-1:  #1a1916;
+  --gray-2:  #4a4844;
+  --gray-3:  #8a8885;
+  --gray-4:  #c8c6c3;
+  --gray-5:  #e8e6e3;
+  --lime:    #cbf135;
+  --lime-dk: #a8cc1a;
+  --purple:  #8e35d4;
+  --orange:  #e8630a;
+  --green:   #1a9e4a;
+  --border:  rgba(0,0,0,0.08);
+  --shadow:  0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--white);
+  color: var(--black);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ─── DOT GRID ───────────────────────────────────── */
+.dot-bg {
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+
+/* ═══════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════ */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--gray-5);
+  padding: 0 48px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Proxis Logo */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.logo-wordmark {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--black);
+  letter-spacing: -0.04em;
+}
+
+.logo-wordmark span {
+  color: var(--lime-dk);
+}
+
+.logo-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gray-3);
+  border-left: 1px solid var(--gray-4);
+  padding-left: 10px;
+  line-height: 1.4;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-2);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.nav-link:hover { background: var(--gray-5); }
+
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  transition: all 0.15s ease;
+  letter-spacing: -0.01em;
+}
+
+.nav-btn-outline {
+  background: transparent;
+  color: var(--gray-1);
+  border: 1px solid var(--gray-4);
+}
+.nav-btn-outline:hover { background: var(--gray-5); border-color: var(--gray-3); }
+
+.nav-btn-lime {
+  background: var(--lime);
+  color: var(--black);
+}
+.nav-btn-lime:hover {
+  background: var(--lime-dk);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(203,241,53,0.4);
+}
+
+
+/* ═══════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════ */
+.hero {
+  position: relative;
+  z-index: 1;
+  padding-top: 120px;
+  padding-bottom: 0;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding-left: 48px;
+  padding-right: 48px;
+}
+
+/* Live counter eyebrow — exact Ramp style */
+.eyebrow-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease 0.1s forwards;
+}
+
+.eyebrow-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-3);
+}
+
+.eyebrow-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--gray-1);
+  font-weight: 500;
+  background: var(--gray-5);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--gray-4);
+}
+
+/* Headline */
+.headline-area {
+  max-width: 820px;
+  min-height: 180px;
+  margin-bottom: 32px;
+  position: relative;
+  opacity: 0;
+  animation: fadeIn 0.5s ease 0.2s forwards;
+}
+
+.headline-slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.16,1,0.3,1);
+  pointer-events: none;
+}
+
+.headline-slide.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  position: relative;
+}
+
+.headline-slide.leaving {
+  opacity: 0;
+  transform: translateY(-6px);
+  position: absolute;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: clamp(48px, 5.8vw, 76px);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+  color: var(--black);
+}
+
+h1 .accent { color: var(--purple); }
+h1 .lime   { color: var(--lime-dk); }
+
+.stat-giant {
+  display: block;
+  font-size: clamp(80px, 11vw, 136px);
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+  color: var(--black);
+  margin-bottom: 8px;
+}
+
+/* Body text under headline */
+.body-text {
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--gray-2);
+  font-weight: 400;
+  max-width: 560px;
+  margin-bottom: 36px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease 0.4s forwards;
+}
+
+.body-text strong { color: var(--gray-1); font-weight: 600; }
+
+/* Slide progress bars */
+.progress-bars {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease 0.5s forwards;
+}
+
+/* Pause button */
+.pause-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--gray-4);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  color: var(--gray-3);
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.pause-btn:hover { border-color: var(--gray-2); color: var(--gray-1); }
+.pause-btn svg { display: block; }
+
+.prog-bar {
+  height: 3px;
+  width: 40px;
+  background: var(--gray-5);
+  border-radius: 2px;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  transition: width 0.3s;
+}
+
+.prog-bar.active { width: 80px; }
+
+.prog-bar .fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  background: var(--black);
+  border-radius: 2px;
+  width: 0%;
+}
+
+/* CTA row */
+.cta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease 0.6s forwards;
+  flex-wrap: wrap;
+  margin-bottom: 64px;
+}
+
+.cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--lime);
+  color: var(--black);
+  border-radius: 10px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  transition: all 0.15s ease;
+  letter-spacing: -0.01em;
+}
+.cta-primary:hover {
+  background: var(--lime-dk);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(168,204,26,0.35);
+}
+
+.cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 24px;
+  background: transparent;
+  color: var(--gray-1);
+  border-radius: 10px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1.5px solid var(--gray-4);
+  transition: all 0.15s ease;
+  letter-spacing: -0.01em;
+}
+.cta-secondary:hover {
+  border-color: var(--gray-3);
+  background: var(--gray-5);
+}
+
+
+/* ═══════════════════════════════════════════
+   ANIMATION AREA — Ramp-style floating cards
+═══════════════════════════════════════════ */
+.animation-wrap {
+  position: relative;
+  background: var(--gray-bg);
+  border-radius: 20px 20px 0 0;
+  border: 1px solid var(--gray-5);
+  border-bottom: none;
+  min-height: 420px;
+  overflow: hidden;
+  margin-left: -48px;
+  margin-right: -48px;
+  opacity: 0;
+  animation: fadeIn 0.8s ease 0.9s forwards;
+}
+
+.animation-inner {
+  position: relative;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 60px 48px 0;
+  min-height: 420px;
+}
+
+/* Central dashboard card */
+.dashboard-card {
+  background: var(--white);
+  border: 1px solid var(--gray-4);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  width: 460px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.dash-header {
+  background: var(--black);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dash-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: 0.02em;
+}
+
+.dash-week {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--lime);
+  letter-spacing: 0.08em;
+}
+
+.dash-body {
+  padding: 20px;
+}
+
+.dash-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gray-5);
+}
+.dash-row:last-child { border-bottom: none; }
+
+.dash-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-1);
+}
+
+.dash-via {
+  font-size: 11px;
+  color: var(--gray-3);
+  margin-top: 2px;
+  font-family: 'DM Mono', monospace;
+}
+
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge-contact  { background: #f0eeeb; color: var(--gray-2); }
+.badge-prospect { background: #f0e4ff; color: var(--purple); }
+.badge-client   { background: #e8ffc2; color: #4a7c00; }
+
+.dash-meta {
+  padding: 14px 20px;
+  background: var(--gray-bg);
+  border-top: 1px solid var(--gray-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.meta-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gray-3);
+}
+
+.meta-bar-wrap {
+  flex: 1;
+  margin: 0 16px;
+  height: 4px;
+  background: var(--gray-5);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.meta-bar-fill {
+  height: 100%;
+  background: var(--lime-dk);
+  border-radius: 2px;
+  width: 0%;
+  animation: growBar 1.5s ease 2s forwards;
+}
+
+@keyframes growBar { to { width: 68% } }
+
+.meta-pct {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-1);
+}
+
+/* Floating overlay cards — exact Ramp style */
+.float-card {
+  position: absolute;
+  background: var(--white);
+  border: 1px solid var(--gray-4);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 12px 16px;
+  min-width: 180px;
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.float-card.card-1 {
+  top: 40px; left: 20px;
+  animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) 1.6s forwards;
+}
+.float-card.card-2 {
+  top: 40px; right: 20px;
+  animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) 2.4s forwards;
+}
+.float-card.card-3 {
+  bottom: 60px; left: 30px;
+  animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) 3.0s forwards;
+}
+.float-card.card-4 {
+  bottom: 60px; right: 30px;
+  animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) 3.6s forwards;
+}
+
+@keyframes cardIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.float-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray-2);
+  margin-bottom: 8px;
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-green  { background: var(--green); box-shadow: 0 0 6px rgba(26,158,74,0.5); }
+.dot-lime   { background: var(--lime-dk); box-shadow: 0 0 6px rgba(168,204,26,0.5); }
+.dot-purple { background: var(--purple); box-shadow: 0 0 6px rgba(142,53,212,0.4); }
+.dot-orange { background: var(--orange); }
+
+.float-detail {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-1);
+  line-height: 1.3;
+}
+
+.float-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--gray-3);
+  margin-top: 3px;
+}
+
+.float-amount {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--gray-1);
+  letter-spacing: -0.03em;
+  margin-top: 4px;
+}
+
+
+/* Slide 7 subtitle */
+.slide7-sub {
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--gray-2);
+  max-width: 640px;
+  margin-top: 24px;
+}
+.slide7-sub strong { color: var(--gray-1); font-weight: 700; }
+
+/* ─── KEYFRAMES ──────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════
+   SCIENCE SECTION
+═══════════════════════════════════════════ */
+.science-section {
+  position: relative;
+  z-index: 1;
+  background: var(--black);
+  padding: 80px 48px;
+}
+
+.science-inner, .habit-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+.section-eyebrow {
+  width: 4px;
+  height: 36px;
+  background: var(--lime);
+  border-radius: 2px;
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: clamp(28px, 3vw, 42px);
+  letter-spacing: -0.03em;
+  color: var(--white);
+  margin-bottom: 48px;
+  line-height: 1.1;
+}
+
+.habit-section .section-title {
+  color: var(--black);
+}
+
+.science-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 48px;
+}
+
+.science-table thead th {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lime-dk);
+  padding: 0 0 16px 0;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.science-table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.science-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.science-table tbody td {
+  padding: 20px 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.75);
+  vertical-align: top;
+}
+
+.science-table tbody td:not(:last-child) {
+  padding-right: 40px;
+}
+
+.science-table tbody td em {
+  font-style: italic;
+  color: rgba(255,255,255,0.5);
+}
+
+.source-col {
+  font-weight: 700;
+  color: var(--white) !important;
+  white-space: nowrap;
+  min-width: 160px;
+}
+
+.science-seal-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.science-seal {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: grayscale(20%) brightness(1.1);
+}
+
+.science-seal-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.6);
+  max-width: 560px;
+}
+
+/* ═══════════════════════════════════════════
+   HABIT SECTION
+═══════════════════════════════════════════ */
+.habit-section {
+  position: relative;
+  z-index: 1;
+  background: var(--gray-bg);
+  padding: 80px 48px;
+}
+
+.habit-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.habit-card {
+  background: var(--white);
+  border: 1px solid var(--gray-5);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.habit-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.habit-img-wrap {
+  width: 100%;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: var(--gray-5);
+}
+
+.habit-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.habit-card:hover .habit-img-wrap img {
+  transform: scale(1.04);
+}
+
+.habit-card-body {
+  padding: 24px;
+}
+
+.habit-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lime-dk);
+  margin-bottom: 10px;
+}
+
+.habit-card-body p {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--gray-2);
+}
+
+@media (max-width: 768px) {
+  .science-section, .habit-section { padding: 56px 20px; }
+  .habit-cards { grid-template-columns: 1fr; }
+  .science-table thead { display: none; }
+  .science-table tbody td { display: block; padding: 6px 0; }
+  .source-col { padding-top: 20px !important; }
+}
+
+/* ─── FOOTER ─────────────────────────────────────── */
+.site-footer {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid var(--gray-5);
+  padding: 32px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--white);
+}
+
+.footer-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gray-4);
+}
+
+.footer-tps-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+
+.footer-tps-link:hover { opacity: 1; }
+
+.footer-tps-link img {
+  height: 48px;
+  width: auto;
+  display: block;
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────── */
+@media (max-width: 768px) {
+  nav { padding: 0 20px; }
+  .hero { padding-left: 20px; padding-right: 20px; padding-top: 90px; }
+  h1 { font-size: 40px; }
+  .stat-giant { font-size: 80px; }
+  .animation-wrap { margin-left: -20px; margin-right: -20px; }
+  .animation-inner { padding: 40px 20px 0; }
+  .dashboard-card { width: 100%; }
+  .float-card.card-1, .float-card.card-3 { left: 4px; }
+  .float-card.card-2, .float-card.card-4 { right: 4px; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="dot-bg"></div>
+
+<!-- ═══ NAV ═════════════════════════════════════ -->
+<nav>
+  <a href="#" class="logo">
+    <!-- Proxis icon: network nodes -->
+    <svg class="logo-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Central node -->
+      <circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/>
+      <!-- Satellite nodes -->
+      <circle cx="6" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="26" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="6" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <!-- Connection lines -->
+      <line x1="8.6" y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="8.6" y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      <line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+    <span class="logo-wordmark">Pro<span>xis</span></span>
+    <span class="logo-tag">Prospección en práctica</span>
+  </a>
+  <div class="nav-actions">
+    <a href="proxis_login.html" class="nav-btn nav-btn-outline">Ver tutorial</a>
+    <a href="proxis_demo.html" class="nav-btn nav-btn-outline">Demo</a>
+    <a href="proxis_plataforma.html" class="nav-btn nav-btn-lime">
+      Abrir Proxis →
+    </a>
+  </div>
+</nav>
+
+
+<!-- ═══ HERO ═════════════════════════════════════ -->
+<div class="hero">
+
+  <!-- Eyebrow — live counter like Ramp's payments counter -->
+  <div class="eyebrow-bar">
+    <span class="eyebrow-label">Tasa de retención a 4 años · industria de seguros de vida:</span>
+    <span class="eyebrow-value" id="eyebrowVal">9.0%</span>
+  </div>
+
+  <!-- Headline slides -->
+  <div class="headline-area" id="headlineArea">
+
+    <div class="headline-slide active" id="slide-0">
+      <h1>La profesión más<br><span style="color:#a8cc1a">noble</span> que existe<br>en la Tierra.</h1>
+    </div>
+
+    <div class="headline-slide" id="slide-1">
+      <h1>El muro de<br>la <span class="accent">supervivencia.</span></h1>
+    </div>
+
+    <div class="headline-slide" id="slide-2">
+      <h1>Los asesores no fracasan<br>porque no saben <span class="accent">vender.</span></h1>
+    </div>
+
+    <div class="headline-slide" id="slide-3">
+      <h1>El gran vacío<br>del sector.</h1>
+    </div>
+
+    <div class="headline-slide" id="slide-4">
+      <h1>La llegada de<br>la <span class="lime">solución.</span></h1>
+    </div>
+
+    <div class="headline-slide" id="slide-5">
+      <h1>El <span style="color:#a8cc1a">
+Método.</span></h1>
+    </div>
+
+    <div class="headline-slide" id="slide-6">
+      <h1>El resultado<br><span class="lime">diferencial.</span></h1>
+    </div>
+
+    <div class="headline-slide" id="slide-7">
+      <h1 style="margin-bottom: 12px;"><span class="lime">Proxis.</span></h1>
+      <p class="slide7-sub">Donde la actividad sistemática se convierte en <strong>libertad financiera.</strong></p>
+    </div>
+
+  </div><!-- /headline-area -->
+
+  <!-- Body text -->
+  <p class="body-text" id="bodyText">
+    Nuestro trabajo no se trata de nosotros, sino de las personas a las que servimos. Proteger a una familia si alguien muere prematuramente, sostener un negocio en caso de enfermedad, generar ingresos de jubilación que duren toda la vida… <strong>¿Puede haber una profesión más noble que esta?</strong>
+  </p>
+
+  <!-- Progress bars -->
+  <div class="progress-bars" id="progBars">
+    <button class="prog-bar active" onclick="goSlide(0)"><div class="fill"></div></button>
+    <button class="prog-bar" onclick="goSlide(1)"><div class="fill"></div></button>
+    <button class="prog-bar" onclick="goSlide(2)"><div class="fill"></div></button>
+    <button class="prog-bar" onclick="goSlide(3)"><div class="fill"></div></button>
+    <button class="prog-bar" onclick="goSlide(4)"><div class="fill"></div></button>
+    <button class="prog-bar" onclick="goSlide(5)"><div class="fill"></div></button>
+    <button class="prog-bar" onclick="goSlide(6)"><div class="fill"></div></button>
+    <button class="prog-bar" onclick="goSlide(7)"><div class="fill"></div></button>
+    <button class="pause-btn" id="pauseBtn" onclick="togglePause()" title="Pausar / reanudar">
+      <svg id="pauseIcon" width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+        <rect x="0" y="0" width="3" height="12" rx="1"/>
+        <rect x="7" y="0" width="3" height="12" rx="1"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- CTAs -->
+  <div class="cta-row">
+    <a href="proxis_login.html" class="cta-primary">Ver tutorial →</a>
+    <a href="proxis_plataforma.html?dest=plataforma" class="cta-secondary">Abrir Proxis</a>
+  </div>
+
+
+  <!-- ═══ ANIMATION AREA ═══════════════════════ -->
+  <div class="animation-wrap">
+    <!-- Network fractal background canvas -->
+    <canvas id="networkCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;"></canvas>
+
+    <div class="animation-inner" style="position:relative;z-index:1;">
+
+      <!-- Floating card 1: Prospecto nuevo -->
+      <div class="float-card card-1">
+        <div class="float-status">
+          <div class="status-dot dot-purple"></div>
+          Prospecto nuevo
+        </div>
+        <div class="float-detail">Ana González</div>
+        <div class="float-sub">Ref. → María Rojas · Semana 3</div>
+      </div>
+
+      <!-- Floating card 2: Prospectos entregados -->
+      <div class="float-card card-2">
+        <div class="float-status">
+          <div class="status-dot dot-green"></div>
+          Prospectos entregados
+        </div>
+        <div class="float-detail">Carlos Mendoza</div>
+        <div class="float-amount" style="font-size:15px;margin-top:2px;">4 nombres</div>
+        <div class="float-sub">familiares y amigos</div>
+      </div>
+
+      <!-- Central dashboard -->
+      <div class="dashboard-card">
+        <div class="dash-header">
+          <!-- Proxis logo inline -->
+          <span class="dash-title" style="display:flex;align-items:center;gap:7px;">
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="4.5" fill="#cbf135"/>
+              <circle cx="6" cy="9" r="3" fill="#cbf135" opacity="0.85"/>
+              <circle cx="26" cy="9" r="3" fill="#cbf135" opacity="0.85"/>
+              <circle cx="6" cy="23" r="3" fill="#cbf135" opacity="0.6"/>
+              <circle cx="26" cy="23" r="3" fill="#cbf135" opacity="0.6"/>
+              <line x1="8.6" y1="10.6" x2="13.2" y2="14.0" stroke="#cbf135" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+              <line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#cbf135" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+              <line x1="8.6" y1="21.4" x2="13.2" y2="18.0" stroke="#cbf135" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+              <line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#cbf135" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+            </svg>
+            <span style="font-weight:800;letter-spacing:-0.02em;">Pro<span style="color:#cbf135;">xis</span></span>
+            <span style="font-weight:400;opacity:0.5;font-size:11px;">· Agencia Viña del Mar</span>
+          </span>
+          <span class="dash-week">Semana 3 / Dic 2025</span>
+        </div>
+        <div class="dash-body">
+          <div class="dash-row">
+            <div>
+              <div class="dash-name">Ana González</div>
+              <div class="dash-via">vía María Rojas</div>
+            </div>
+            <span class="badge badge-prospect">Prospecto</span>
+          </div>
+          <div class="dash-row">
+            <div>
+              <div class="dash-name">Carlos Mendoza</div>
+              <div class="dash-via">contacto directo</div>
+            </div>
+            <span class="badge badge-prospect">Prospecto</span>
+          </div>
+          <div class="dash-row">
+            <div>
+              <div class="dash-name">Roberto Fuentes</div>
+              <div class="dash-via">vía Carlos Mendoza</div>
+            </div>
+            <span class="badge badge-contact">Contacto</span>
+          </div>
+          <div class="dash-row">
+            <div>
+              <div class="dash-name">Valentina Rivas</div>
+              <div class="dash-via">vía Ana González</div>
+            </div>
+            <span class="badge badge-prospect">Prospecto</span>
+          </div>
+        </div>
+        <div class="dash-meta">
+          <span class="meta-label">Meta mensual</span>
+          <div class="meta-bar-wrap">
+            <div class="meta-bar-fill"></div>
+          </div>
+          <span class="meta-pct">68%</span>
+        </div>
+      </div>
+
+      <!-- Floating card 3: Entrega de póliza -->
+      <div class="float-card card-3">
+        <div class="float-status">
+          <div class="status-dot dot-lime"></div>
+          Entrega de póliza
+        </div>
+        <div class="float-detail">Roberto Fuentes</div>
+        <div class="float-sub">vía Carlos Mendoza</div>
+      </div>
+
+      <!-- Floating card 4: Meta semanal -->
+      <div class="float-card card-4">
+        <div class="float-status">
+          <div class="status-dot dot-orange"></div>
+          Meta semanal
+        </div>
+        <div class="float-detail">Contactos: 14 / 20</div>
+        <div class="float-sub">Cierres proyectados: 2.8</div>
+      </div>
+
+    </div><!-- /animation-inner -->
+  </div><!-- /animation-wrap -->
+
+</div><!-- /hero -->
+
+<!-- ═══ SECCIÓN: AVALADO POR LA CIENCIA ══════════ -->
+<section class="science-section">
+  <div class="science-inner">
+    <div class="section-eyebrow"></div>
+    <h2 class="section-title">Avalado por la Ciencia de la Praxis</h2>
+
+    <table class="science-table">
+      <thead>
+        <tr>
+          <th>Fuente / Método</th>
+          <th>Aplicación en Proxis</th>
+          <th>Impacto en el asesor</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="source-col">LIMRA / GAMA</td>
+          <td>Indicadores de efectividad estandarizados.</td>
+          <td>Elimina la incertidumbre del <em>"no sé cuánto hacer"</em>.</td>
+        </tr>
+        <tr>
+          <td class="source-col">MDRT / GRANUM</td>
+          <td>Gestión de actividad de élite.</td>
+          <td>Eleva el estándar de profesionalismo.</td>
+        </tr>
+        <tr>
+          <td class="source-col">40 Años de Praxis</td>
+          <td>Experiencia real de campo.</td>
+          <td>Evita errores comunes de novatos y veteranos.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="science-seal-row">
+      <img class="science-seal" src="https://www.stickybusiness.com/images/transforms/embossed_seals/_1200x923_fit_center-center_70_none/695/silver-embossed-excellence-seals-800X800.jpg" alt="Sello de excelencia" onerror="this.style.display='none'">
+      <p class="science-seal-text">Metodología construida con expertos internacionales para el desarrollo de ventas de alto nivel.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SECCIÓN: DE LA ANSIEDAD AL HÁBITO ════════ -->
+<section class="habit-section">
+  <div class="habit-inner">
+    <div class="section-eyebrow"></div>
+    <h2 class="section-title">De la Ansiedad al Hábito</h2>
+
+    <div class="habit-cards">
+
+      <div class="habit-card">
+        <div class="habit-img-wrap">
+          <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=600&q=80&fit=crop" alt="Asesor latino hablando con cliente" loading="lazy">
+        </div>
+        <div class="habit-card-body">
+          <div class="habit-tag">Foco en actividad</div>
+          <p>Elimina el estrés de los resultados enfocándote en las acciones clave que sí controlas.</p>
+        </div>
+      </div>
+
+      <div class="habit-card">
+        <div class="habit-img-wrap">
+          <img src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=600&q=80&fit=crop" alt="Ejecutivos de venta diversos en reunión" loading="lazy">
+        </div>
+        <div class="habit-card-body">
+          <div class="habit-tag">Red recurrente</div>
+          <p>Construye una infraestructura de contactos que se alimenta de forma automática.</p>
+        </div>
+      </div>
+
+      <div class="habit-card">
+        <div class="habit-img-wrap">
+          <img src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=600&q=80&fit=crop" alt="Mujer ejecutiva sonriendo en presentación" loading="lazy">
+        </div>
+        <div class="habit-card-body">
+          <div class="habit-tag">Control de carrera</div>
+          <p>Transforma tu negocio de una apuesta incierta a un sistema de ingresos predecible.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ════════════════════════════════════ -->
+<footer class="site-footer">
+  <span class="footer-label">Una herramienta de</span>
+  <a href="https://theprecisionselling.com/" target="_blank" rel="noopener" class="footer-tps-link">
+    <img src="tps-logo.png" alt="The Precision Selling">
+  </a>
+</footer>
+
+<script>
+/* ─── SLIDE CONTROLLER ─────────────────────────── */
+const bodyTexts = [
+  `Nuestro trabajo no se trata de nosotros, sino de las personas a las que servimos. Proteger a una familia si alguien muere prematuramente, sostener un negocio en caso de enfermedad, generar ingresos de jubilación que duren toda la vida… <strong>¿Puede haber una profesión más noble que esta?</strong>`,
+  `¿Por qué el <strong>91% de los asesores de seguros abandona su carrera en los primeros 4 años?</strong> Solo 9 de cada 100 logran continuar al cuarto año de actividad. Existe un muro invisible que muy pocos logran cruzar.`,
+  `Existe una <strong>desconexión crítica entre la actividad diaria y el resultado económico.</strong> La mayoría de las herramientas miden el pasado, pero no te dicen qué debes hacer hoy para asegurar tus ingresos de mañana.`,
+  `Existe una <strong>desconexión crítica entre la actividad diaria y el resultado económico.</strong> La mayoría de las herramientas miden el pasado, pero no te dicen qué debes hacer hoy para asegurar tus ingresos de mañana.`,
+  `<strong>Proxis: Prospección en práctica.</strong> Una plataforma integral diseñada bajo estándares internacionales de MDRT, GAMMA, LIMRA y COPAPROSE, basada en la praxis de expertos con más de 40 años de trayectoria en el desarrollo de ventas.`,
+  `Toma el control con una <strong>bitácora semanal de prospección</strong> y el seguimiento de claves prácticas fundamentales. Proxis resuelve el problema del método: sabrás exactamente qué acciones realizar cada semana para construir una red inagotable de prospectos.`,
+  `Transforma la prospección de una carga incierta en un <strong>hábito científico de alto rendimiento.</strong> No se trata solo de vender, sino de gestionar la actividad clave que garantiza tu permanencia y éxito en la industria de seguros y servicios financieros.`,
+  `Empieza hoy a construir la red que sostendrá tu carrera durante décadas.`
+];
+
+const DURATIONS = [13000, 12000, 11000, 11000, 13000, 12000, 12000, 11000];
+const TOTAL = 8;
+
+let current = 0;
+let timer = null;
+let paused = false;
+let pausedAt = null;      // timestamp when paused
+let elapsedOnSlide = 0;   // ms already elapsed on current slide
+
+function getActiveFill() {
+  return document.querySelectorAll('.prog-bar')[current].querySelector('.fill');
+}
+
+function setFillAnimation(remaining) {
+  const fill = getActiveFill();
+  void fill.offsetWidth;
+  fill.style.animation = 'none';
+  void fill.offsetWidth;
+  // Calculate how much width the fill already has
+  const pct = 1 - (remaining / DURATIONS[current]);
+  fill.style.width = (pct * 100) + '%';
+  void fill.offsetWidth;
+  fill.style.transition = `width ${remaining / 1000}s linear`;
+  fill.style.width = '100%';
+}
+
+function pauseSlide() {
+  if (paused) return;
+  paused = true;
+  pausedAt = Date.now();
+  clearTimeout(timer);
+
+  // Freeze the fill bar by snapshotting its current width
+  const fill = getActiveFill();
+  const computed = parseFloat(getComputedStyle(fill).width);
+  const parentW  = parseFloat(getComputedStyle(fill.parentElement).width);
+  const pct = parentW > 0 ? (computed / parentW * 100) : 0;
+  fill.style.transition = 'none';
+  fill.style.width = pct + '%';
+
+  // Update icon to play
+  document.getElementById('pauseIcon').innerHTML =
+    '<polygon points="0,0 10,6 0,12" rx="1"/>';
+  document.getElementById('pauseBtn').title = 'Reanudar';
+}
+
+function resumeSlide() {
+  if (!paused) return;
+  paused = false;
+  const spent = pausedAt ? (Date.now() - pausedAt) : 0;
+  // remaining time = total duration - elapsed - time spent paused
+  const remaining = Math.max(500, DURATIONS[current] - elapsedOnSlide);
+  elapsedOnSlide += spent; // don't count pause time twice — keep as-is
+  setFillAnimation(remaining);
+
+  // Update icon to pause
+  document.getElementById('pauseIcon').innerHTML =
+    '<rect x="0" y="0" width="3" height="12" rx="1"/><rect x="7" y="0" width="3" height="12" rx="1"/>';
+  document.getElementById('pauseBtn').title = 'Pausar';
+
+  timer = setTimeout(() => goSlide((current + 1) % TOTAL), remaining);
+}
+
+function togglePause() {
+  paused ? resumeSlide() : pauseSlide();
+}
+
+function goSlide(n) {
+  const slides = document.querySelectorAll('.headline-slide');
+  const bars   = document.querySelectorAll('.prog-bar');
+  const body   = document.getElementById('bodyText');
+
+  // Exit current
+  slides[current].classList.remove('active');
+  slides[current].classList.add('leaving');
+  setTimeout(() => slides[current].classList.remove('leaving'), 700);
+
+  // Reset old bar
+  bars[current].classList.remove('active');
+  const oldFill = bars[current].querySelector('.fill');
+  oldFill.style.transition = 'none';
+  oldFill.style.animation  = 'none';
+  oldFill.style.width = '0%';
+
+  current = n;
+  elapsedOnSlide = 0;
+  paused = false;
+
+  // Reset pause icon
+  document.getElementById('pauseIcon').innerHTML =
+    '<rect x="0" y="0" width="3" height="12" rx="1"/><rect x="7" y="0" width="3" height="12" rx="1"/>';
+  document.getElementById('pauseBtn').title = 'Pausar';
+
+  // Enter new slide
+  slides[current].classList.add('active');
+  bars[current].classList.add('active');
+  setFillAnimation(DURATIONS[current]);
+
+  // Body text
+  body.style.opacity = '0';
+  setTimeout(() => {
+    body.innerHTML = bodyTexts[current];
+    body.style.transition = 'opacity 0.5s';
+    body.style.opacity = '1';
+  }, 300);
+
+  clearTimeout(timer);
+  timer = setTimeout(() => goSlide((current + 1) % TOTAL), DURATIONS[current]);
+}
+
+// Pause on hover over the text/headline area
+const hoverZone = document.querySelector('.headline-area');
+const bodyZone  = document.getElementById('bodyText');
+[hoverZone, bodyZone].forEach(el => {
+  el.addEventListener('mouseenter', pauseSlide);
+  el.addEventListener('mouseleave', resumeSlide);
+});
+
+// Init first bar
+setFillAnimation(DURATIONS[0]);
+timer = setTimeout(() => goSlide(1), DURATIONS[0]);
+
+/* ─── EYEBROW COUNTER ──────────────────────────── */
+// Subtle random fluctuation like Ramp's live payments counter
+const el = document.getElementById('eyebrowVal');
+let val = 9.0;
+setInterval(() => {
+  val += (Math.random() - 0.5) * 0.002;
+  val = Math.max(8.95, Math.min(9.05, val));
+  el.textContent = val.toFixed(4) + '%';
+}, 800);
+
+/* ─── NAV SCROLL ───────────────────────────────── */
+window.addEventListener('scroll', () => {
+  document.querySelector('nav').classList.toggle('scrolled', window.scrollY > 20);
+});
+</script>
+
+<script>
+/* ─── NETWORK FRACTAL BACKGROUND ──────────────── */
+(function() {
+  const canvas = document.getElementById('networkCanvas');
+  if (!canvas) return;
+
+  function resize() {
+    canvas.width  = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const ctx = canvas.getContext('2d');
+
+  // Pastel palette — slightly darker than bg #f0eeeb
+  // bg is roughly hsl(36,12%,93%) — we go 8-14% darker, very low saturation
+  const COLORS = [
+    'rgba(195,188,178,0.55)',  // warm gray
+    'rgba(182,196,178,0.45)',  // sage
+    'rgba(196,186,198,0.45)',  // lavender
+    'rgba(196,193,175,0.50)',  // sand
+    'rgba(178,196,191,0.45)',  // mint
+  ];
+
+  // Node definition
+  class Node {
+    constructor(x, y, color, radius) {
+      this.x  = x;
+      this.y  = y;
+      this.tx = x; // target x
+      this.ty = y; // target y
+      this.color  = color;
+      this.radius = radius;
+      this.alpha  = 0;
+      this.born   = performance.now() + Math.random() * 4000;
+      this.children = [];
+      this.parent   = null;
+      this.lineAlpha = 0;
+    }
+  }
+
+  let nodes = [];
+  let lastSpawn = 0;
+
+  function spawnCluster(cx, cy, color) {
+    const hub = new Node(
+      cx + (Math.random() - 0.5) * 40,
+      cy + (Math.random() - 0.5) * 40,
+      color, 5
+    );
+    nodes.push(hub);
+
+    const childCount = 4 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < childCount; i++) {
+      const angle  = (Math.PI * 2 * i / childCount) + (Math.random() - 0.5) * 0.6;
+      const dist   = 55 + Math.random() * 55;
+      const child  = new Node(
+        hub.x + Math.cos(angle) * dist,
+        hub.y + Math.sin(angle) * dist,
+        color, 3
+      );
+      child.parent = hub;
+      child.born   = hub.born + 600 + i * 220 + Math.random() * 300;
+      hub.children.push(child);
+      nodes.push(child);
+
+      // Occasionally spawn grandchildren
+      if (Math.random() < 0.35) {
+        const gAngle = angle + (Math.random() - 0.5) * 1.2;
+        const gDist  = 35 + Math.random() * 35;
+        const grand  = new Node(
+          child.x + Math.cos(gAngle) * gDist,
+          child.y + Math.sin(gAngle) * gDist,
+          color, 2.5
+        );
+        grand.parent = child;
+        grand.born   = child.born + 500 + Math.random() * 400;
+        child.children.push(grand);
+        nodes.push(grand);
+      }
+    }
+  }
+
+  function initClusters() {
+    nodes = [];
+    const w = canvas.width, h = canvas.height;
+    const palette = [...COLORS];
+    // 3 clusters spread across the canvas
+    const positions = [
+      [w * 0.18, h * 0.35],
+      [w * 0.50, h * 0.55],
+      [w * 0.78, h * 0.30],
+    ];
+    positions.forEach(([x, y], i) => {
+      spawnCluster(x, y, palette[i % palette.length]);
+    });
+  }
+
+  initClusters();
+
+  // Slowly drift nodes
+  setInterval(() => {
+    nodes.forEach(n => {
+      n.tx += (Math.random() - 0.5) * 14;
+      n.ty += (Math.random() - 0.5) * 8;
+      // Keep inside canvas
+      const w = canvas.width, h = canvas.height;
+      n.tx = Math.max(8, Math.min(w - 8, n.tx));
+      n.ty = Math.max(8, Math.min(h - 8, n.ty));
+    });
+  }, 3000);
+
+  // Respawn clusters every 28s
+  setInterval(() => {
+    initClusters();
+  }, 28000);
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function draw(ts) {
+    requestAnimationFrame(draw);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    nodes.forEach(n => {
+      // Ease position
+      n.x = lerp(n.x, n.tx, 0.008);
+      n.y = lerp(n.y, n.ty, 0.008);
+
+      // Fade in
+      if (ts >= n.born) {
+        n.alpha = Math.min(1, n.alpha + 0.012);
+        n.lineAlpha = Math.min(1, n.lineAlpha + 0.008);
+      }
+
+      if (n.alpha <= 0) return;
+
+      // Draw line to parent
+      if (n.parent && n.parent.alpha > 0) {
+        ctx.beginPath();
+        ctx.moveTo(n.parent.x, n.parent.y);
+        ctx.lineTo(n.x, n.y);
+        // Extract color components for line
+        ctx.strokeStyle = n.color.replace(/[\d.]+\)$/, (Math.min(n.alpha, n.parent.alpha) * 0.5) + ')');
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+
+      // Draw node
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+      ctx.fillStyle = n.color.replace(/[\d.]+\)$/, n.alpha + ')');
+      ctx.fill();
+    });
+  }
+
+  requestAnimationFrame(draw);
+})();
+</script>
+
+</body>
+</html>

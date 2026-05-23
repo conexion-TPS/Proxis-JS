@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tutorial · Proxis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#0b0a09;--blue-mid:#2a2926;--blue-lt:#f0eeeb;--blue-pale:#f7f6f3;
+  --teal:#1a9e4a;--teal-lt:#e6f9ee;
+  --lime:#cbf135;--lime-dk:#a8cc1a;
+  --amber:#BA7517;--amber-lt:#FAEEDA;
+  --red:#A32D2D;--red-lt:#FCEBEB;
+  --g100:#F5F4F0;--g200:#E8E7E2;--g400:#9E9D97;--g700:#3C3B37;--g900:#1A1A18;
+  --font:'Plus Jakarta Sans',sans-serif;--mono:'DM Mono',monospace;
+  --r:10px;--rl:16px;--guide-h:160px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--g100);color:var(--g900);font-size:14px;line-height:1.6;overflow:hidden;height:100vh}
+#tut-wrap{display:flex;flex-direction:column;height:100vh}
+#stage{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+.scene{display:none;min-height:calc(100vh - var(--guide-h))}
+.scene.active{display:block}
+.scene.centered{display:none;align-items:center;justify-content:center;background:var(--blue)}
+.scene.centered.active{display:flex}
+#scene-end.centered.active{background:#f0eeeb;background-image:radial-gradient(circle,rgba(0,0,0,0.1) 1px,transparent 1px);background-size:24px 24px;}
+
+/* ── GUIDE ── */
+#guide{height:var(--guide-h);flex-shrink:0;background:var(--blue);border-top:3px solid #1a5fa8;display:flex;flex-direction:column;position:relative;z-index:600}
+#g-progress{height:4px;background:rgba(255,255,255,.12)}
+#g-fill{height:100%;background:#cbf135;border-radius:0 2px 2px 0;transition:width .4s ease}
+#g-body{flex:1;display:flex;align-items:center;gap:16px;padding:10px 24px}
+#g-icon{font-size:24px;flex-shrink:0;width:36px;text-align:center}
+#g-text{flex:1;min-width:0}
+#g-step{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#cbf135;margin-bottom:1px}
+#g-title{font-size:14px;font-weight:600;color:white;margin-bottom:2px;line-height:1.2}
+#g-desc{font-size:12px;color:rgba(255,255,255,.72);line-height:1.4}
+#g-nav{display:flex;gap:8px;flex-shrink:0;align-items:center}
+.nbtn{padding:8px 16px;border:none;border-radius:8px;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap}
+.nbtn-prev{background:rgba(255,255,255,.08);color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.18)}
+.nbtn-prev:hover{background:rgba(255,255,255,.15)}
+.nbtn-prev:disabled{opacity:.3;cursor:not-allowed}
+.nbtn-next{background:#cbf135;color:#003781}
+.nbtn-next:hover{background:#a8cc1a}
+#g-hint{font-size:10px;color:rgba(255,255,255,.35);text-align:center;padding:4px 24px 8px;letter-spacing:.03em;display:flex;align-items:center;justify-content:center;gap:16px;}
+#g-hint a{opacity:1!important;}
+#g-hint a:hover{opacity:1!important;filter:none!important;}
+
+/* ── SPOTLIGHT ── */
+#spotlight{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,25,70,.74);transition:all .42s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:400;display:none;outline:2.5px solid rgba(202,252,5,.7)}
+@keyframes spulse{0%,100%{outline-color:rgba(202,252,5,.5)}50%{outline-color:rgba(202,252,5,1)}}
+
+/* ── APP SHELL ── */
+.sh{background:var(--blue);color:white;padding:10px 22px;display:flex;align-items:center;gap:12px;border-bottom:3px solid #0052b4}
+.sh-logo{background:#000;border-radius:8px;padding:5px 10px;flex-shrink:0;display:flex;align-items:center}
+.sh-logo img{height:34px;width:auto;display:block}
+.sh-div{width:1.5px;height:32px;background:rgba(255,255,255,.22);flex-shrink:0}
+.sh-role{font-size:12px;opacity:.8}.sh-role strong{font-weight:600}
+.sh-ml{margin-left:auto}
+.sh-out{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;font-family:var(--font);font-size:12px;padding:5px 12px;border-radius:20px;cursor:pointer}
+.mb{background:white;border-bottom:2px solid var(--g200);padding:0 22px;display:flex}
+.mb-btn{padding:13px 20px;font-size:13px;font-weight:600;color:var(--g400);border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.mb-btn.on{color:var(--blue);border-bottom-color:var(--blue)}
+.stabs{display:flex;border-bottom:1px solid var(--g200);background:var(--g100);padding:0 22px}
+.stab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--g400);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.stab.on{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* ── CARDS ── */
+.card{background:white;border:1px solid var(--g200);border-radius:var(--rl);padding:18px 20px;margin-bottom:14px}
+.ctitle{font-size:13px;font-weight:600;color:var(--g700);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.ctitle::before{content:'';display:block;width:4px;height:16px;background:var(--blue);border-radius:2px}
+
+/* ── KPI CARDS ── */
+.mc{border-radius:var(--r);padding:14px 16px;position:relative;border:1px solid transparent}
+.mc-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.mc-val{font-size:24px;font-weight:600;font-family:var(--mono);letter-spacing:-.5px;margin-bottom:3px}
+.mc-sub{font-size:11px;line-height:1.4;opacity:.85}
+.mc-xp{font-size:11px;line-height:1.4;margin-top:6px;font-style:italic;border-top:1px solid rgba(0,0,0,.06);padding-top:5px;opacity:.8}
+.mc-nt{background:#FFF9EC;border-color:#e8d98a;color:#7a4d0a}
+.mc-nt .mc-lbl{color:#BA7517}.mc-nt .mc-val{color:#BA7517}
+.mc-tl{background:var(--teal-lt);border-color:rgba(15,110,86,.2);color:var(--teal)}
+.mc-tl .mc-lbl{color:var(--teal)}.mc-tl .mc-val{color:var(--teal)}
+.mc-am{background:var(--amber-lt);border-color:rgba(186,117,23,.2);color:#7a4d0a}
+.mc-am .mc-lbl{color:var(--amber)}.mc-am .mc-val{color:var(--amber)}
+.mc-rd{background:var(--red-lt);border-color:rgba(163,45,45,.2);color:var(--red)}
+.mc-rd .mc-lbl{color:var(--red)}.mc-rd .mc-val{color:var(--red)}
+.mc-gy{background:var(--g100);border-color:var(--g200);color:var(--g700)}
+.sem{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%}
+.sem-ok{background:#22c55e}.sem-am{background:#f59e0b}.sem-rd{background:#ef4444}
+.mcrow4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.mcrow4b{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+
+/* ── FORM TABLE ── */
+.ftbl{width:100%;border-collapse:collapse}
+.ftbl th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g400);padding:6px 10px;border-bottom:1px solid var(--g200)}
+.ftbl td{padding:7px 8px;border-bottom:1px solid var(--g100);vertical-align:middle}
+.fi{width:100%;padding:7px 10px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--font);font-size:13px;background:white;outline:none}
+.ni{width:62px;padding:6px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center;background:white;outline:none}
+.chk{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--g200);background:white;display:flex;align-items:center;justify-content:center;font-size:15px;margin:auto;cursor:default}
+.chk.on{background:var(--teal-lt);border-color:var(--teal);color:var(--teal)}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.pill-gn{background:var(--teal-lt);color:var(--teal)}
+.pill-am{background:var(--amber-lt);color:var(--amber)}
+.lbadge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--teal-lt);color:var(--teal)}
+
+/* ── BUTTONS ── */
+.btn{padding:10px 18px;border:none;border-radius:var(--r);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn-pri{background:var(--blue);color:white}
+.btn-suc{background:var(--teal-lt);color:var(--teal);border:1.5px solid var(--teal)}
+.btn-sec{background:var(--g100);border:1.5px solid var(--g200);color:var(--g700)}
+.btn-w{width:100%;justify-content:center}
+.btn-lg{padding:13px 22px;font-size:14px}
+
+/* ── NODO CARD ── */
+.nodo-card{background:white;border:2px solid var(--teal);border-radius:var(--rl);padding:16px 18px;margin-bottom:12px}
+.nodo-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.nodo-av{width:38px;height:38px;border-radius:50%;background:var(--teal);color:white;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;flex-shrink:0}
+.nodo-nm{font-size:14px;font-weight:600;color:var(--g900)}
+.nodo-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:var(--teal-lt);color:var(--teal)}
+.nodo-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px}
+.ns-lbl{color:var(--g400);margin-bottom:2px}
+.ns-val{font-family:var(--mono);font-weight:600;color:var(--g900);font-size:15px}
+
+/* ── EVOLUTION TABLE ── */
+.ev-table{width:100%;border-collapse:collapse;font-size:12px}
+.ev-table th{text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g400);padding:6px 10px;border-bottom:1px solid var(--g200)}
+.ev-table td{padding:8px 10px;border-bottom:1px solid var(--g100);color:var(--g700)}
+.ev-table td:first-child{font-weight:500;color:var(--g900)}
+.ev-table .total-row td{font-weight:600;color:var(--g900);border-top:2px solid var(--g200);background:var(--g100)}
+.stat-rd{color:var(--red)!important;font-weight:600}
+
+/* ── PRODUCTIVITY ── */
+.vinc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+.vinc-card{background:var(--g100);border-radius:var(--r);padding:14px;border:1px solid var(--g200)}
+.vinc-card.best{background:var(--teal-lt);border-color:rgba(15,110,86,.3)}
+.vinc-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g400);margin-bottom:6px}
+.vinc-card.best .vinc-lbl{color:var(--teal)}
+.vinc-val{font-size:28px;font-weight:600;font-family:var(--mono);color:var(--g900)}
+.vinc-card.best .vinc-val{color:var(--teal)}
+.vinc-sub{font-size:11px;color:var(--g400);margin-top:2px}
+
+/* ── NODO MODAL ── */
+#nodo-modal{position:fixed;inset:0 0 var(--guide-h) 0;background:rgba(0,55,129,.88);display:none;align-items:center;justify-content:center;z-index:300;padding:24px}
+#nodo-modal.open{display:flex}
+.nm-box{background:white;border-radius:20px;padding:32px 36px;max-width:440px;width:100%;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.4);animation:nmIn .3s ease}
+@keyframes nmIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* ── LOGIN ── */
+.lcard{background:white;border-radius:20px;padding:36px 32px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.lfld{margin-bottom:14px}
+.lfld label{display:block;font-size:12px;font-weight:500;color:var(--g700);margin-bottom:6px}
+.lfld select,.lfld input{width:100%;padding:11px 14px;border:1.5px solid var(--g200);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--g900);background:white;outline:none;appearance:none}
+.lfld input[type=password]{letter-spacing:.1em}
+
+/* ── INTRO / END ── */
+.intro-card,.end-card{background:white;border-radius:20px;padding:44px 36px;max-width:500px;width:100%;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.32);margin:24px}
+.logo-blk{background:#000;border-radius:12px;padding:10px 18px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:22px}
+.logo-blk img{height:52px;width:auto}
+.intro-badge{display:inline-block;background:var(--blue-lt);color:var(--blue);font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;margin-bottom:14px;letter-spacing:.05em}
+.intro-ttl{font-size:24px;font-weight:600;color:var(--blue);margin-bottom:10px;line-height:1.2}
+.intro-sub{font-size:13px;color:var(--g400);line-height:1.7;margin-bottom:22px}
+.checklist{background:var(--g100);border-radius:12px;padding:14px 16px;text-align:left;font-size:13px;color:var(--g700);display:flex;flex-direction:column;gap:9px;margin-bottom:22px}
+.sc{padding:22px}
+</style>
+
+<script>
+// ── Proxis: load user from login ──────────────────
+(function() {
+  const user = JSON.parse(localStorage.getItem('proxis_user') || 'null');
+  if (!user) return;
+  document.addEventListener('DOMContentLoaded', function() {
+    // Only update sh-role if user is an asesor (not supervisor leftover)
+    if (user.role === 'asesor') {
+      document.querySelectorAll('.sh-role').forEach(function(el) {
+        el.innerHTML = user.name + ' · <strong>Asesor/a</strong>';
+      });
+      const introTtl = document.querySelector('.intro-ttl');
+      if (introTtl) introTtl.textContent = 'Hola, ' + user.name.split(' ')[0] + '. Aprende a usar la Plataforma de Prospección';
+    }
+  });
+})();
+</script>
+</head>
+<body>
+<div id="tut-wrap">
+<div id="stage">
+
+<!-- ═══ INTRO ═══ -->
+<div class="scene centered" id="scene-intro" style="background:#0b0a09;">
+  <div class="intro-card">
+    <div class="logo-blk" style="background:#0b0a09;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;"><svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/><circle cx="6" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/><circle cx="26" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/><circle cx="6" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/><circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/><line x1="8.6" y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><line x1="8.6" y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/><line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg><span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:17px;color:white;letter-spacing:-0.04em">Pro<span style="color:#cbf135">xis</span></span></div>
+    <div class="intro-badge" style="background:rgba(168,204,26,.15);color:#a8cc1a;border:1px solid rgba(168,204,26,.3)">📚 Tutorial Interactivo</div>
+    <h1 class="intro-ttl" style="color:#0b0a09;letter-spacing:-0.03em;">Aprende a usar la Plataforma de Prospección</h1>
+    <p class="intro-sub" style="color:#4a4844;">Te guiaremos paso a paso por las funciones principales de tu plataforma. Usa los botones del panel inferior o las teclas ← → para navegar.</p>
+    <div class="checklist" style="color:#3C3B37;background:#f0eeeb;">
+      <div>📋 <strong>Bitácora Semanal</strong> — Registra contactos y prospectos</div>
+      <div>🌐 <strong>Nodo Relacional</strong> — Qué es y cómo el sistema lo detecta</div>
+      <div>📊 <strong>Mi Informe</strong> — Cómo leer e interpretar tus indicadores</div>
+    </div>
+    <button class="btn btn-pri btn-w btn-lg" onclick="nextStep()">Comenzar el tutorial →</button>
+  </div>
+</div>
+
+<!-- ═══ LOGIN ═══ -->
+<div class="scene centered" id="scene-login">
+  <div class="lcard">
+    <div style="display:flex;align-items:center;gap:8px;background:#000;border-radius:10px;padding:10px 14px;margin-bottom:20px;"><svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/><circle cx="6" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/><circle cx="26" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/><circle cx="6" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/><circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/><line x1="8.6" y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><line x1="8.6" y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/><line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg><span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:17px;color:white;letter-spacing:-0.04em">Pro<span style="color:#cbf135">xis</span></span></div>
+    <div style="font-size:18px;font-weight:600;color:var(--blue);margin-bottom:4px">Acceso a tu cuenta</div>
+    <div style="font-size:13px;color:var(--g400);margin-bottom:22px">Selecciona tu nombre e ingresa tu clave personal</div>
+    <div class="lfld" id="l-name">
+      <label>Nombre</label>
+      <select style="border-color:var(--blue);background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239E9D97' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px">
+        <option>Fernanda Peña</option>
+      </select>
+    </div>
+    <div class="lfld" id="l-pass">
+      <label>Clave personal</label>
+      <input type="password" value="maria2026">
+    </div>
+    <div id="l-btn">
+      <button class="btn btn-pri btn-w" onclick="goToStep(4)">Entrar →</button>
+    </div>
+    <div style="font-size:11px;color:var(--g400);text-align:center;margin-top:16px">The Precision Selling · Chile</div>
+  </div>
+</div>
+
+<!-- ═══ BITÁCORA ═══ -->
+<div class="scene" id="scene-bitacora">
+  <div class="sh">
+    <div class="sh-logo" style="display:flex;align-items:center;gap:7px;background:#000;border-radius:8px;padding:6px 12px;"><svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/><circle cx="6" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/><circle cx="26" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/><circle cx="6" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/><circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/><line x1="8.6" y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><line x1="8.6" y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/><line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg><span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:17px;color:white;letter-spacing:-0.04em">Pro<span style="color:#cbf135">xis</span></span></div>
+    <div class="sh-div"></div>
+    <div style="font-size:11px;font-weight:600;color:white;line-height:1.3">Prospección<br><span style="font-size:10px;opacity:.65;letter-spacing:.07em;text-transform:uppercase">en práctica</span></div>
+    <div class="sh-role" style="margin-left:8px">Fernanda Peña · <strong>Asesor/a</strong></div>
+    <div class="sh-ml" style="display:flex;align-items:center;gap:8px;"><a href="proxis_intro.html" style="font-size:12px;color:rgba(255,255,255,.5);text-decoration:none;padding:4px 10px;border:1px solid rgba(255,255,255,.15);border-radius:20px;transition:all .15s;" onmouseover="this.style.color='rgba(255,255,255,.9)'" onmouseout="this.style.color='rgba(255,255,255,.5)'">← Proxis</a><button class="sh-out">Salir</button></div>
+  </div>
+  <div class="mb"><div class="mb-btn on">📋 Mi actividad</div></div>
+  <div class="stabs">
+    <div class="stab" id="stab-informe">Mi informe</div>
+    <div class="stab on" id="stab-bitacora">Bitácora Semanal</div>
+  </div>
+  <div class="sc">
+
+    <div class="card" id="week-hdr">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="ctitle" style="margin-bottom:3px">Semana 4 · Inicio: 22 de abril 2026</div>
+          <div style="font-size:12px;color:var(--g400)">Semana activa — se cierra automáticamente el próximo lunes</div>
+        </div>
+        <span class="lbadge">✓ Semana abierta</span>
+      </div>
+    </div>
+
+    <div class="card" id="contacts-card">
+      <div class="ctitle">Contactos de la semana</div>
+      <div style="overflow-x:auto">
+        <table class="ftbl">
+          <thead>
+            <tr>
+              <th style="width:28px">#</th>
+              <th>Nombre</th>
+              <th>Vínculo</th>
+              <th style="text-align:center">Llamó</th>
+              <th style="text-align:center">Reunión</th>
+              <th style="text-align:center">Prospectos</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="cr1">
+              <td style="color:var(--g400);font-size:12px">1</td>
+              <td><input class="fi" value="Carlos Medina" readonly></td>
+              <td><select class="fi" style="width:auto;min-width:110px" disabled><option>Referido</option></select></td>
+              <td style="text-align:center"><div id="cr1-call" class="chk on">✓</div></td>
+              <td style="text-align:center"><div class="chk on">✓</div></td>
+              <td style="text-align:center"><input id="cr1-prosp" class="ni" value="3" readonly></td>
+            </tr>
+            <tr id="cr2">
+              <td style="color:var(--g400);font-size:12px">2</td>
+              <td><input class="fi" value="Ana Rojas" readonly></td>
+              <td><select class="fi" style="width:auto;min-width:110px" disabled><option>Amigo/a</option></select></td>
+              <td style="text-align:center"><div class="chk on">✓</div></td>
+              <td style="text-align:center"><div class="chk">○</div></td>
+              <td style="text-align:center"><input class="ni" value="2" readonly></td>
+            </tr>
+            <tr id="cr3">
+              <td style="color:var(--g400);font-size:12px">3</td>
+              <td><input class="fi" value="Luis Torres" readonly style="border-color:var(--teal)"></td>
+              <td><select class="fi" style="width:auto;min-width:110px;border-color:var(--teal)" disabled><option>Conocido/a</option></select></td>
+              <td style="text-align:center"><div class="chk on">✓</div></td>
+              <td style="text-align:center"><div class="chk on">✓</div></td>
+              <td style="text-align:center"><input class="ni" value="4" readonly style="border-color:var(--teal)"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-suc" id="save-btn" onclick="goToStep(12)">💾 Guardar Reporte</button>
+        <button class="btn btn-sec" id="add-btn">+ Agregar Contacto</button>
+        <span style="font-size:12px;color:var(--g400)">3 contactos · 9 prospectos</span>
+      </div>
+    </div>
+
+    <div style="padding:10px 14px;border-radius:var(--r);font-size:12px;line-height:1.5;background:var(--blue-lt);color:var(--blue);border-left:3px solid var(--blue-mid)">
+      💡 <strong>Recuerda:</strong> Las semanas anteriores se cierran automáticamente cuando comienza una nueva semana cada lunes — tu historial queda protegido.
+    </div>
+  </div>
+
+  <!-- Nodo modal -->
+  <div id="nodo-modal">
+    <div class="nm-box" id="nm-content">
+      <div style="font-size:48px;margin-bottom:10px">🌐</div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:7px">¡Nodo Detectado!</div>
+      <h2 style="font-size:20px;font-weight:600;color:var(--blue);margin-bottom:10px">Luis Torres es tu Nodo Relacional</h2>
+      <p id="nm-explanation" style="font-size:13px;color:var(--g700);line-height:1.7;margin-bottom:18px">
+        Luis Torres ya te había referido prospectos en la <strong>Semana 2</strong>.
+        Al volver a referirte esta semana, el sistema lo reconoce automáticamente como
+        un <strong>Nodo Relacional</strong> — un contacto de confianza que activa tu red de manera sostenida.
+      </p>
+      <div style="background:var(--teal-lt);border-radius:10px;padding:12px 16px;margin-bottom:18px;text-align:left;font-size:12px;color:var(--teal);display:flex;gap:16px;flex-wrap:wrap">
+        <div><strong>Activaciones:</strong> 2</div>
+        <div><strong>Prospectos totales:</strong> 8</div>
+        <div><strong>Primera vez:</strong> Semana 2</div>
+      </div>
+      <button class="btn btn-pri btn-w" onclick="goToStep(13)">Entendido — continuar tutorial →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MI INFORME ═══ -->
+<div class="scene" id="scene-informe">
+  <div class="sh">
+    <div class="sh-logo" style="display:flex;align-items:center;gap:7px;background:#000;border-radius:8px;padding:6px 12px;"><svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/><circle cx="6" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/><circle cx="26" cy="9" r="3" fill="#a8cc1a" opacity="0.85"/><circle cx="6" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/><circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/><line x1="8.6" y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/><line x1="8.6" y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/><line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg><span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:17px;color:white;letter-spacing:-0.04em">Pro<span style="color:#cbf135">xis</span></span></div>
+    <div class="sh-div"></div>
+    <div style="font-size:11px;font-weight:600;color:white;line-height:1.3">Prospección<br><span style="font-size:10px;opacity:.65;letter-spacing:.07em;text-transform:uppercase">en práctica</span></div>
+    <div class="sh-role" style="margin-left:8px">Fernanda Peña · <strong>Asesor/a</strong></div>
+    <div class="sh-ml" style="display:flex;align-items:center;gap:8px;"><a href="proxis_intro.html" style="font-size:12px;color:rgba(255,255,255,.5);text-decoration:none;padding:4px 10px;border:1px solid rgba(255,255,255,.15);border-radius:20px;transition:all .15s;" onmouseover="this.style.color='rgba(255,255,255,.9)'" onmouseout="this.style.color='rgba(255,255,255,.5)'">← Proxis</a><button class="sh-out">Salir</button></div>
+  </div>
+  <div class="mb"><div class="mb-btn on">📋 Mi actividad</div></div>
+  <div class="stabs">
+    <div class="stab on">Mi informe</div>
+    <div class="stab">Bitácora Semanal</div>
+  </div>
+  <div class="sc">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:16px;font-weight:600;color:var(--g900)">Mi informe de avance</div>
+        <div style="font-size:12px;color:var(--g400)">Indicadores de gestión de prospección</div>
+      </div>
+      <select style="padding:6px 12px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--font);font-size:13px;background:white;appearance:none"><option>Abril 2026</option></select>
+    </div>
+
+    <!-- Nodos activos -->
+    <div class="card" id="nodos-section" style="border-left:4px solid var(--teal)">
+      <div class="ctitle" style="margin-bottom:12px">★ Nodos activos</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px" id="nodo-summary">
+        <div style="background:var(--teal-lt);border-radius:var(--r);padding:12px 14px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--teal);margin-bottom:4px">Nodos activos</div>
+          <div style="font-size:24px;font-weight:600;font-family:var(--mono);color:var(--teal)">1</div>
+        </div>
+        <div style="background:var(--g100);border-radius:var(--r);padding:12px 14px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g400);margin-bottom:4px">Activaciones</div>
+          <div style="font-size:24px;font-weight:600;font-family:var(--mono);color:var(--g900)">2</div>
+        </div>
+        <div style="background:var(--g100);border-radius:var(--r);padding:12px 14px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g400);margin-bottom:4px">Prospectos via Nodo</div>
+          <div style="font-size:24px;font-weight:600;font-family:var(--mono);color:var(--g900)">8</div>
+        </div>
+        <div style="background:var(--g100);border-radius:var(--r);padding:12px 14px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g400);margin-bottom:4px">% del total mes</div>
+          <div style="font-size:24px;font-weight:600;font-family:var(--mono);color:var(--g900)">80%</div>
+        </div>
+      </div>
+      <div class="nodo-card" id="nodo-card">
+        <div class="nodo-hdr">
+          <div class="nodo-av">LT</div>
+          <div>
+            <div class="nodo-nm">Luis Torres</div>
+            <div class="nodo-badge">🌐 Nodo activo</div>
+          </div>
+        </div>
+        <div class="nodo-stats">
+          <div><div class="ns-lbl">Activaciones</div><div class="ns-val">2</div></div>
+          <div><div class="ns-lbl">Prospectos dados</div><div class="ns-val">8</div></div>
+          <div><div class="ns-lbl">Desde</div><div class="ns-val" style="font-size:12px">Sem. 2</div></div>
+        </div>
+      </div>
+      <div id="nodo-chart">
+        <div style="font-size:10px;font-weight:600;color:var(--g400);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Evolución de nodos · abril 2026</div>
+        <svg viewBox="0 0 520 120" height="120" style="width:100%;display:block">
+          <line x1="0" y1="20" x2="520" y2="20" stroke="#e8e7e2" stroke-width="1"/>
+          <line x1="0" y1="50" x2="520" y2="50" stroke="#e8e7e2" stroke-width="1"/>
+          <line x1="0" y1="80" x2="520" y2="80" stroke="#e8e7e2" stroke-width="1"/>
+          <line x1="0" y1="108" x2="520" y2="108" stroke="#e8e7e2" stroke-width="1"/>
+          <rect x="38" y="102" width="22" height="6" fill="#B5D4F4" rx="2"/>
+          <rect x="163" y="68" width="22" height="40" fill="#B5D4F4" rx="2"/>
+          <rect x="288" y="98" width="22" height="10" fill="#B5D4F4" rx="2"/>
+          <rect x="413" y="60" width="22" height="48" fill="#B5D4F4" rx="2"/>
+          <polyline points="49,106 174,78 299,78 424,52" fill="none" stroke="#0F6E56" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="49" cy="106" r="4" fill="#0F6E56"/><circle cx="174" cy="78" r="4" fill="#0F6E56"/>
+          <circle cx="299" cy="78" r="4" fill="#0F6E56"/><circle cx="424" cy="52" r="4" fill="#0F6E56"/>
+          <text x="49" y="118" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans,sans-serif">Sem 1</text>
+          <text x="174" y="118" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans,sans-serif">Sem 2</text>
+          <text x="299" y="118" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans,sans-serif">Sem 3</text>
+          <text x="424" y="118" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans,sans-serif">Sem 4</text>
+          <circle cx="12" cy="12" r="4" fill="#0F6E56"/>
+          <text x="20" y="16" font-size="9" fill="#3C3B37" font-family="DM Sans,sans-serif">Nodos acumulados</text>
+          <rect x="140" y="7" width="10" height="8" fill="#B5D4F4" rx="1"/>
+          <text x="154" y="16" font-size="9" fill="#3C3B37" font-family="DM Sans,sans-serif">Prospectos via nodos</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- KPIs del mes -->
+    <div class="card" id="kpi-card">
+      <div class="ctitle">Resumen del mes — Abril 2026</div>
+      <!-- Row 1 -->
+      <div class="mcrow4">
+        <div class="mc mc-nt" id="kpi-prosp">
+          <div class="sem sem-am"></div>
+          <div class="mc-lbl">Prospectos obtenidos ⓘ</div>
+          <div class="mc-val">10</div>
+          <div class="mc-sub">Meta: 15 · 67% cumplido</div>
+          <div class="mc-xp">Total de personas que tus contactos te refirieron este mes.</div>
+        </div>
+        <div class="mc mc-tl" id="kpi-cont">
+          <div class="sem sem-ok"></div>
+          <div class="mc-lbl">Contactos realizados ⓘ</div>
+          <div class="mc-val">17</div>
+          <div class="mc-sub">Meta: 12 (3/sem × 4 sem)</div>
+          <div class="mc-xp">Número de personas que activaste como contacto este mes.</div>
+        </div>
+        <div class="mc mc-am" id="kpi-tasa">
+          <div class="sem sem-am"></div>
+          <div class="mc-lbl">Tasa de reunión ⓘ</div>
+          <div class="mc-val">41%</div>
+          <div class="mc-sub">7 reuniones de 17 contactos · Meta: ≥60%</div>
+          <div class="mc-xp">% de contactos que aceptaron reunirse. Mide tu capacidad de apertura.</div>
+        </div>
+        <div class="mc mc-rd" id="kpi-ef">
+          <div class="sem sem-rd"></div>
+          <div class="mc-lbl">Eficiencia de contactos ⓘ</div>
+          <div class="mc-val">12%</div>
+          <div class="mc-sub">Prospectos reales vs. potencial (85)</div>
+          <div class="mc-xp">¿Cuánto del potencial máximo aprovechas? Meta: ≥80%.</div>
+        </div>
+      </div>
+      <!-- Row 2 -->
+      <div class="mcrow4b">
+        <div class="mc mc-rd" id="kpi-pc">
+          <div class="sem sem-rd"></div>
+          <div class="mc-lbl">Prospectos / contacto ⓘ</div>
+          <div class="mc-val">0.6</div>
+          <div class="mc-sub">Meta: ≥ 4.5 prospectos</div>
+          <div class="mc-xp">Indicador clave de efectividad. Si es bajo, trabajar el guión, la confianza y la imagen ante el contacto.</div>
+        </div>
+        <div class="mc mc-rd" id="kpi-pr">
+          <div class="sem sem-rd"></div>
+          <div class="mc-lbl">Prospectos / reunión ⓘ</div>
+          <div class="mc-val">1.4</div>
+          <div class="mc-sub">7 reuniones · Meta: ≥ 4</div>
+          <div class="mc-xp">Calidad de cada reunión. Al reunirte deberías salir con al menos 4 nombres de referidos calificados.</div>
+        </div>
+        <div class="mc mc-rd" id="kpi-brecha">
+          <div class="sem sem-rd"></div>
+          <div class="mc-lbl">Brecha de prospectos ⓘ</div>
+          <div class="mc-val">75</div>
+          <div class="mc-sub">Prospectos no obtenidos este mes</div>
+          <div class="mc-xp">Cuántos prospectos se perdieron por no llegar a 5 referidos por contacto. Oportunidad no capitalizada.</div>
+        </div>
+        <div class="mc mc-tl" id="kpi-vinculo">
+          <div class="sem sem-ok"></div>
+          <div class="mc-lbl">Vínculo más productivo ⓘ</div>
+          <div class="mc-val" style="font-size:18px;margin-top:3px">Amigo/a</div>
+          <div class="mc-sub">5 prospectos generados</div>
+          <div class="mc-xp">El tipo de relación que más referidos produce. Prioriza tu energía en estos vínculos.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla evolución semanal -->
+    <div class="card" id="ev-table-card">
+      <div class="ctitle">Evolución semanal</div>
+      <div style="overflow-x:auto">
+        <table class="ev-table">
+          <thead>
+            <tr>
+              <th>Semana</th><th>Contactos</th><th>Reuniones</th>
+              <th>Tasa Reunión</th><th>Prospectos</th><th>Potencial</th>
+              <th>Prosp/Cont.</th><th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Semana 1 (2026-04-06)</td>
+              <td>5</td><td>4</td><td>80%</td><td>5</td><td>25</td>
+              <td class="stat-rd">1</td>
+              <td><span class="pill pill-gn">Guardado</span></td>
+            </tr>
+            <tr style="background:#fff8f8">
+              <td>Semana 2 (2026-04-06)</td>
+              <td>0</td><td>0</td><td>0%</td><td>0</td><td>0</td>
+              <td>—</td>
+              <td><span class="pill" style="background:var(--g100);color:var(--g400)">Sin reporte</span></td>
+            </tr>
+            <tr>
+              <td>Semana 3 (2026-04-13)</td>
+              <td>2</td><td>0</td><td>0%</td><td>4</td><td>10</td>
+              <td class="stat-rd">2</td>
+              <td><span class="pill pill-gn">Guardado</span></td>
+            </tr>
+            <tr>
+              <td>Semana 4 (2026-04-20)</td>
+              <td>10</td><td>3</td><td>30%</td><td>1</td><td>50</td>
+              <td class="stat-rd">0.1</td>
+              <td><span class="pill pill-gn">Guardado</span></td>
+            </tr>
+            <tr class="total-row">
+              <td>Total mes</td>
+              <td>17</td><td>7</td><td>41%</td><td>10</td><td>85</td>
+              <td class="stat-rd">0.6</td><td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Evolución de actividad (3 series) -->
+    <div class="card" id="ev-chart">
+      <div class="ctitle">Evolución de actividad</div>
+      <svg viewBox="0 0 520 155" height="155" style="width:100%;display:block;margin-top:8px">
+        <line x1="42" y1="10" x2="490" y2="10" stroke="#e8e7e2" stroke-width="1"/>
+        <line x1="42" y1="36" x2="490" y2="36" stroke="#e8e7e2" stroke-width="1"/>
+        <line x1="42" y1="62" x2="490" y2="62" stroke="#e8e7e2" stroke-width="1"/>
+        <line x1="42" y1="88" x2="490" y2="88" stroke="#e8e7e2" stroke-width="1"/>
+        <line x1="42" y1="114" x2="490" y2="114" stroke="#e8e7e2" stroke-width="1"/>
+        <text x="38" y="14" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">10</text>
+        <text x="38" y="40" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">8</text>
+        <text x="38" y="66" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">6</text>
+        <text x="38" y="92" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">4</text>
+        <text x="38" y="118" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">2</text>
+        <!-- Sem1: contactos=5, reuniones=4, prospectos=5 -->
+        <rect x="52" y="62" width="16" height="52" fill="#B5D4F4" rx="2"/>
+        <rect x="71" y="88" width="16" height="26" fill="none" rx="0"/>
+        <rect x="71" y="75" width="16" height="39" fill="#9FE1CB" rx="2"/>
+        <rect x="90" y="62" width="16" height="52" fill="#003781" rx="2" opacity=".7"/>
+        <!-- Sem2: no data -->
+        <!-- Sem3: contactos=2, reuniones=0, prospectos=4 -->
+        <rect x="190" y="101" width="16" height="13" fill="#B5D4F4" rx="2"/>
+        <rect x="228" y="88" width="16" height="26" fill="#003781" rx="2" opacity=".7"/>
+        <!-- Sem4: contactos=10, reuniones=3, prospectos=1 -->
+        <rect x="328" y="10" width="16" height="104" fill="#B5D4F4" rx="2"/>
+        <rect x="347" y="88" width="16" height="26" fill="#9FE1CB" rx="2"/>
+        <rect x="366" y="107" width="16" height="7" fill="#003781" rx="2" opacity=".7"/>
+        <!-- Axis labels -->
+        <text x="80" y="128" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans">Sem. 1</text>
+        <text x="200" y="128" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans">Sem. 2</text>
+        <text x="340" y="128" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans">Sem. 3</text>
+        <text x="460" y="128" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans">Sem. 4</text>
+        <!-- Legend -->
+        <rect x="44" y="137" width="10" height="7" fill="#B5D4F4" rx="1"/>
+        <text x="57" y="143" font-size="9" fill="#3C3B37" font-family="DM Sans">Contactos</text>
+        <rect x="120" y="137" width="10" height="7" fill="#9FE1CB" rx="1"/>
+        <text x="133" y="143" font-size="9" fill="#3C3B37" font-family="DM Sans">Reuniones</text>
+        <rect x="196" y="137" width="10" height="7" fill="#003781" rx="1" opacity=".7"/>
+        <text x="209" y="143" font-size="9" fill="#3C3B37" font-family="DM Sans">Prospectos</text>
+      </svg>
+    </div>
+
+    <!-- Potencial vs Real acumulado -->
+    <div class="card" id="pot-chart">
+      <div class="ctitle">Potencial vs. Real acumulado</div>
+      <svg viewBox="0 0 520 150" height="150" style="width:100%;display:block;margin-top:8px">
+        <line x1="42" y1="10" x2="490" y2="10" stroke="#e8e7e2" stroke-width="1"/>
+        <line x1="42" y1="40" x2="490" y2="40" stroke="#e8e7e2" stroke-width="1"/>
+        <line x1="42" y1="70" x2="490" y2="70" stroke="#e8e7e2" stroke-width="1"/>
+        <line x1="42" y1="100" x2="490" y2="100" stroke="#e8e7e2" stroke-width="1"/>
+        <line x1="42" y1="124" x2="490" y2="124" stroke="#e8e7e2" stroke-width="1"/>
+        <text x="38" y="14" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">90</text>
+        <text x="38" y="44" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">70</text>
+        <text x="38" y="74" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">50</text>
+        <text x="38" y="104" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">30</text>
+        <text x="38" y="127" text-anchor="end" font-size="9" fill="#9e9d97" font-family="DM Mono">10</text>
+        <!-- Potencial acumulado (25, 25, 35, 85) — dotted gray -->
+        <polyline points="90,116.7 210,116.7 330,103.3 450,13.3" fill="none" stroke="#9E9D97" stroke-width="2" stroke-dasharray="5,4"/>
+        <!-- Real acumulado (5, 5, 9, 10) — solid blue -->
+        <polyline points="90,124.4 210,124.4 330,121.3 450,120" fill="none" stroke="#003781" stroke-width="2.5" stroke-linecap="round"/>
+        <polygon points="90,124.4 210,124.4 330,121.3 450,120 450,126 90,126" fill="#003781" fill-opacity=".07"/>
+        <circle cx="90" cy="124.4" r="3.5" fill="#003781"/>
+        <circle cx="210" cy="124.4" r="3.5" fill="#003781"/>
+        <circle cx="330" cy="121.3" r="3.5" fill="#003781"/>
+        <circle cx="450" cy="120" r="3.5" fill="#003781"/>
+        <text x="90" y="138" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans">Sem. 1</text>
+        <text x="210" y="138" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans">Sem. 2</text>
+        <text x="330" y="138" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans">Sem. 3</text>
+        <text x="450" y="138" text-anchor="middle" font-size="10" fill="#9e9d97" font-family="DM Sans">Sem. 4</text>
+        <!-- Legend -->
+        <line x1="44" y1="147" x2="58" y2="147" stroke="#9E9D97" stroke-width="2" stroke-dasharray="4,3"/>
+        <text x="62" y="150" font-size="9" fill="#3C3B37" font-family="DM Sans">Potencial acumulado</text>
+        <line x1="165" y1="147" x2="179" y2="147" stroke="#003781" stroke-width="2.5"/>
+        <text x="183" y="150" font-size="9" fill="#3C3B37" font-family="DM Sans">Real acumulado</text>
+      </svg>
+    </div>
+
+    <!-- Productividad por tipo de vínculo -->
+    <div class="card" id="vinculo-card">
+      <div class="ctitle">Productividad por tipo de vínculo</div>
+      <div style="font-size:12px;color:var(--g400);margin-bottom:10px">Prospectos generados según el tipo de relación con el contacto. Identifica dónde concentrar el esfuerzo.</div>
+      <div class="vinc-grid">
+        <div class="vinc-card best">
+          <div class="vinc-lbl">Amigo/a</div>
+          <div class="vinc-val">5</div>
+          <div class="vinc-sub">prospectos</div>
+        </div>
+        <div class="vinc-card">
+          <div class="vinc-lbl">Familiar</div>
+          <div class="vinc-val" style="color:var(--g400)">0</div>
+          <div class="vinc-sub">prospectos</div>
+        </div>
+        <div class="vinc-card">
+          <div class="vinc-lbl">Cliente</div>
+          <div class="vinc-val" style="color:var(--g400)">0</div>
+          <div class="vinc-sub">prospectos</div>
+        </div>
+        <div class="vinc-card">
+          <div class="vinc-lbl">Conocido/a</div>
+          <div class="vinc-val">5</div>
+          <div class="vinc-sub">prospectos</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ END ═══ -->
+<div class="scene centered" id="scene-end">
+  <div class="end-card" style="background:white;">
+    <div style="font-size:52px;margin-bottom:14px">🎉</div>
+    <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);margin-bottom:9px">Tutorial completado</div>
+    <h2 style="font-size:22px;font-weight:600;color:var(--g900);margin-bottom:12px;line-height:1.2">¡Ya sabes usar Proxis!</h2>
+    <p style="font-size:13px;color:var(--g700);line-height:1.7;margin-bottom:22px">Recuerda los tres momentos: <strong>registra</strong> tus contactos en la Bitácora, deja que el sistema <strong>detecte</strong> tus Nodos automáticamente, y revisa <strong>Mi Informe</strong> para entender tu evolución.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:22px;font-size:12px">
+      <div style="background:var(--teal-lt);border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;margin-bottom:4px">📋</div><div style="font-weight:600;color:var(--teal)">Bitácora</div><div style="color:var(--g400);font-size:11px">Cada semana</div></div>
+      <div style="background:var(--blue-lt);border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;margin-bottom:4px">🌐</div><div style="font-weight:600;color:var(--blue)">Nodos</div><div style="color:var(--g400);font-size:11px">Automático</div></div>
+      <div style="background:var(--g100);border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;margin-bottom:4px">📊</div><div style="font-weight:600;color:var(--g700)">Mi Informe</div><div style="color:var(--g400);font-size:11px">Siempre visible</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+      <a href="proxis_intro.html" class="btn btn-lg" style="background:#cbf135;color:#0b0a09;font-weight:800;width:100%;justify-content:center;text-decoration:none;">
+        Ir a Proxis →
+      </a>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" style="flex:1;justify-content:center;background:#f0eeeb;border:1px solid #E8E7E2;color:#3C3B37;font-size:13px;" onclick="goToStep(0)">↩ Ver de nuevo</button>
+        <a href="proxis_intro.html" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:10px;background:#f0eeeb;border:1px solid #E8E7E2;color:#3C3B37;font-size:13px;font-weight:600;text-decoration:none;">← Inicio</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- #stage -->
+
+<div id="spotlight"></div>
+
+<div id="guide">
+  <div id="g-progress"><div id="g-fill"></div></div>
+  <div id="g-body">
+    <div id="g-icon"></div>
+    <div id="g-text">
+      <div id="g-step"></div>
+      <div id="g-title"></div>
+      <div id="g-desc"></div>
+    </div>
+    <div id="g-nav">
+      <button class="nbtn nbtn-prev" id="btn-prev" onclick="prevStep()">← Anterior</button>
+      <button class="nbtn nbtn-next" id="btn-next" onclick="nextStep()">Siguiente →</button>
+    </div>
+  </div>
+  <div id="g-hint">
+    <span>usa ← → o Espacio para navegar</span>
+    <a href="https://theprecisionselling.com/" target="_blank" style="display:flex;align-items:center;">
+      <img src="tps-logo.png" alt="The Precision Selling" style="height:80px;width:160px;object-fit:contain;display:block;">
+    </a>
+  </div>
+</div>
+
+</div><!-- #tut-wrap -->
+
+<script>
+const STEPS=[
+  {scene:'scene-intro',icon:'👋',title:'Bienvenida al tutorial interactivo',
+   desc:'Te guiaremos por la plataforma TPS paso a paso. Usa los botones o las teclas ← → para avanzar a tu propio ritmo.',h:null},
+
+  {scene:'scene-login',icon:'🔐',title:'Paso 1 — Selecciona tu nombre',
+   desc:'En la pantalla de ingreso, elige tu nombre del menú desplegable. Cada asesor tiene su propia cuenta con acceso individual.',h:'#l-name'},
+
+  {scene:'scene-login',icon:'🔑',title:'Tu clave personal',
+   desc:'Ingresa tu clave personal. Es única para cada asesor. Si no la recuerdas, pídela a tu supervisora.',h:'#l-pass'},
+
+  {scene:'scene-login',icon:'✅',title:'Ingresar al sistema',
+   desc:'Haz clic en "Entrar" y accederás directamente a tu módulo de actividad. Haz clic en el botón para continuar el tutorial.',h:'#l-btn'},
+
+  {scene:'scene-bitacora',icon:'📋',title:'Bitácora Semanal — tu espacio de trabajo',
+   desc:'Aquí registras tus contactos semana a semana. Esta pestaña es tu herramienta principal: cada registro alimenta tus indicadores automáticamente.',
+   h:'#stab-bitacora',enter:()=>{document.getElementById('nodo-modal').classList.remove('open')}},
+
+  {scene:'scene-bitacora',icon:'📅',title:'La semana activa',
+   desc:'Siempre verás la semana en curso con su fecha de inicio. Las semanas anteriores se cierran automáticamente cuando se inicia la semana cada lunes — tu historial queda protegido.',
+   h:'#week-hdr',enter:()=>{document.getElementById('nodo-modal').classList.remove('open')}},
+
+  {scene:'scene-bitacora',icon:'👤',title:'Registra tus contactos',
+   desc:'Cada fila es una persona contactada esta semana. Los encabezados son: #, Nombre, Vínculo (tipo de relación), Llamó, Reunión y Prospectos.',
+   h:'#contacts-card',enter:()=>{document.getElementById('nodo-modal').classList.remove('open')}},
+
+  {scene:'scene-bitacora',icon:'✍️',title:'Carlos Medina — contacto nuevo',
+   desc:'Contacto nuevo que dio 3 prospectos esta semana. Logró llamarlo (✓) y tener una reunión (✓). El sistema lo identifica como primer registro de esta persona.',
+   h:'#cr1',enter:()=>{document.getElementById('nodo-modal').classList.remove('open')}},
+
+  {scene:'scene-bitacora',icon:'📞',title:'"Llamó" — registra el primer contacto',
+   desc:'Marca si lograste hablar con esa persona. Esta columna mide tu alcance inicial y alimenta la Tasa de Contacto en Mi Informe.',
+   h:'#cr1-call',enter:()=>{document.getElementById('nodo-modal').classList.remove('open')}},
+
+  {scene:'scene-bitacora',icon:'👥',title:'Prospectos dados — el número clave',
+   desc:'¿Cuántas personas te refirió este contacto? Este número es el motor de tu resultado mensual. Más profundidad en la conversación = más prospectos.',
+   h:'#cr1-prosp',enter:()=>{document.getElementById('nodo-modal').classList.remove('open')}},
+
+  {scene:'scene-bitacora',icon:'🔄',title:'Luis Torres — vuelve a referirte',
+   desc:'Luis Torres ya apareció en la Semana 2. Al volver a darte prospectos esta semana, el sistema detecta que es un contacto especial. El sistema lo incluye como "Reactivación".',
+   h:'#cr3',enter:()=>{document.getElementById('nodo-modal').classList.remove('open')}},
+
+  {scene:'scene-bitacora',icon:'💾',title:'Guardar Reporte',
+   desc:'Al hacer clic en "Guardar Reporte", el sistema analiza automáticamente si algún contacto ya refirió antes. Si lo detecta, ¡celebra el momento! Haz clic para ver qué pasa.',
+   h:'#save-btn',enter:()=>{document.getElementById('nodo-modal').classList.remove('open')}},
+
+  {scene:'scene-bitacora',icon:'🌐',title:'¡Nodo Detectado! — reconocimiento automático',
+   desc:'Este aviso aparece al guardar. El sistema reconoció a Luis Torres como Nodo Relacional porque es la segunda vez que te da prospectos.',
+   h:'#nm-content',enter:()=>{document.getElementById('nodo-modal').classList.add('open')}},
+
+  {scene:'scene-bitacora',icon:'💡',title:'¿Qué es un Nodo Relacional?',
+   desc:'Un Nodo es un contacto de confianza que vuelve a referirte prospectos más de una vez, probablemente porque entiende mejor tu trabajo y ha desarrollado mayor confianza en tu profesionalismo. Son los más valiosos de tu red porque pueden referir prospectos de mayor calidad sin que tengas que pedirlo cada vez.',
+   h:'#nm-explanation',enter:()=>{document.getElementById('nodo-modal').classList.add('open')}},
+
+  {scene:'scene-informe',icon:'📊',title:'Mi Informe — el resumen del mes',
+   desc:'Aquí ves todos tus indicadores acumulados del mes, calculados automáticamente desde tus bitácoras semanales. Nada que calcular a mano.',
+   h:null,enter:()=>{}},
+
+  {scene:'scene-informe',icon:'★',title:'★ Nodos activos — al tope del informe',
+   desc:'Esta sección aparece primero porque los Nodos son tu activo más valioso. Verás cuántos tienes, cuántas veces activaron y cuántos prospectos generaron.',h:'#nodos-section'},
+
+  {scene:'scene-informe',icon:'🃏',title:'La tarjeta de cada Nodo',
+   desc:'Cada Nodo tiene su tarjeta: nombre, activaciones y prospectos totales. Verás su historial crecer mes a mes.',h:'#nodo-card'},
+
+  {scene:'scene-informe',icon:'📈',title:'Evolución de Nodos — el gráfico',
+   desc:'La línea verde muestra nodos acumulados semana a semana. Las barras azules muestran prospectos desde nodos. Cuando ambas suben, tu red está creciendo sola.',h:'#nodo-chart'},
+
+  {scene:'scene-informe',icon:'🎯',title:'Prospectos obtenidos — el resultado central',
+   desc:'Total de personas que tus contactos te refirieron este mes. El semáforo en la esquina te da la señal rápida. La meta la defines con tu supervisora, alineada con indicadores internacionales de efectividad.',h:'#kpi-prosp'},
+
+  {scene:'scene-informe',icon:'👤',title:'Contactos realizados',
+   desc:'Cuántas personas activaste como contactos este mes. Cada contacto debería darte un mínimo de 5 prospectos si el vínculo es fuerte y la conversación transmite los valores esenciales de tu servicio profesional.',h:'#kpi-cont'},
+
+  {scene:'scene-informe',icon:'🤝',title:'Tasa de reunión',
+   desc:'¿Qué porcentaje de tus contactos aceptó reunirse contigo? Una tasa sobre 60% es señal de buena gestión de relaciones y capacidad de apertura.',h:'#kpi-tasa'},
+
+  {scene:'scene-informe',icon:'⚡',title:'Eficiencia de contactos',
+   desc:'¿Qué tan bien aprovechas cada contacto? Si cada uno diera 5 prospectos la eficiencia sería 100%. Meta recomendada: ≥80%. Mide la profundidad de tus conversaciones.',h:'#kpi-ef'},
+
+  {scene:'scene-informe',icon:'📐',title:'Prospectos / contacto',
+   desc:'Cuántos prospectos obtuviste en promedio por cada contacto. Meta: ≥ 4.5. Si es bajo, trabajar el guión de solicitud, la confianza y la imagen personal ante el contacto.',h:'#kpi-pc'},
+
+  {scene:'scene-informe',icon:'🗣️',title:'Prospectos / reunión',
+   desc:'Calidad de cada reunión. Al reunirte deberías salir siempre con al menos 4 nombres de referidos calificados. Meta: ≥ 4.',h:'#kpi-pr'},
+
+  {scene:'scene-informe',icon:'⚠️',title:'Brecha de prospectos',
+   desc:'Cuántos prospectos no obtuviste respecto al potencial máximo. No es para castigarse: es para enfocar el trabajo. Cada brecha es una oportunidad específica.',h:'#kpi-brecha'},
+
+  {scene:'scene-informe',icon:'🔗',title:'Vínculo más productivo',
+   desc:'El tipo de relación que más prospectos está generando este mes. Úsalo para priorizar a quién contactar: si Amigo/a rinde más, intensifica ese grupo en las próximas semanas.',h:'#kpi-vinculo'},
+
+  {scene:'scene-informe',icon:'📋',title:'Tabla de evolución semanal',
+   desc:'Vista detallada semana a semana de todos tus indicadores. Verás de un vistazo qué semanas tuvieron alta actividad y cuáles quedaron sin reporte o con bajos resultados.',h:'#ev-table-card'},
+
+  {scene:'scene-informe',icon:'📊',title:'Evolución de actividad — gráfico de barras',
+   desc:'Tres barras por semana: contactos (azul claro), reuniones (verde) y prospectos (azul oscuro). De un vistazo verás cómo cada variable varía y dónde está el cuello de botella.',h:'#ev-chart'},
+
+  {scene:'scene-informe',icon:'📉',title:'Potencial vs. Real acumulado',
+   desc:'La línea punteada gris es el potencial máximo acumulado (5 prospectos × contactos). La línea azul sólida es tu real acumulado. Cuanto más se separan, mayor es la brecha de oportunidad.',h:'#pot-chart'},
+
+  {scene:'scene-informe',icon:'🔗',title:'Productividad por tipo de vínculo',
+   desc:'¿Qué tipo de relación te genera más prospectos? Amigo/a, familiar, cliente o conocido/a. Identifica el vínculo que más te rinde y concéntrate ahí en las próximas semanas.',h:'#vinculo-card'},
+
+  {scene:'scene-end',icon:'🎉',title:'¡Tutorial completado!',
+   desc:'Ya conoces las funciones clave de TPS. Ingresa a la plataforma real y comienza a registrar tu actividad semanal.',h:null,isEnd:true},
+];
+
+let cur=0,prevScene=null;
+
+function goToStep(n){
+  n=Math.max(0,Math.min(n,STEPS.length-1));
+  const step=STEPS[n]; cur=n;
+  if(!prevScene||step.scene!==prevScene){
+    document.querySelectorAll('.scene').forEach(s=>s.classList.remove('active'));
+    document.getElementById(step.scene).classList.add('active');
+    document.getElementById('stage').scrollTop=0;
+    prevScene=step.scene;
+  }
+  if(step.enter) setTimeout(step.enter,60);
+  document.getElementById('g-icon').textContent=step.icon;
+  document.getElementById('g-step').textContent='Paso '+(cur+1)+' de '+STEPS.length;
+  document.getElementById('g-title').textContent=step.title;
+  document.getElementById('g-desc').textContent=step.desc;
+  document.getElementById('g-fill').style.width=((cur+1)/STEPS.length*100)+'%';
+  document.getElementById('btn-prev').disabled=cur===0;
+  const nb=document.getElementById('btn-next');
+  if(step.isEnd){nb.textContent='↩ Repetir';nb.onclick=()=>goToStep(0);}
+  else{nb.textContent=cur===STEPS.length-2?'¡Finalizar! →':'Siguiente →';nb.onclick=nextStep;}
+  setTimeout(()=>updateSpotlight(step.h),80);
+}
+
+function updateSpotlight(sel){
+  const sp=document.getElementById('spotlight');
+  if(!sel){sp.style.display='none';return;}
+  const el=document.querySelector(sel);
+  if(!el){sp.style.display='none';return;}
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>{
+    const r=el.getBoundingClientRect(),p=8;
+    sp.style.display='block';
+    sp.style.top=(r.top-p)+'px';sp.style.left=(r.left-p)+'px';
+    sp.style.width=(r.width+p*2)+'px';sp.style.height=(r.height+p*2)+'px';
+    sp.style.animation='spulse 2s ease-in-out infinite';
+  },420);
+}
+function nextStep(){if(cur<STEPS.length-1)goToStep(cur+1);}
+function prevStep(){if(cur>0)goToStep(cur-1);}
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();nextStep();}
+  if(e.key==='ArrowLeft'){e.preventDefault();prevStep();}
+});
+document.getElementById('stage').addEventListener('scroll',()=>{
+  if(STEPS[cur]?.h)setTimeout(()=>updateSpotlight(STEPS[cur].h),50);
+});
+window.addEventListener('resize',()=>{if(STEPS[cur]?.h)updateSpotlight(STEPS[cur].h);});
+goToStep(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxis · Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --lime:    #cbf135;
+  --lime-dk: #a8cc1a;
+  --black:   #0b0a09;
+  --gray-1:  #1a1916;
+  --gray-2:  #4a4844;
+  --gray-3:  #8a8885;
+  --gray-4:  #c8c6c3;
+  --gray-5:  #e8e6e3;
+  --white:   #ffffff;
+  --teal:    #1f6f56;
+  --teal-lt: #e6f3ed;
+  --red:     #b03a3a;
+  --red-lt:  #fbe9e9;
+  --amber:   #a8691a;
+  --amber-lt:#f8ecd6;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: #f5f3ef;
+  color: var(--black);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--black);
+  padding: 0 28px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 1px 0 0 var(--lime-dk);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.logo-wordmark {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--white);
+  letter-spacing: -0.04em;
+}
+.logo-wordmark span { color: var(--lime); }
+.header-div {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,0.12);
+}
+.header-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lime-dk);
+}
+.header-env {
+  margin-left: 4px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.header-env.dev  { background: rgba(168,204,26,0.15); color: var(--lime-dk); border: 1px solid rgba(168,204,26,0.3); }
+.header-env.prod { background: rgba(176,58,58,0.15);  color: #e07070;        border: 1px solid rgba(176,58,58,0.3);  }
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-user {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+}
+.header-user strong { color: rgba(255,255,255,0.85); font-weight: 600; }
+.btn-logout {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.7);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-logout:hover { background: rgba(255,255,255,0.14); color: white; }
+
+/* ── MAIN ── */
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 28px;
+}
+.page-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--black);
+  margin-bottom: 4px;
+}
+.page-sub {
+  font-size: 13px;
+  color: var(--gray-2);
+  margin-bottom: 36px;
+}
+
+/* ── STATUS BANNER ── */
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  border: 1px solid #e8e6e3;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 32px;
+  font-size: 13px;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.ok     { background: var(--teal); box-shadow: 0 0 0 3px rgba(31,111,86,0.15); }
+.status-dot.error  { background: var(--red);  box-shadow: 0 0 0 3px rgba(176,58,58,0.15); }
+.status-dot.loading{ background: var(--amber);box-shadow: 0 0 0 3px rgba(168,105,26,0.15); animation: pulse 1.2s infinite; }
+.status-text { color: var(--gray-2); }
+.status-text strong { color: var(--black); font-weight: 600; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── NAV GRID ── */
+.nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+.nav-card {
+  background: white;
+  border: 1px solid #e8e6e3;
+  border-radius: 14px;
+  padding: 24px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.18s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  cursor: pointer;
+}
+.nav-card:hover {
+  border-color: var(--black);
+  box-shadow: 0 8px 24px rgba(11,10,9,0.08);
+  transform: translateY(-2px);
+}
+.nav-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f5f3ef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.nav-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--black);
+}
+.nav-card-desc {
+  font-size: 12px;
+  color: var(--gray-3);
+  line-height: 1.5;
+}
+.nav-card-badge {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-3);
+  padding-top: 12px;
+  border-top: 1px solid #f0ede8;
+}
+
+/* ── INFO GRID ── */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.info-card {
+  background: white;
+  border: 1px solid #e8e6e3;
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+.info-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray-3);
+  margin-bottom: 8px;
+}
+.info-value {
+  font-size: 13px;
+  color: var(--black);
+  font-weight: 500;
+  word-break: break-all;
+}
+.info-value.mono { font-family: 'DM Mono', monospace; font-size: 11px; }
+
+@media (max-width: 640px) {
+  .info-grid { grid-template-columns: 1fr; }
+  .nav-grid  { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a href="../index.html" class="logo">
+    <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/>
+      <circle cx="6" cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="26" cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="6" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <line x1="8.6"  y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="8.6"  y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      <line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+    <span class="logo-wordmark">Pro<span>xis</span></span>
+  </a>
+  <div class="header-div"></div>
+  <span class="header-tag">Admin</span>
+  <span class="header-env" id="envBadge">···</span>
+  <div class="header-right">
+    <span class="header-user">Sesión: <strong id="adminName">—</strong></span>
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</header>
+
+<main class="main">
+  <h1 class="page-title">Panel de administración</h1>
+  <p class="page-sub">Gestiona prompts, triggers, mensajes y base de conocimiento del sistema IA.</p>
+
+  <div class="status-banner" id="statusBanner">
+    <div class="status-dot loading" id="statusDot"></div>
+    <span class="status-text" id="statusText">Verificando conexión con Supabase…</span>
+  </div>
+
+  <div class="nav-grid">
+    <a class="nav-card" href="prompts.html">
+      <div class="nav-card-icon">✍️</div>
+      <div class="nav-card-title">Prompts</div>
+      <div class="nav-card-desc">Edita y versiona las plantillas de mensajes para cada trigger. Previsualiza el resultado con asesores reales antes de activar.</div>
+      <div class="nav-card-badge">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><path d="M5 3v2l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Bloque 4
+      </div>
+    </a>
+
+    <a class="nav-card" href="triggers.html">
+      <div class="nav-card-icon">⚡</div>
+      <div class="nav-card-title">Triggers</div>
+      <div class="nav-card-desc">Configura umbrales, cooldowns y estado activo/inactivo de cada trigger de automatización.</div>
+      <div class="nav-card-badge">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><path d="M5 3v2l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Bloque 5
+      </div>
+    </a>
+
+    <a class="nav-card" href="review.html">
+      <div class="nav-card-icon">🔍</div>
+      <div class="nav-card-title">Revisión de mensajes</div>
+      <div class="nav-card-desc">Audita los mensajes enviados. Marca con 👍/👎 y reescribe los que necesiten corrección para mejorar el modelo.</div>
+      <div class="nav-card-badge">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><path d="M5 3v2l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Bloque 6
+      </div>
+    </a>
+
+    <a class="nav-card" href="knowledge.html">
+      <div class="nav-card-icon">🧠</div>
+      <div class="nav-card-title">Base de conocimiento</div>
+      <div class="nav-card-desc">Carga fichas de perfiles conductuales, técnicas de intervención y bibliografía para enriquecer el contexto de los prompts.</div>
+      <div class="nav-card-badge">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><path d="M5 3v2l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Bloque 9
+      </div>
+    </a>
+
+    <a class="nav-card" href="analytics.html">
+      <div class="nav-card-icon">📊</div>
+      <div class="nav-card-title">Analytics</div>
+      <div class="nav-card-desc">Tasa de apertura por trigger, feedback positivo/negativo, asesores con más mensajes sin leer e impacto observable.</div>
+      <div class="nav-card-badge">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.2"/><path d="M5 3v2l1.5 1.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Bloque 10
+      </div>
+    </a>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-label">Ambiente activo</div>
+      <div class="info-value" id="infoEnv">—</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Supabase URL</div>
+      <div class="info-value mono" id="infoUrl">—</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Gemini API</div>
+      <div class="info-value" id="infoGemini">—</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Resend API</div>
+      <div class="info-value" id="infoResend">—</div>
+    </div>
+  </div>
+</main>
+
+<script>
+/* ── AUTH ── */
+const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
+if (G.role !== 'admin') { window.location.href = '../proxis_login.html'; }
+document.getElementById('adminName').textContent = G.name || '—';
+
+/* ── AMBIENTE ── */
+const IS_DEV = window.location.hostname === 'localhost' ||
+               window.location.hostname === '127.0.0.1' ||
+               window.location.hostname.includes('proxis-dev');
+
+const SB_URL_PROD = 'https://uolmsxoudvkopscxbvij.supabase.co';
+const SB_KEY_PROD = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvbG1zeG91ZHZrb3BzY3hidmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4Mzc2NjcsImV4cCI6MjA5MjQxMzY2N30.as4hUh_FEE4Qsj9mv5hUljvVW-wfxysqfWy5a9qFFI8';
+
+const SB_URL_DEV  = 'https://mkqgbmwmvypcjzlxidsm.supabase.co';
+const SB_KEY_DEV  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1rcWdibXdtdnlwY2p6bHhpZHNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0ODU1OTgsImV4cCI6MjA5NTA2MTU5OH0.odPm8YC7Jb2dzY7GmGQThg2rPNyd6yNkCOqye7W-l_4';
+
+const SB_URL = IS_DEV ? SB_URL_DEV  : SB_URL_PROD;
+const SB_KEY = IS_DEV ? SB_KEY_DEV  : SB_KEY_PROD;
+
+const GEMINI_KEY = '';  // pegar aquí cuando esté disponible
+const RESEND_KEY = '';  // pegar aquí cuando esté disponible
+
+/* ── UI: ambiente ── */
+const envBadge = document.getElementById('envBadge');
+envBadge.textContent = IS_DEV ? 'DEV' : 'PROD';
+envBadge.className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
+document.getElementById('infoEnv').textContent    = IS_DEV ? 'proxis-dev (pruebas)' : 'producción';
+document.getElementById('infoUrl').textContent    = SB_URL;
+document.getElementById('infoGemini').textContent = GEMINI_KEY ? '✓ Configurada' : '⚠ Pendiente';
+document.getElementById('infoResend').textContent = RESEND_KEY ? '✓ Configurada' : '⚠ Pendiente';
+
+/* ── CONEXIÓN SUPABASE ── */
+async function checkConnection() {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/trigger_config?limit=1`, {
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
+    });
+    if (r.ok) {
+      document.getElementById('statusDot').className  = 'status-dot ok';
+      document.getElementById('statusText').innerHTML =
+        `<strong>Supabase conectado</strong> — ${IS_DEV ? 'proxis-dev' : 'producción'} responde correctamente.`;
+    } else {
+      throw new Error(`HTTP ${r.status}`);
+    }
+  } catch (e) {
+    document.getElementById('statusDot').className  = 'status-dot error';
+    document.getElementById('statusText').innerHTML =
+      `<strong>Error de conexión</strong> — ${e.message}. Verifica la URL y la key de Supabase.`;
+  }
+}
+
+checkConnection();
+
+/* ── LOGOUT ── */
+function logout() {
+  localStorage.removeItem('proxis_user');
+  window.location.href = '../proxis_login.html';
+}
+</script>
+</body>
+</html>
