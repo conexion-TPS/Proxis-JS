@@ -155,7 +155,7 @@ async function callGemini(prompt: string): Promise<string> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 500, temperature: 0.7 }
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.7 }
       })
     }
   )
@@ -178,7 +178,7 @@ async function sendEmail(asesor: string, asunto: string, cuerpo: string): Promis
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from:    'Proxis <proxis@theprecisionselling.com>',
+      from:    'Proxis Coach <proxis@theprecisionselling.com>',
       to:      emailArr[0].email,
       subject: asunto,
       text:    cuerpo
@@ -201,6 +201,19 @@ async function cooldownOk(asesor: string, triggerId: string, days: number): Prom
     .gte('created_at', since)
     .limit(1)
   return !data?.length
+}
+
+/* ── Subject por trigger ────────────────────────────────────── */
+
+function subjectForTrigger(triggerId: string): string {
+  const map: Record<string, string> = {
+    'semana-sin-reporte-alerta': 'Tu actividad semanal necesita atención',
+    'bajo-meta-miercoles':       'Chequeo de mitad de semana — tu coach Proxis',
+    'persistencia-umbral':       'Hay algo que quiero conversar contigo',
+    'meta-superada':             '¡Vas muy bien este mes!',
+    'primer-lunes-mes':          'Arrancamos un nuevo mes — tu coach Proxis',
+  }
+  return map[triggerId] || 'Mensaje de tu coach Proxis'
 }
 
 /* ── Handler principal ──────────────────────────────────────── */
@@ -256,7 +269,7 @@ Deno.serve(async (_req: Request) => {
           prompt_version: prompts[0].version
         })
 
-        await sendEmail(asesor, 'Mensaje de tu coach Proxis', body)
+        await sendEmail(asesor, subjectForTrigger(tid), body)
 
         item.status = 'sent'
       } catch (e: any) {

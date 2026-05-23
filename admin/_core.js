@@ -190,7 +190,7 @@ function compileTemplate(plantilla, ctx) {
 }
 
 /* ── CALL GEMINI ──────────────────────────────────────────── */
-async function callGemini(prompt, maxTokens = 500) {
+async function callGemini(prompt, maxTokens = 1000) {
   if (!GEMINI_KEY) throw new Error('GEMINI_KEY no configurada.');
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
@@ -222,9 +222,9 @@ async function sendEmail(asesor, asunto, mensaje) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from: 'Proxis <proxis@theprecisionselling.com>',
+      from: 'Proxis Coach <proxis@theprecisionselling.com>',
       to,
-      subject: asunto || 'Mensaje de tu coach Proxis',
+      subject: asunto || 'Tu coach Proxis tiene algo para ti',
       text: mensaje
     })
   });
