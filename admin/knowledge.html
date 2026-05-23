@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proxis Admin — Base de Conocimiento</title>
+<script src="_core.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+/* ── Header ── */
+.hdr{display:flex;align-items:center;gap:16px;padding:20px 32px;border-bottom:1px solid rgba(255,255,255,0.07)}
+.hdr-back{display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.5);cursor:pointer;transition:color .2s}
+.hdr-back:hover{color:#cbf135}
+.hdr-logo{font-weight:800;font-size:18px;letter-spacing:-0.04em}
+.hdr-logo span{color:#cbf135}
+.hdr-title{font-size:14px;color:rgba(255,255,255,0.5);margin-left:4px}
+.hdr-badge{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:.05em}
+.badge-dev{background:rgba(203,241,53,0.15);color:#cbf135;border:1px solid rgba(203,241,53,0.3)}
+.badge-prod{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3)}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;align-items:center;gap:12px;padding:20px 32px}
+.toolbar-search{flex:1;max-width:320px;position:relative}
+.toolbar-search input{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px 9px 36px;color:#e8e6e3;font-size:13px;outline:none;transition:border-color .2s}
+.toolbar-search input:focus{border-color:rgba(203,241,53,0.4)}
+.toolbar-search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.4}
+.filter-chips{display:flex;gap:6px}
+.chip{font-size:12px;padding:5px 12px;border-radius:99px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:rgba(255,255,255,0.5);cursor:pointer;transition:all .2s}
+.chip.active,.chip:hover{border-color:#cbf135;color:#cbf135;background:rgba(203,241,53,0.08)}
+.chip-d.active,.chip-d:hover{border-color:#f97316;color:#f97316;background:rgba(249,115,22,0.1)}
+.chip-r.active,.chip-r:hover{border-color:#60a5fa;color:#60a5fa;background:rgba(96,165,250,0.1)}
+.chip-s.active,.chip-s:hover{border-color:#34d399;color:#34d399;background:rgba(52,211,153,0.1)}
+.btn-new{margin-left:auto;display:flex;align-items:center;gap:6px;background:#cbf135;color:#0b0a09;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s}
+.btn-new:hover{opacity:.88}
+.btn-embed-all{display:flex;align-items:center;gap:6px;background:rgba(203,241,53,0.1);color:#cbf135;border:1px solid rgba(203,241,53,0.25);border-radius:8px;padding:9px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-embed-all:hover{background:rgba(203,241,53,0.18)}
+.btn-embed-all:disabled{opacity:.4;cursor:default}
+
+/* ── Grid de cards ── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;padding:0 32px 40px}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px;transition:border-color .2s;position:relative}
+.card:hover{border-color:rgba(255,255,255,0.16)}
+.card-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.perfil-badge{flex-shrink:0;font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px;letter-spacing:.06em}
+.pb-d{background:rgba(249,115,22,0.15);color:#f97316;border:1px solid rgba(249,115,22,0.3)}
+.pb-r{background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.3)}
+.pb-s{background:rgba(52,211,153,0.15);color:#34d399;border:1px solid rgba(52,211,153,0.3)}
+.pb-gen{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.12)}
+.card-title{font-size:14px;font-weight:600;line-height:1.4;flex:1}
+.card-body{font-size:13px;color:rgba(255,255,255,0.55);line-height:1.6;margin-bottom:14px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tag{font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.5)}
+.emb-dot{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.3)}
+.emb-dot.ok{color:#34d399}
+.emb-dot.ok::before,.emb-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.card-actions{position:absolute;top:14px;right:14px;display:flex;gap:6px;opacity:0;transition:opacity .2s}
+.card:hover .card-actions{opacity:1}
+.act-btn{width:28px;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.act-btn:hover{border-color:rgba(203,241,53,0.4);color:#cbf135;background:rgba(203,241,53,0.08)}
+.act-btn.del:hover{border-color:rgba(239,68,68,0.4);color:#ef4444;background:rgba(239,68,68,0.08)}
+.act-btn.emb:hover{border-color:rgba(52,211,153,0.4);color:#34d399;background:rgba(52,211,153,0.08)}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:80px 32px;color:rgba(255,255,255,0.3)}
+.empty svg{opacity:.3;margin-bottom:16px}
+.empty p{font-size:14px}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;padding:24px}
+.overlay.open{display:flex}
+.modal{background:#161512;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto}
+.modal h2{font-size:17px;font-weight:700;margin-bottom:24px}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:12px;font-weight:600;color:rgba(255,255,255,0.5);margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase}
+.field input,.field textarea,.field select{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#e8e6e3;font-size:13px;outline:none;font-family:inherit;transition:border-color .2s;resize:vertical}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:rgba(203,241,53,0.4)}
+.field select option{background:#1a1916}
+.char-count{text-align:right;font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px}
+.tag-input-wrap{display:flex;flex-wrap:wrap;gap:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 10px;min-height:42px;cursor:text}
+.tag-input-wrap:focus-within{border-color:rgba(203,241,53,0.4)}
+.tag-chip{display:flex;align-items:center;gap:4px;font-size:12px;padding:3px 8px;border-radius:6px;background:rgba(203,241,53,0.12);color:#cbf135}
+.tag-chip button{background:none;border:none;color:inherit;cursor:pointer;padding:0;line-height:1;opacity:.7}
+.tag-chip button:hover{opacity:1}
+.tag-raw{background:none;border:none;color:#e8e6e3;font-size:13px;outline:none;min-width:80px;font-family:inherit}
+.modal-footer{display:flex;gap:10px;margin-top:24px}
+.btn-cancel{flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;color:rgba(255,255,255,0.7);font-size:13px;cursor:pointer;transition:all .2s}
+.btn-cancel:hover{background:rgba(255,255,255,0.12)}
+.btn-save{flex:2;background:#cbf135;border:none;border-radius:8px;padding:10px;color:#0b0a09;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .2s}
+.btn-save:hover{opacity:.88}
+.btn-save:disabled{opacity:.4;cursor:default}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e1d1b;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 20px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(52,211,153,0.4);color:#34d399}
+.toast.err{border-color:rgba(239,68,68,0.4);color:#ef4444}
+
+/* ── Loading spinner ── */
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.15);border-top-color:#cbf135;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.count-bar{padding:0 32px 12px;font-size:12px;color:rgba(255,255,255,0.3)}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-back" onclick="location.href='index.html'">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Panel
+  </div>
+  <div style="width:1px;height:16px;background:rgba(255,255,255,0.1)"></div>
+  <div class="hdr-logo">PROX<span>IS</span></div>
+  <div class="hdr-title">/ Base de Conocimiento</div>
+  <div class="hdr-badge" id="env-badge">—</div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="search-input" placeholder="Buscar por título o contenido…" oninput="applyFilters()">
+  </div>
+  <div class="filter-chips">
+    <div class="chip active" data-perfil="" onclick="setPerfilFilter(this,'')">Todos</div>
+    <div class="chip chip-d" data-perfil="D" onclick="setPerfilFilter(this,'D')">D — Directivo</div>
+    <div class="chip chip-r" data-perfil="R" onclick="setPerfilFilter(this,'R')">R — Relacional</div>
+    <div class="chip chip-s" data-perfil="S" onclick="setPerfilFilter(this,'S')">S — Sistemático</div>
+    <div class="chip" data-perfil="GEN" onclick="setPerfilFilter(this,'GEN')">General</div>
+  </div>
+  <button class="btn-embed-all" id="btn-embed-all" onclick="embedAll()" title="Generar embeddings para todas las entradas sin vector">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    Embeddings pendientes
+  </button>
+  <button class="btn-new" onclick="openModal()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Nueva entrada
+  </button>
+</div>
+
+<div class="count-bar" id="count-bar"></div>
+
+<!-- Grid -->
+<div class="grid" id="grid"></div>
+
+<!-- Empty state -->
+<div class="empty" id="empty-state" style="display:none">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+  <p id="empty-msg">No hay entradas en la base de conocimiento.</p>
+</div>
+
+<!-- Modal crear/editar -->
+<div class="overlay" id="modal-overlay">
+  <div class="modal">
+    <h2 id="modal-title">Nueva entrada</h2>
+
+    <div class="field">
+      <label>Título</label>
+      <input type="text" id="f-titulo" placeholder="Ej: Cómo manejar el silencio con perfil S" maxlength="120">
+    </div>
+
+    <div class="field">
+      <label>Perfil conductual</label>
+      <select id="f-perfil">
+        <option value="">General (aplica a todos)</option>
+        <option value="D">D — Directivo</option>
+        <option value="R">R — Relacional</option>
+        <option value="S">S — Sistemático</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Contenido</label>
+      <textarea id="f-cuerpo" rows="7" placeholder="Escribe aquí el conocimiento, insight o técnica coaching…" oninput="updateCharCount()"></textarea>
+      <div class="char-count"><span id="char-count">0</span> caracteres</div>
+    </div>
+
+    <div class="field">
+      <label>Etiquetas (Enter o coma para agregar)</label>
+      <div class="tag-input-wrap" id="tag-wrap" onclick="document.getElementById('tag-raw').focus()">
+        <input type="text" id="tag-raw" class="tag-raw" placeholder="prospección, cierre, objeción…"
+               onkeydown="tagKeydown(event)" oninput="tagInput(event)">
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" id="btn-save" onclick="guardar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── Auth ── */
+(function(){
+  const u = JSON.parse(localStorage.getItem('proxis_user') || 'null');
+  if (!u || u.role !== 'admin') location.href = '../proxis_plataforma.html';
+})();
+
+/* ── Env badge ── */
+const IS_DEV = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.includes('proxis-dev');
+document.getElementById('env-badge').textContent = IS_DEV ? 'DEV' : 'PROD';
+document.getElementById('env-badge').className = 'hdr-badge ' + (IS_DEV ? 'badge-dev' : 'badge-prod');
+
+/* ── Estado ── */
+let allEntries   = [];
+let filteredIds  = [];
+let perfilFilter = '';
+let editingId    = null;
+let tags         = [];
+
+/* ── Init ── */
+loadEntries();
+
+async function loadEntries() {
+  try {
+    allEntries = await SBC.get('knowledge_base', 'order=created_at.desc');
+    applyFilters();
+    updateEmbedBtn();
+  } catch(e) {
+    toast('Error cargando entradas: ' + e.message, 'err');
+  }
+}
+
+/* ── Filtros ── */
+function setPerfilFilter(el, val) {
+  document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  perfilFilter = val;
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  const filtered = allEntries.filter(e => {
+    const matchP = perfilFilter === ''
+      ? true
+      : perfilFilter === 'GEN'
+        ? !e.perfil
+        : e.perfil === perfilFilter;
+    const matchQ = !q || (e.titulo || '').toLowerCase().includes(q) || (e.cuerpo || '').toLowerCase().includes(q);
+    return matchP && matchQ;
+  });
+  renderGrid(filtered);
+}
+
+/* ── Render ── */
+function renderGrid(entries) {
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty-state');
+  const countBar = document.getElementById('count-bar');
+
+  countBar.textContent = entries.length
+    ? `${entries.length} entrada${entries.length !== 1 ? 's' : ''}`
+    : '';
+
+  if (!entries.length) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    document.getElementById('empty-msg').textContent = allEntries.length
+      ? 'Sin resultados para este filtro.'
+      : 'No hay entradas en la base de conocimiento.';
+    return;
+  }
+  empty.style.display = 'none';
+
+  grid.innerHTML = entries.map(e => {
+    const p = e.perfil || null;
+    const pClass  = p ? `pb-${p.toLowerCase()}` : 'pb-gen';
+    const pLabel  = p ? p : 'GEN';
+    const hasEmb  = e.embedding !== null && e.embedding !== undefined;
+    const tagsHtml = (e.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+    const bodyPreview = (e.cuerpo || '').slice(0, 200);
+    return `
+      <div class="card" data-id="${e.id}">
+        <div class="card-actions">
+          <button class="act-btn emb" title="Generar embedding" onclick="embedOne('${e.id}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          </button>
+          <button class="act-btn" title="Editar" onclick="openModal('${e.id}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="act-btn del" title="Eliminar" onclick="eliminar('${e.id}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+        <div class="card-top">
+          <span class="perfil-badge ${pClass}">${pLabel}</span>
+          <div class="card-title">${e.titulo || '(sin título)'}</div>
+        </div>
+        <div class="card-body">${bodyPreview}${(e.cuerpo||'').length > 200 ? '…' : ''}</div>
+        <div class="card-footer">
+          ${tagsHtml}
+          <div class="emb-dot ${hasEmb ? 'ok' : ''}" title="${hasEmb ? 'Embedding generado' : 'Sin embedding'}">
+            ${hasEmb ? 'vector OK' : 'sin vector'}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ── Modal ── */
+function openModal(id) {
+  editingId = id || null;
+  tags = [];
+  document.getElementById('modal-title').textContent = id ? 'Editar entrada' : 'Nueva entrada';
+  document.getElementById('f-titulo').value  = '';
+  document.getElementById('f-cuerpo').value  = '';
+  document.getElementById('f-perfil').value  = '';
+  document.getElementById('tag-raw').value   = '';
+  updateCharCount();
+  renderTagChips();
+
+  if (id) {
+    const e = allEntries.find(x => x.id === id);
+    if (e) {
+      document.getElementById('f-titulo').value = e.titulo || '';
+      document.getElementById('f-cuerpo').value = e.cuerpo || '';
+      document.getElementById('f-perfil').value = e.perfil || '';
+      tags = [...(e.tags || [])];
+      updateCharCount();
+      renderTagChips();
+    }
+  }
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-titulo').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  editingId = null;
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+/* ── Tags ── */
+function tagKeydown(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    addTag(e.target.value);
+  } else if (e.key === 'Backspace' && !e.target.value && tags.length) {
+    tags.pop();
+    renderTagChips();
+  }
+}
+function tagInput(e) {
+  if (e.target.value.endsWith(',')) addTag(e.target.value.slice(0,-1));
+}
+function addTag(val) {
+  const t = val.trim().toLowerCase().replace(/[^a-záéíóúüñ\s-]/gi, '');
+  if (t && !tags.includes(t)) tags.push(t);
+  document.getElementById('tag-raw').value = '';
+  renderTagChips();
+}
+function removeTag(t) {
+  tags = tags.filter(x => x !== t);
+  renderTagChips();
+}
+function renderTagChips() {
+  const raw  = document.getElementById('tag-raw');
+  const wrap = document.getElementById('tag-wrap');
+  wrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  tags.forEach(t => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.innerHTML = `${t}<button type="button" onclick="removeTag('${t}')">×</button>`;
+    wrap.insertBefore(chip, raw);
+  });
+}
+
+function updateCharCount() {
+  document.getElementById('char-count').textContent =
+    (document.getElementById('f-cuerpo').value || '').length;
+}
+
+/* ── Guardar ── */
+async function guardar() {
+  const titulo = document.getElementById('f-titulo').value.trim();
+  const cuerpo = document.getElementById('f-cuerpo').value.trim();
+  const perfil = document.getElementById('f-perfil').value || null;
+
+  if (!titulo) { toast('El título es obligatorio.', 'err'); return; }
+  if (!cuerpo) { toast('El contenido es obligatorio.', 'err'); return; }
+
+  // Flush tag si quedó algo en el input
+  const rawVal = document.getElementById('tag-raw').value.trim();
+  if (rawVal) addTag(rawVal);
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Guardando…';
+
+  try {
+    const data = { titulo, cuerpo, perfil, tags };
+
+    if (editingId) {
+      await SBC.patch('knowledge_base', data, `id=eq.${editingId}`);
+      const idx = allEntries.findIndex(e => e.id === editingId);
+      if (idx >= 0) allEntries[idx] = { ...allEntries[idx], ...data };
+      toast('Entrada actualizada.', 'ok');
+    } else {
+      const [created] = await SBC.post('knowledge_base', data);
+      allEntries.unshift(created);
+      toast('Entrada creada.', 'ok');
+    }
+
+    applyFilters();
+    updateEmbedBtn();
+    closeModal();
+  } catch(e) {
+    toast('Error: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+  }
+}
+
+/* ── Eliminar ── */
+async function eliminar(id) {
+  if (!confirm('¿Eliminar esta entrada? La acción no se puede deshacer.')) return;
+  try {
+    await SBC.del('knowledge_base', `id=eq.${id}`);
+    allEntries = allEntries.filter(e => e.id !== id);
+    applyFilters();
+    updateEmbedBtn();
+    toast('Entrada eliminada.', 'ok');
+  } catch(e) {
+    toast('Error al eliminar: ' + e.message, 'err');
+  }
+}
+
+/* ── Embeddings ── */
+async function getEmbedding(text) {
+  if (!GEMINI_KEY) throw new Error('GEMINI_KEY no configurada en _core.js');
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GEMINI_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'models/text-embedding-004',
+        content: { parts: [{ text }] }
+      })
+    }
+  );
+  if (!res.ok) throw new Error(`Gemini embedding HTTP ${res.status}`);
+  const data = await res.json();
+  return data.embedding?.values || null;
+}
+
+async function embedOne(id) {
+  const entry = allEntries.find(e => e.id === id);
+  if (!entry) return;
+  const card = document.querySelector(`.card[data-id="${id}"]`);
+  const btn  = card?.querySelector('.act-btn.emb');
+  if (btn) btn.innerHTML = '<span class="spin"></span>';
+
+  try {
+    const text = `${entry.titulo}\n\n${entry.cuerpo}`;
+    const embedding = await getEmbedding(text);
+    await SBC.patch('knowledge_base', { embedding }, `id=eq.${id}`);
+    entry.embedding = embedding;
+    applyFilters();
+    updateEmbedBtn();
+    toast('Embedding generado.', 'ok');
+  } catch(e) {
+    toast('Error embedding: ' + e.message, 'err');
+    if (btn) btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+  }
+}
+
+async function embedAll() {
+  const pending = allEntries.filter(e => !e.embedding);
+  if (!pending.length) { toast('Todas las entradas ya tienen embedding.', 'ok'); return; }
+  if (!GEMINI_KEY) { toast('Configura GEMINI_KEY en _core.js primero.', 'err'); return; }
+
+  const btn = document.getElementById('btn-embed-all');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spin"></span> 0/${pending.length}…`;
+
+  let done = 0;
+  for (const entry of pending) {
+    try {
+      const text = `${entry.titulo}\n\n${entry.cuerpo}`;
+      const embedding = await getEmbedding(text);
+      await SBC.patch('knowledge_base', { embedding }, `id=eq.${entry.id}`);
+      entry.embedding = embedding;
+      done++;
+      btn.innerHTML = `<span class="spin"></span> ${done}/${pending.length}…`;
+    } catch(e) {
+      console.warn('Embed error', entry.id, e.message);
+    }
+  }
+
+  applyFilters();
+  updateEmbedBtn();
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Embeddings pendientes`;
+  toast(`${done} embedding${done !== 1 ? 's' : ''} generado${done !== 1 ? 's' : ''}.`, 'ok');
+}
+
+function updateEmbedBtn() {
+  const pending = allEntries.filter(e => !e.embedding).length;
+  const btn = document.getElementById('btn-embed-all');
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> ${pending} sin vector`;
+  btn.disabled = pending === 0;
+  if (pending === 0) btn.title = 'Todos los embeddings están generados';
+}
+
+/* ── Toast ── */
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>

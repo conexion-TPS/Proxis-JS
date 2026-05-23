@@ -113,7 +113,7 @@ async function buildContext(asesor: string) {
 
 /* ── Evaluar condición del trigger ──────────────────────────── */
 
-function evalTrigger(triggerId: string, ctx: ReturnType<typeof buildContext> extends Promise<infer T> ? T : never): boolean {
+function evalTrigger(triggerId: string, ctx: any): boolean {
   switch (triggerId) {
     case 'semana-sin-reporte-alerta': return ctx.semanas_sin_reporte >= 1
     case 'bajo-meta-miercoles':       return esMiercoles() && ctx.pc_promedio < ctx.meta_contactos_semana
