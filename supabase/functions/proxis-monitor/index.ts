@@ -27,7 +27,7 @@ function esPrimerLunesMes():   boolean {
 /* ── Cálculos (espejo de _core.js) ─────────────────────────── */
 
 function calcSemanasSinReporte(reportes: any[]): number {
-  if (!reportes.length) return 0
+  if (!reportes.length) return 4 // Sin reportes = inactivo todo el mes
   const hoy = new Date()
   const dow = hoy.getDay()
   const lunes = new Date(hoy)
@@ -178,7 +178,7 @@ async function sendEmail(asesor: string, asunto: string, cuerpo: string): Promis
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from:    'Proxis <proxis@imrbrasil.com>',
+      from:    'Proxis <proxis@theprecisionselling.com>',
       to:      emailArr[0].email,
       subject: asunto,
       text:    cuerpo

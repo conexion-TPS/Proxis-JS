@@ -126,7 +126,7 @@ function getMesActualCore() {
 }
 
 function calcSemanasSinReporte(reportes) {
-  if (!reportes.length) return 0;
+  if (!reportes.length) return 4; // Sin reportes = inactivo todo el mes
   const hoy = new Date();
   const lunesHoy = new Date(hoy);
   const dow = hoy.getDay();
@@ -222,7 +222,7 @@ async function sendEmail(asesor, asunto, mensaje) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from: 'Proxis <proxis@imrbrasil.com>',
+      from: 'Proxis <proxis@theprecisionselling.com>',
       to,
       subject: asunto || 'Mensaje de tu coach Proxis',
       text: mensaje
