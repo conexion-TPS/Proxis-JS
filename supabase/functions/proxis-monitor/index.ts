@@ -221,21 +221,23 @@ Deno.serve(async (_req: Request) => {
 
   // 3. Trigger × asesor
   for (const trigger of triggers) {
+    const tid = trigger.trigger_id
+    const cooldown = trigger.cooldown_dias || 7
     for (const asesor of asesores) {
-      const item: any = { asesor, trigger: trigger.id }
+      const item: any = { asesor, trigger: tid }
       try {
-        if (!(await cooldownOk(asesor, trigger.id, trigger.cooldown_days || 7))) {
+        if (!(await cooldownOk(asesor, tid, cooldown))) {
           item.status = 'cooldown'; results.push(item); continue
         }
 
         const ctx = await buildContext(asesor)
-        if (!evalTrigger(trigger.id, ctx)) {
+        if (!evalTrigger(tid, ctx)) {
           item.status = 'skip'; results.push(item); continue
         }
 
         const { data: prompts } = await sb.from('prompts')
           .select('*')
-          .eq('trigger_id', trigger.id)
+          .eq('trigger_id', tid)
           .eq('activo', true)
           .order('version', { ascending: false })
           .limit(1)
