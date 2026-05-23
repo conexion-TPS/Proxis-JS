@@ -193,8 +193,8 @@ async function loadAll() {
     const [logs, logsMonth, feedback, triggers, metas] = await Promise.all([
       SBC.get('message_log', 'order=created_at.desc&limit=200'),
       SBC.get('message_log', `created_at=gte.${mes}-01&order=created_at.desc`),
-      SBC.get('feedback',    'select=asesor,score,created_at&order=created_at.desc'),
-      SBC.get('trigger_config', 'select=id,nombre,activo'),
+      SBC.get('feedback',    'select=message_id,score&order=created_at.desc'),
+      SBC.get('trigger_config', 'select=trigger_id,descripcion,activo'),
       SBC.get('metas', 'select=asesor,perfil_conductual')
     ]);
 
@@ -217,7 +217,7 @@ function renderKPIs(logs, logsMonth, feedback, triggers) {
   const month   = logsMonth.length;
   const active  = triggers.filter(t => t.activo).length;
 
-  const scores  = feedback.map(f => f.score).filter(s => s != null);
+  const scores  = feedback.map(f => f.score).filter(s => s !== null && s !== undefined);
   const avgScore = scores.length
     ? (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1)
     : null;
@@ -262,8 +262,8 @@ function renderTriggerBars(logs, triggers) {
   const colors = ['','blue','green','orange',''];
 
   document.getElementById('trigger-bars').innerHTML = sorted.map(([tid, n], i) => {
-    const trig  = triggers.find(t => t.id === tid);
-    const label = trig?.nombre || tid;
+    const trig  = triggers.find(t => t.trigger_id === tid);
+    const label = trig?.descripcion || tid;
     const pct   = Math.round((n / max) * 100);
     const color = colors[i % colors.length];
     return `
@@ -319,9 +319,11 @@ function renderAsesorTable(logs, feedback, metas) {
   const asesores = [...new Set(metas.map(m => m.asesor))];
 
   const rows = asesores.map(asesor => {
-    const aLogs = logs.filter(l => l.asesor === asesor);
-    const aFb   = feedback.filter(f => f.asesor === asesor);
-    const scores = aFb.map(f => f.score).filter(s => s != null);
+    const aLogs  = logs.filter(l => l.asesor === asesor);
+    const logIds = new Set(aLogs.map(l => l.id));
+    const scores = feedback
+      .filter(f => logIds.has(f.message_id) && f.score !== null && f.score !== undefined)
+      .map(f => f.score);
     const avg    = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : null;
     const last   = aLogs[0]?.created_at;
     const meta   = metas.find(m => m.asesor === asesor);
@@ -369,8 +371,8 @@ function renderRecentLog(logs, triggers) {
   }
 
   document.getElementById('log-wrap').innerHTML = logs.map(l => {
-    const trig  = triggers.find(t => t.id === l.trigger_id);
-    const tName = trig?.nombre || l.trigger_id || '—';
+    const trig  = triggers.find(t => t.trigger_id === l.trigger_id);
+    const tName = trig?.descripcion || l.trigger_id || '—';
     const body  = (l.body || '').slice(0, 120);
     return `
       <div class="log-item">
