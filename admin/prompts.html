@@ -65,6 +65,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .badge-active{background:var(--teal-lt);color:var(--teal);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.06em}
 .badge-inactive{background:#f0ede8;color:var(--gray-3);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px}
 .empty-state{padding:24px 18px;text-align:center;font-size:12px;color:var(--gray-3)}
+.btn-del-ver{margin-left:auto;background:none;border:none;color:var(--gray-3);font-size:11px;cursor:pointer;padding:2px 4px;border-radius:4px;line-height:1;transition:all .15s}
+.btn-del-ver:hover{background:var(--red-lt);color:var(--red)}
 
 /* Editor panel */
 .editor-card{background:white;border:1px solid var(--gray-5);border-radius:12px;overflow:hidden}
@@ -305,6 +307,7 @@ async function loadVersions() {
     }
 
     list.innerHTML = '';
+    let autoSelected = false;
     allVersions.forEach(v => {
       const li = document.createElement('li');
       li.className = 'version-item';
@@ -312,15 +315,18 @@ async function loadVersions() {
       li.innerHTML = `
         <span class="version-num">v${v.version}</span>
         <span class="${v.activo ? 'badge-active' : 'badge-inactive'}">${v.activo ? 'Activa' : 'Inactiva'}</span>
-        <span class="version-date">${formatDate(v.created_at)}</span>`;
-      li.onclick = () => selectVersion(v, li);
+        <span class="version-date">${formatDate(v.created_at)}</span>
+        ${!v.activo ? `<button class="btn-del-ver" title="Eliminar versión" onclick="eliminarVersion(event,'${v.id}',${v.version})">✕</button>` : ''}`;
+      li.onclick = (e) => { if (!e.target.classList.contains('btn-del-ver')) selectVersion(v, li); };
       list.appendChild(li);
 
-      // Auto-seleccionar la activa (o la primera si no hay activa)
-      if (v.activo || (!currentVersionId && allVersions[0] === v)) {
-        selectVersion(v, li);
-      }
+      // Auto-seleccionar la activa primero; si no hay activa, la primera
+      if (v.activo && !autoSelected) { selectVersion(v, li); autoSelected = true; }
     });
+    if (!autoSelected && allVersions.length) {
+      const first = list.querySelector('.version-item');
+      selectVersion(allVersions[0], first);
+    }
   } catch(e) { list.innerHTML = '<li class="empty-state">Error cargando versiones.</li>'; }
 }
 
@@ -372,6 +378,19 @@ async function activarVersion() {
   } catch(e) {
     showToast('Error al activar: ' + e.message, true);
     document.getElementById('btnActivar').disabled = false;
+  }
+}
+
+/* ── ELIMINAR VERSIÓN ── */
+async function eliminarVersion(e, id, num) {
+  e.stopPropagation();
+  if (!confirm(`¿Eliminar la versión ${num}? Esta acción no se puede deshacer.`)) return;
+  try {
+    await SBC.del('prompts', `id=eq.${id}`);
+    showToast(`Versión ${num} eliminada.`);
+    await loadVersions();
+  } catch(err) {
+    showToast('Error al eliminar: ' + err.message, true);
   }
 }
 
