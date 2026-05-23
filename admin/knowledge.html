@@ -243,9 +243,9 @@ function applyFilters() {
     const matchP = perfilFilter === ''
       ? true
       : perfilFilter === 'GEN'
-        ? !e.perfil
-        : e.perfil === perfilFilter;
-    const matchQ = !q || (e.titulo || '').toLowerCase().includes(q) || (e.cuerpo || '').toLowerCase().includes(q);
+        ? !e.dominio
+        : e.dominio === perfilFilter;
+    const matchQ = !q || (e.titulo || '').toLowerCase().includes(q) || (e.contenido || '').toLowerCase().includes(q);
     return matchP && matchQ;
   });
   renderGrid(filtered);
@@ -272,12 +272,12 @@ function renderGrid(entries) {
   empty.style.display = 'none';
 
   grid.innerHTML = entries.map(e => {
-    const p = e.perfil || null;
+    const p = e.dominio || null;
     const pClass  = p ? `pb-${p.toLowerCase()}` : 'pb-gen';
     const pLabel  = p ? p : 'GEN';
     const hasEmb  = e.embedding !== null && e.embedding !== undefined;
     const tagsHtml = (e.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
-    const bodyPreview = (e.cuerpo || '').slice(0, 200);
+    const bodyPreview = (e.contenido || '').slice(0, 200);
     return `
       <div class="card" data-id="${e.id}">
         <div class="card-actions">
@@ -295,7 +295,7 @@ function renderGrid(entries) {
           <span class="perfil-badge ${pClass}">${pLabel}</span>
           <div class="card-title">${e.titulo || '(sin título)'}</div>
         </div>
-        <div class="card-body">${bodyPreview}${(e.cuerpo||'').length > 200 ? '…' : ''}</div>
+        <div class="card-body">${bodyPreview}${(e.contenido||'').length > 200 ? '…' : ''}</div>
         <div class="card-footer">
           ${tagsHtml}
           <div class="emb-dot ${hasEmb ? 'ok' : ''}" title="${hasEmb ? 'Embedding generado' : 'Sin embedding'}">
@@ -321,9 +321,9 @@ function openModal(id) {
   if (id) {
     const e = allEntries.find(x => x.id === id);
     if (e) {
-      document.getElementById('f-titulo').value = e.titulo || '';
-      document.getElementById('f-cuerpo').value = e.cuerpo || '';
-      document.getElementById('f-perfil').value = e.perfil || '';
+      document.getElementById('f-titulo').value = e.titulo    || '';
+      document.getElementById('f-cuerpo').value = e.contenido || '';
+      document.getElementById('f-perfil').value = e.dominio   || '';
       tags = [...(e.tags || [])];
       updateCharCount();
       renderTagChips();
@@ -384,12 +384,12 @@ function updateCharCount() {
 
 /* ── Guardar ── */
 async function guardar() {
-  const titulo = document.getElementById('f-titulo').value.trim();
-  const cuerpo = document.getElementById('f-cuerpo').value.trim();
-  const perfil = document.getElementById('f-perfil').value || null;
+  const titulo    = document.getElementById('f-titulo').value.trim();
+  const contenido = document.getElementById('f-cuerpo').value.trim();
+  const dominio   = document.getElementById('f-perfil').value || null;
 
-  if (!titulo) { toast('El título es obligatorio.', 'err'); return; }
-  if (!cuerpo) { toast('El contenido es obligatorio.', 'err'); return; }
+  if (!titulo)    { toast('El título es obligatorio.', 'err'); return; }
+  if (!contenido) { toast('El contenido es obligatorio.', 'err'); return; }
 
   // Flush tag si quedó algo en el input
   const rawVal = document.getElementById('tag-raw').value.trim();
@@ -400,7 +400,7 @@ async function guardar() {
   btn.innerHTML = '<span class="spin"></span> Guardando…';
 
   try {
-    const data = { titulo, cuerpo, perfil, tags };
+    const data = { titulo, contenido, dominio, tags };
 
     if (editingId) {
       await SBC.patch('knowledge_base', data, `id=eq.${editingId}`);
@@ -465,7 +465,7 @@ async function embedOne(id) {
   if (btn) btn.innerHTML = '<span class="spin"></span>';
 
   try {
-    const text = `${entry.titulo}\n\n${entry.cuerpo}`;
+    const text = `${entry.titulo}\n\n${entry.contenido}`;
     const embedding = await getEmbedding(text);
     await SBC.patch('knowledge_base', { embedding }, `id=eq.${id}`);
     entry.embedding = embedding;
@@ -490,7 +490,7 @@ async function embedAll() {
   let done = 0;
   for (const entry of pending) {
     try {
-      const text = `${entry.titulo}\n\n${entry.cuerpo}`;
+      const text = `${entry.titulo}\n\n${entry.contenido}`;
       const embedding = await getEmbedding(text);
       await SBC.patch('knowledge_base', { embedding }, `id=eq.${entry.id}`);
       entry.embedding = embedding;
