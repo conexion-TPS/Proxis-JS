@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxis Admin · Perfil de Asesor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --lime:#cbf135;--lime-dk:#a8cc1a;--black:#0b0a09;
+  --gray-1:#1a1916;--gray-2:#4a4844;--gray-3:#8a8885;
+  --gray-4:#c8c6c3;--gray-5:#e8e6e3;--white:#ffffff;
+  --teal:#1f6f56;--teal-lt:#e6f3ed;
+  --red:#b03a3a;--red-lt:#fbe9e9;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--black);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── HEADER ── */
+.header{background:var(--black);padding:0 28px;height:56px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 0 var(--lime-dk);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none}
+.logo-wordmark{font-weight:800;font-size:18px;color:var(--white);letter-spacing:-0.04em}
+.logo-wordmark span{color:var(--lime)}
+.header-div{width:1px;height:20px;background:rgba(255,255,255,0.12)}
+.header-tag{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray-4)}
+.header-tag a{color:var(--gray-3);text-decoration:none}.header-tag a:hover{color:var(--white)}
+.header-env{margin-left:4px;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 10px;border-radius:20px;letter-spacing:0.08em;text-transform:uppercase}
+.header-env.dev{background:rgba(168,204,26,0.15);color:var(--lime-dk);border:1px solid rgba(168,204,26,0.3)}
+.header-env.prod{background:rgba(176,58,58,0.15);color:#e07070;border:1px solid rgba(176,58,58,0.3)}
+.header-right{margin-left:auto}
+.btn-logout{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.7);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s}
+.btn-logout:hover{background:rgba(255,255,255,0.14);color:white}
+
+/* ── LAYOUT ── */
+.main{max-width:1200px;margin:0 auto;padding:32px 28px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;gap:12px;flex-wrap:wrap}
+.page-header-left{display:flex;align-items:center;gap:12px}
+.back-link{font-size:12px;color:var(--gray-3);text-decoration:none;display:flex;align-items:center;gap:5px;transition:color 0.15s}
+.back-link:hover{color:var(--black)}
+.page-title{font-size:22px;font-weight:800;letter-spacing:-0.03em}
+.workspace{display:grid;grid-template-columns:400px 1fr;gap:20px;align-items:start}
+
+/* ── BOTONES ── */
+.btn{padding:9px 18px;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:7px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-dark{background:var(--black);color:white}
+.btn-dark:not(:disabled):hover{background:#2a2926}
+.btn-teal{background:var(--teal);color:white}
+.btn-teal:not(:disabled):hover{background:#175743}
+.btn-lime{background:var(--lime);color:var(--black)}
+.btn-lime:not(:disabled):hover{background:var(--lime-dk)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-ghost{background:transparent;color:var(--gray-2);border:1px solid var(--gray-5)}
+.btn-ghost:not(:disabled):hover{border-color:var(--black);color:var(--black)}
+
+/* ── CARDS ── */
+.card{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:18px}
+.card-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray-3);margin-bottom:10px}
+
+/* ── SELECTOR ── */
+.asesor-select{width:100%;padding:10px 14px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:var(--black);background:white;outline:none;cursor:pointer;transition:border-color .15s;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8885' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.asesor-select:focus{border-color:var(--black)}
+
+/* ── STATUS ── */
+.status-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:white;border:1px solid var(--gray-5);border-radius:8px;margin-top:10px;font-size:12px;color:var(--gray-2)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--gray-4);flex-shrink:0;transition:background .3s}
+.status-dot.new{background:#f59e0b}
+.status-dot.saved{background:var(--teal)}
+
+/* ── DIMENSIONES ── */
+.dim-card{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:14px;margin-top:10px;transition:border-color .2s,background .2s}
+.dim-card.highlight{border-color:var(--lime-dk);background:#fafff0}
+.dim-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray-3);margin-bottom:7px}
+.dim-textarea{width:100%;padding:8px 10px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);background:#fafaf7;outline:none;resize:vertical;min-height:68px;line-height:1.6;transition:border-color .15s,background .15s}
+.dim-textarea:focus{border-color:var(--black);background:white}
+
+/* ── RESUMEN ── */
+.resumen-card{background:var(--teal-lt);border:1px solid rgba(31,111,86,0.2);border-radius:12px;padding:16px;margin-top:10px}
+.resumen-card .dim-label{color:var(--teal)}
+.resumen-text{font-size:13px;color:#1a3d2e;line-height:1.75}
+.resumen-empty{font-size:12px;color:var(--gray-3);font-style:italic}
+
+/* ── SAVE BAR ── */
+.save-bar{display:flex;gap:8px;margin-top:14px}
+.save-bar .btn{flex:1;justify-content:center}
+
+/* ── CHAT PANEL ── */
+.chat-panel{background:white;border:1px solid var(--gray-5);border-radius:12px;display:flex;flex-direction:column;height:calc(100vh - 148px);min-height:520px;position:sticky;top:72px}
+.chat-header{padding:14px 18px;border-bottom:1px solid var(--gray-5)}
+.chat-title{font-size:14px;font-weight:700;letter-spacing:-0.02em}
+.chat-sub{font-size:11px;color:var(--gray-3);margin-top:2px}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.chat-empty-state{text-align:center;color:var(--gray-3);font-size:13px;padding:48px 24px;line-height:1.7}
+.chat-empty-state strong{display:block;font-size:15px;font-weight:700;color:var(--gray-2);margin-bottom:8px;letter-spacing:-0.02em}
+
+/* ── MENSAJES ── */
+.msg-coach{align-self:flex-end;background:var(--black);color:white;border-radius:12px 12px 2px 12px;padding:10px 14px;max-width:85%;font-size:13px;line-height:1.6}
+.msg-ia{align-self:flex-start;width:100%}
+.msg-analisis{background:#f0f9f4;border:1px solid rgba(31,111,86,0.18);border-radius:2px 12px 12px 12px;padding:12px 14px;font-size:13px;color:#1a3d2e;line-height:1.7;margin-bottom:7px}
+.msg-analisis-label{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+.msg-sugerencia{background:#fafaf7;border:1px solid var(--gray-5);border-radius:8px;padding:12px;margin-bottom:6px;transition:border-color .2s,background .2s,opacity .2s}
+.msg-sugerencia.applied{border-color:var(--lime-dk);background:#fafff0}
+.msg-sug-dim{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray-3);margin-bottom:4px}
+.msg-sug-texto{font-size:12px;color:var(--black);line-height:1.6;margin-bottom:5px}
+.msg-sug-razon{font-size:11px;color:var(--gray-3);font-style:italic;line-height:1.5;margin-bottom:8px}
+.msg-sug-actions{display:flex;gap:6px}
+.msg-loading{display:flex;align-items:center;gap:8px;color:var(--gray-3);font-size:13px;font-style:italic;padding:6px 0}
+.dots{display:flex;gap:4px}
+.dots span{width:6px;height:6px;border-radius:50%;background:var(--gray-4);animation:bounce 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+
+/* ── CHAT INPUT ── */
+.chat-input-area{padding:12px 16px;border-top:1px solid var(--gray-5)}
+.chat-input-row{display:flex;gap:8px;align-items:flex-end}
+.chat-textarea{flex:1;padding:10px 13px;border:1px solid var(--gray-5);border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);outline:none;resize:none;line-height:1.6;transition:border-color .15s;background:#fafaf7;min-height:42px;max-height:120px}
+.chat-textarea:focus{border-color:var(--black);background:white}
+.chat-textarea:disabled{opacity:.5;cursor:not-allowed}
+.chat-hint{font-size:11px;color:var(--gray-3);margin-top:6px}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:white;font-size:13px;font-weight:500;padding:10px 22px;border-radius:30px;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error{background:var(--red)}
+
+@media(max-width:960px){
+  .workspace{grid-template-columns:1fr}
+  .chat-panel{height:600px;position:static}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <a href="index.html" class="logo">
+    <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="4.5" fill="#a8cc1a"/>
+      <circle cx="6"  cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="26" cy="9"  r="3" fill="#a8cc1a" opacity="0.85"/>
+      <circle cx="6"  cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <circle cx="26" cy="23" r="3" fill="#a8cc1a" opacity="0.6"/>
+      <line x1="8.6"  y1="10.6" x2="13.2" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="23.4" y1="10.6" x2="18.8" y2="14.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+      <line x1="8.6"  y1="21.4" x2="13.2" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      <line x1="23.4" y1="21.4" x2="18.8" y2="18.0" stroke="#a8cc1a" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+    </svg>
+    <span class="logo-wordmark">Pro<span>xis</span></span>
+  </a>
+  <div class="header-div"></div>
+  <span class="header-tag"><a href="index.html">Admin</a> / Perfil de Asesor</span>
+  <span class="header-env" id="envBadge">···</span>
+  <div class="header-right">
+    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+</header>
+
+<main class="main">
+  <div class="page-header">
+    <div class="page-header-left">
+      <a href="index.html" class="back-link">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Panel admin
+      </a>
+      <h1 class="page-title">Perfil de Asesor</h1>
+    </div>
+  </div>
+
+  <div class="workspace">
+
+    <!-- ── IZQUIERDA: PERFIL ── -->
+    <div>
+
+      <div class="card">
+        <div class="card-label">Asesor</div>
+        <select class="asesor-select" id="sel-asesor" onchange="seleccionarAsesor(this.value)">
+          <option value="">— Cargando asesores —</option>
+        </select>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Selecciona un asesor para comenzar</span>
+      </div>
+
+      <div id="dimensiones-container"></div>
+
+      <div class="resumen-card" id="resumen-card" style="display:none">
+        <div class="dim-label">Resumen del perfil — generado por IA</div>
+        <div id="resumen-text" class="resumen-empty">Sin resumen aún. Completá las dimensiones y hacé clic en "Generar resumen".</div>
+      </div>
+
+      <div class="save-bar" id="save-bar" style="display:none">
+        <button class="btn btn-ghost btn-sm" id="btn-resumen" onclick="generarResumen()">Generar resumen</button>
+        <button class="btn btn-teal" id="btn-save" onclick="savePerfil()">Guardar perfil</button>
+      </div>
+
+    </div>
+
+    <!-- ── DERECHA: CALIBRACIÓN ── -->
+    <div class="chat-panel">
+      <div class="chat-header">
+        <div class="chat-title">Calibración con IA</div>
+        <div class="chat-sub" id="chat-sub">Selecciona un asesor para activar la calibración</div>
+      </div>
+
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-empty-state">
+          <strong>Calibración asistida por IA</strong>
+          Describí una observación sobre el asesor — cómo respondió a un mensaje, qué notaste en su comportamiento, qué te contó en una conversación — y la IA sugerirá actualizaciones específicas al perfil.
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="chat-input-row">
+          <textarea class="chat-textarea" id="chat-input" rows="2"
+            placeholder="Describe una observación sobre el asesor..."
+            disabled onkeydown="handleKey(event)"></textarea>
+          <button class="btn btn-dark" id="btn-enviar" onclick="calibrar()" disabled>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="chat-hint">Enter para enviar · Shift+Enter para nueva línea</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="_core.js"></script>
+<script>
+
+/* ── AUTH ── */
+const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
+if (G.role !== 'admin') { window.location.href = 'index.html'; }
+
+document.getElementById('envBadge').textContent = IS_DEV ? 'DEV' : 'PROD';
+document.getElementById('envBadge').className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
+
+/* ── CONFIGURACIÓN DE DIMENSIONES ── */
+const DIMS = [
+  {
+    key:         'identidad_vendedora',
+    label:       'Identidad vendedora',
+    placeholder: 'Cómo se define como vendedor/a. Qué significa este rol para él/ella. Qué le produce orgullo. Cómo integra la venta a su identidad personal...'
+  },
+  {
+    key:         'relacion_prospeccion',
+    label:       'Relación con la prospección',
+    placeholder: 'La vive como obligación, oportunidad o juego. Qué la frena. Qué le da energía. Cómo habla de sus contactos. Actitud ante el rechazo...'
+  },
+  {
+    key:         'modelos_mentales',
+    label:       'Modelos mentales de resultado',
+    placeholder: 'Cómo explica sus buenos períodos y los malos. Locus de control (interno vs externo). Creencias sobre lo que determina el éxito...'
+  },
+  {
+    key:         'relacion_feedback',
+    label:       'Relación con el feedback',
+    placeholder: 'Cómo recibe la corrección. Qué tipo de apoyo le resulta más útil. Qué lo cierra o lo pone defensivo. Si busca el feedback o lo evita...'
+  },
+  {
+    key:         'perfil_conductual_notas',
+    label:       'Perfil conductual D / R / S',
+    placeholder: 'Estilo predominante y mezcla estimada. Respuesta bajo presión. Qué tipo de lenguaje y mensaje resuena. Motivadores y detonadores...'
+  },
+  {
+    key:         'contexto_situacional',
+    label:       'Contexto situacional',
+    placeholder: 'Momento de vida. Historia profesional relevante. Factores externos que impactan su desempeño. Motivaciones no ligadas a lo económico...'
+  }
+];
+
+/* ── STATE ── */
+let asesorActual = null;
+let perfil       = {};
+let isNew        = true;
+
+/* ── CARGAR ASESORES ── */
+async function loadAsesores() {
+  try {
+    const data = await SBC.get('metas', 'select=asesor&order=asesor.asc');
+    const sel = document.getElementById('sel-asesor');
+    sel.innerHTML = '<option value="">— Seleccionar asesor —</option>';
+    (data || []).forEach(({ asesor }) => {
+      const o = document.createElement('option');
+      o.value = o.textContent = asesor;
+      sel.appendChild(o);
+    });
+  } catch(e) {
+    showToast('Error cargando asesores: ' + e.message, true);
+  }
+}
+
+/* ── SELECCIONAR ASESOR ── */
+async function seleccionarAsesor(asesor) {
+  if (!asesor) return;
+  asesorActual = asesor;
+
+  document.getElementById('chat-sub').textContent     = `Calibrando perfil de ${asesor}`;
+  document.getElementById('chat-input').disabled      = false;
+  document.getElementById('btn-enviar').disabled      = false;
+
+  // Reset chat
+  const msgs = document.getElementById('chat-messages');
+  msgs.innerHTML = `
+    <div class="chat-empty-state">
+      <strong>Calibrando: ${esc(asesor)}</strong>
+      Describí una observación sobre esta persona — cómo respondió a un mensaje, qué notaste, qué te contó — y la IA sugerirá actualizaciones específicas al perfil.
+    </div>`;
+
+  await loadPerfil(asesor);
+  renderDimensiones();
+  document.getElementById('resumen-card').style.display = 'block';
+  document.getElementById('save-bar').style.display     = 'flex';
+}
+
+/* ── CARGAR PERFIL ── */
+async function loadPerfil(asesor) {
+  try {
+    const data = await SBC.get('asesor_perfil',
+      `asesor=eq.${encodeURIComponent(asesor)}&limit=1`);
+    if (data.length) {
+      perfil = data[0];
+      isNew  = false;
+      setStatus('saved', `Perfil guardado · ${fmtDate(perfil.updated_at)}`);
+    } else {
+      perfil = { asesor };
+      isNew  = true;
+      setStatus('new', 'Perfil nuevo — aún no guardado');
+    }
+  } catch(e) {
+    perfil = { asesor };
+    isNew  = true;
+    setStatus('new', 'Perfil nuevo');
+  }
+}
+
+/* ── RENDERIZAR DIMENSIONES ── */
+function renderDimensiones() {
+  const container = document.getElementById('dimensiones-container');
+  container.innerHTML = '';
+  DIMS.forEach(({ key, label, placeholder }) => {
+    const div = document.createElement('div');
+    div.className = 'dim-card';
+    div.id        = `dim-${key}`;
+    const lbl = document.createElement('div');
+    lbl.className   = 'dim-label';
+    lbl.textContent = label;
+    const ta = document.createElement('textarea');
+    ta.className   = 'dim-textarea';
+    ta.id          = `ta-${key}`;
+    ta.rows        = 3;
+    ta.placeholder = placeholder;
+    ta.value       = perfil[key] || '';
+    div.appendChild(lbl);
+    div.appendChild(ta);
+    container.appendChild(div);
+  });
+
+  const rt = document.getElementById('resumen-text');
+  if (perfil.resumen_ia) {
+    rt.textContent = perfil.resumen_ia;
+    rt.className   = 'resumen-text';
+  } else {
+    rt.textContent = 'Sin resumen aún. Completá las dimensiones y hacé clic en "Generar resumen".';
+    rt.className   = 'resumen-empty';
+  }
+}
+
+/* ── GUARDAR PERFIL ── */
+async function savePerfil() {
+  if (!asesorActual) return;
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  const payload = { asesor: asesorActual, updated_at: new Date().toISOString() };
+  DIMS.forEach(({ key }) => {
+    const v = document.getElementById(`ta-${key}`)?.value.trim();
+    payload[key] = v || null;
+  });
+  const rt = document.getElementById('resumen-text');
+  if (rt.className === 'resumen-text') payload.resumen_ia = rt.textContent;
+
+  try {
+    if (isNew) {
+      await SBC.post('asesor_perfil', payload);
+      isNew = false;
+    } else {
+      await SBC.patch('asesor_perfil', payload,
+        `asesor=eq.${encodeURIComponent(asesorActual)}`);
+    }
+    perfil = { ...perfil, ...payload };
+    setStatus('saved', `Guardado · ${fmtDate(new Date().toISOString())}`);
+    showToast('Perfil guardado.');
+  } catch(e) {
+    showToast('Error al guardar: ' + e.message, true);
+  }
+  btn.disabled = false; btn.textContent = 'Guardar perfil';
+}
+
+/* ── GENERAR RESUMEN ── */
+async function generarResumen() {
+  if (!asesorActual) return;
+  const btn = document.getElementById('btn-resumen');
+  btn.disabled = true; btn.textContent = 'Generando…';
+
+  const ctx = {};
+  DIMS.forEach(({ key }) => { ctx[key] = document.getElementById(`ta-${key}`)?.value.trim() || null; });
+
+  const prompt = `Eres un experto en coaching de ventas con el sistema TPS (The Precision Selling) y en perfiles conductuales D/R/S.
+
+Sintetiza el siguiente perfil del asesor "${asesorActual}" en un párrafo único de máximo 100 palabras. Debe capturar su esencia como vendedor: quién es, cómo funciona, qué lo mueve y cómo debe ser abordado en los mensajes de coaching.
+
+PERFIL:
+- Identidad vendedora: ${ctx.identidad_vendedora || 'No definida'}
+- Relación con la prospección: ${ctx.relacion_prospeccion || 'No definida'}
+- Modelos mentales de resultado: ${ctx.modelos_mentales || 'No definidos'}
+- Relación con el feedback: ${ctx.relacion_feedback || 'No definida'}
+- Perfil conductual D/R/S: ${ctx.perfil_conductual_notas || 'No definido'}
+- Contexto situacional: ${ctx.contexto_situacional || 'No definido'}
+
+Escribe en tercera persona. Sin viñetas ni subtítulos. El resumen debe ser útil para que la IA lo use como contexto al redactar mensajes altamente personalizados.`;
+
+  try {
+    const resumen = await callGemini(prompt, 300);
+    const rt = document.getElementById('resumen-text');
+    rt.textContent = resumen.trim();
+    rt.className   = 'resumen-text';
+    showToast('Resumen generado. Guardá el perfil para conservarlo.');
+  } catch(e) {
+    showToast('Error generando resumen: ' + e.message, true);
+  }
+  btn.disabled = false; btn.textContent = 'Generar resumen';
+}
+
+/* ── CALIBRAR ── */
+async function calibrar() {
+  const input      = document.getElementById('chat-input');
+  const observacion = input.value.trim();
+  if (!observacion || !asesorActual) return;
+
+  input.value    = '';
+  input.disabled = true;
+  document.getElementById('btn-enviar').disabled = true;
+
+  addMsgCoach(observacion);
+  const loadId = addMsgLoading();
+
+  // Leer estado actual de las textareas
+  const ctx = {};
+  DIMS.forEach(({ key }) => { ctx[key] = document.getElementById(`ta-${key}`)?.value.trim() || null; });
+
+  const prompt = `Eres un coach de ventas experto en el sistema TPS (The Precision Selling) y en estilos conductuales D/R/S. Tu rol es ayudar a construir y refinar el perfil psicológico y conductual de asesores de seguros, para que la IA genere mensajes de coaching altamente personalizados y efectivos.
+
+PERFIL ACTUAL del asesor "${asesorActual}":
+- Identidad vendedora: ${ctx.identidad_vendedora || '(sin definir)'}
+- Relación con la prospección: ${ctx.relacion_prospeccion || '(sin definir)'}
+- Modelos mentales de resultado: ${ctx.modelos_mentales || '(sin definir)'}
+- Relación con el feedback: ${ctx.relacion_feedback || '(sin definir)'}
+- Perfil conductual D/R/S: ${ctx.perfil_conductual_notas || '(sin definir)'}
+- Contexto situacional: ${ctx.contexto_situacional || '(sin definir)'}
+
+OBSERVACIÓN DEL COACH:
+"${observacion}"
+
+Analiza esta observación con profundidad. ¿Qué revela sobre quién es esta persona como vendedor/a? ¿Qué actualiza o confirma del perfil? ¿Qué patrones o creencias subyacentes detectas?
+
+Responde ÚNICAMENTE con JSON válido, sin texto adicional antes ni después:
+{
+  "analisis": "tu interpretación profunda en 2-4 oraciones",
+  "sugerencias": [
+    {
+      "dimension": "nombre_campo",
+      "texto_propuesto": "texto completo y actualizado para esa dimensión, integrando lo nuevo con lo existente",
+      "razonamiento": "por qué este cambio mejora el perfil (1 oración)"
+    }
+  ]
+}
+
+Campos válidos para dimension: identidad_vendedora, relacion_prospeccion, modelos_mentales, relacion_feedback, perfil_conductual_notas, contexto_situacional
+
+Incluye solo las dimensiones que realmente requieran actualización.`;
+
+  try {
+    const raw = await callGemini(prompt, 1500);
+    removeMsgLoading(loadId);
+
+    let parsed;
+    try {
+      const match = raw.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(match ? match[0] : raw);
+    } catch {
+      addMsgAnalisis('No pude interpretar la respuesta. Intentá reformular la observación.', []);
+      return;
+    }
+    addMsgAnalisis(parsed.analisis || '', parsed.sugerencias || []);
+  } catch(e) {
+    removeMsgLoading(loadId);
+    showToast('Error en calibración: ' + e.message, true);
+  } finally {
+    input.disabled = false;
+    document.getElementById('btn-enviar').disabled = false;
+    input.focus();
+  }
+}
+
+/* ── APLICAR SUGERENCIA ── */
+function aplicarSugerencia(dimension, texto, btnEl, sugCard) {
+  const ta      = document.getElementById(`ta-${dimension}`);
+  const dimCard = document.getElementById(`dim-${dimension}`);
+  if (!ta) return;
+
+  ta.value = texto;
+  btnEl.textContent = '✓ Aplicado';
+  btnEl.disabled    = true;
+  sugCard.classList.add('applied');
+
+  if (dimCard) {
+    dimCard.classList.add('highlight');
+    setTimeout(() => dimCard.classList.remove('highlight'), 2500);
+    dimCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+/* ── CHAT HELPERS ── */
+function addMsgCoach(texto) {
+  const msgs  = document.getElementById('chat-messages');
+  const empty = msgs.querySelector('.chat-empty-state');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className   = 'msg-coach';
+  div.textContent = texto;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addMsgLoading() {
+  const msgs = document.getElementById('chat-messages');
+  const id   = 'ld-' + Date.now();
+  const div  = document.createElement('div');
+  div.className = 'msg-loading';
+  div.id        = id;
+  div.innerHTML  = `<span>Analizando</span><div class="dots"><span></span><span></span><span></span></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return id;
+}
+
+function removeMsgLoading(id) {
+  document.getElementById(id)?.remove();
+}
+
+function addMsgAnalisis(analisis, sugerencias) {
+  const msgs = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-ia';
+
+  if (analisis) {
+    const aDiv = document.createElement('div');
+    aDiv.className = 'msg-analisis';
+    const lbl = document.createElement('div');
+    lbl.className   = 'msg-analisis-label';
+    lbl.textContent = 'Análisis';
+    const p = document.createElement('p');
+    p.style.cssText = 'margin:0;font-size:13px;line-height:1.7';
+    p.textContent   = analisis;
+    aDiv.appendChild(lbl);
+    aDiv.appendChild(p);
+    wrap.appendChild(aDiv);
+  }
+
+  sugerencias.forEach(s => {
+    const dimCfg = DIMS.find(d => d.key === s.dimension);
+    if (!dimCfg) return;
+
+    const card = document.createElement('div');
+    card.className = 'msg-sugerencia';
+
+    const dimLbl = document.createElement('div');
+    dimLbl.className   = 'msg-sug-dim';
+    dimLbl.textContent = dimCfg.label;
+
+    const texto = document.createElement('div');
+    texto.className   = 'msg-sug-texto';
+    texto.textContent = s.texto_propuesto;
+
+    const razon = document.createElement('div');
+    razon.className   = 'msg-sug-razon';
+    razon.textContent = s.razonamiento;
+
+    const actions = document.createElement('div');
+    actions.className = 'msg-sug-actions';
+
+    const btnAplicar = document.createElement('button');
+    btnAplicar.className   = 'btn btn-sm btn-lime';
+    btnAplicar.textContent = 'Aplicar';
+    btnAplicar.onclick     = () => aplicarSugerencia(s.dimension, s.texto_propuesto, btnAplicar, card);
+
+    const btnIgnorar = document.createElement('button');
+    btnIgnorar.className   = 'btn btn-sm btn-ghost';
+    btnIgnorar.textContent = 'Ignorar';
+    btnIgnorar.onclick     = () => { card.style.opacity = '.35'; };
+
+    actions.appendChild(btnAplicar);
+    actions.appendChild(btnIgnorar);
+    card.appendChild(dimLbl);
+    card.appendChild(texto);
+    card.appendChild(razon);
+    card.appendChild(actions);
+    wrap.appendChild(card);
+  });
+
+  if (!sugerencias.length && analisis) {
+    const note = document.createElement('div');
+    note.style.cssText  = 'font-size:12px;color:var(--gray-3);padding:4px 2px;font-style:italic';
+    note.textContent    = 'No se sugieren cambios al perfil en base a esta observación.';
+    wrap.appendChild(note);
+  }
+
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+/* ── KEYBOARD ── */
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); calibrar(); }
+}
+
+/* ── UTILS ── */
+function setStatus(type, text) {
+  document.getElementById('status-dot').className  = `status-dot ${type}`;
+  document.getElementById('status-text').textContent = text;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' })
+    + ' ' + d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit' });
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => { t.className = 'toast'; }, 3500);
+}
+
+function logout() {
+  localStorage.removeItem('proxis_user');
+  window.location.href = '../proxis_plataforma.html';
+}
+
+/* ── INIT ── */
+loadAsesores();
+</script>
+</body>
+</html>
