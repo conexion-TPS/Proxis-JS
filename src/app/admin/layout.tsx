@@ -31,12 +31,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
+    if (pathname === '/admin/login') { setReady(true); return }
     const stored = localStorage.getItem('proxis_admin')
     if (!stored) { router.replace('/admin/login'); return }
     const parsed = JSON.parse(stored)
     setUser(parsed.name || 'Admin')
     setReady(true)
-  }, [router])
+  }, [router, pathname])
 
   function logout() {
     localStorage.removeItem('proxis_admin')
@@ -44,6 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!ready) return null
+  if (pathname === '/admin/login') return <>{children}</>
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f5f3ef' }}>
