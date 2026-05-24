@@ -7,18 +7,35 @@ import { supabase } from '@/lib/supabase'
 type Cuestionario = { id: string; nombre: string; tipo: string | null; descripcion: string | null; activo: boolean; created_at: string }
 type Pregunta      = { id: string; cuestionario_id: string; orden: number; texto: string; tipo_respuesta: string | null; dimension_target: string | null; perfil_hint: string | null }
 type Respuesta     = { id: string; asesor: string; cuestionario_id: string; pregunta_id: string; respuesta: string | null; created_at: string }
+type TpsPerfil     = {
+  id: string; asesor: string; perfil_base: string; confianza_diagnostico: string
+  puntaje_a: number; puntaje_b: number; rasgos_comerciales: Record<string, number>
+  backup_style_activo: boolean; deseabilidad_social: boolean; updated_at: string
+}
 
 const TIPOS_Q = ['psicometrico','micro','contextual','onboarding','programado']
-const TIPOS_R = ['escala_4','abierta','alternativas','si_no']
+const TIPOS_R = ['escala_4','escala_5','abierta','alternativas','si_no']
 const DIMENSIONES = ['identidad_vendedora','relacion_prospeccion','modelos_mentales','relacion_feedback','perfil_conductual_notas','contexto_situacional']
 
-type Tab = 'cuestionarios' | 'preguntas' | 'respuestas'
+const PERFIL_LABELS: Record<string, { icon: string; nombre: string; color: string }> = {
+  E:   { icon: '🦅', nombre: 'Energético',  color: '#e8440a' },
+  S:   { icon: '🦚', nombre: 'Sociable',    color: '#d4a017' },
+  R:   { icon: '🕊️', nombre: 'Relacional',  color: '#1f6f56' },
+  A:   { icon: '🦉', nombre: 'Reflexivo',   color: '#3a5da8' },
+  AMB: { icon: '🔄', nombre: 'Ambivertido', color: '#6b45c8' },
+}
+const FACTOR_LABELS: Record<string, string> = {
+  f1: 'Iniciativa', f2: 'Orient. Cliente', f3: 'Disciplina', f4: 'Estabilidad', f5: 'Aprendizaje',
+}
+
+type Tab = 'cuestionarios' | 'preguntas' | 'respuestas' | 'perfiles'
 
 export default function CuestionariosPage() {
   const [tab,          setTab]         = useState<Tab>('cuestionarios')
   const [cuests,       setCuests]      = useState<Cuestionario[]>([])
   const [preguntas,    setPreguntas]   = useState<Pregunta[]>([])
   const [respuestas,   setRespuestas]  = useState<Respuesta[]>([])
+  const [perfiles,     setPerfiles]    = useState<TpsPerfil[]>([])
   const [selCuest,     setSelCuest]    = useState<Cuestionario | null>(null)
   const [showModal,    setShowModal]   = useState(false)
   const [editId,       setEditId]      = useState<string | null>(null)
@@ -35,7 +52,14 @@ export default function CuestionariosPage() {
     setCuests(data ?? [])
   }, [])
 
+  const loadPerfiles = useCallback(async () => {
+    const { data } = await supabase.from('tps_perfiles').select('*').order('updated_at', { ascending: false })
+    setPerfiles(data ?? [])
+  }, [])
+
   useEffect(() => { loadCuests() }, [loadCuests])
+
+  useEffect(() => { if (tab === 'perfiles') loadPerfiles() }, [tab, loadPerfiles])
 
   async function loadPreguntas(cid: string) {
     const { data } = await supabase.from('preguntas').select('*').eq('cuestionario_id', cid).order('orden')
@@ -129,7 +153,7 @@ export default function CuestionariosPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid #e8e6e3' }}>
-        {[['cuestionarios','Cuestionarios'],['preguntas','Banco de preguntas'],['respuestas','Respuestas']].map(([k, l]) => (
+        {[['cuestionarios','Cuestionarios'],['preguntas','Banco de preguntas'],['respuestas','Respuestas'],['perfiles','Perfiles TPS']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as Tab)} style={{
             padding: '10px 16px', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
             fontSize: 13, fontWeight: tab === k ? 700 : 400,
@@ -316,6 +340,67 @@ export default function CuestionariosPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === 'perfiles' && (
+        <div>
+          <div style={{ marginBottom: 16, fontSize: 13, color: '#4a4844' }}>
+            Perfiles TPS calculados — <strong>{perfiles.length}</strong> asesores evaluados
+          </div>
+          {perfiles.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885' }}>
+              Ningún asesor ha completado la evaluación TPS aún.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {perfiles.map(p => {
+                const info = PERFIL_LABELS[p.perfil_base] ?? PERFIL_LABELS['AMB']
+                const conf = p.confianza_diagnostico
+                const confColor = conf === 'Alta' ? '#1f6f56' : conf === 'Media' ? '#a8691a' : '#8a8885'
+                return (
+                  <div key={p.id} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                      <span style={{ fontSize: 28 }}>{info.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>{p.asesor}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20,
+                            background: `${info.color}18`, color: info.color, border: `1px solid ${info.color}40` }}>
+                            {info.nombre}
+                          </span>
+                          <span style={{ fontSize: 11, padding: '2px 9px', borderRadius: 20,
+                            background: `${confColor}15`, color: confColor, border: `1px solid ${confColor}35` }}>
+                            {conf}
+                          </span>
+                          {p.backup_style_activo && (
+                            <span title="Backup Style activo" style={{ fontSize: 12, padding: '2px 9px', borderRadius: 20,
+                              background: '#fff3cd', color: '#a8691a', border: '1px solid #f5c518' }}>
+                              ⚠️ Backup
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#8a8885', marginTop: 3 }}>
+                          A: {p.puntaje_a?.toFixed(2)} · B: {p.puntaje_b?.toFixed(2)} ·{' '}
+                          {new Date(p.updated_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        </div>
+                      </div>
+                    </div>
+                    {p.rasgos_comerciales && Object.keys(p.rasgos_comerciales).length > 0 && (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {Object.entries(p.rasgos_comerciales).map(([k, v]) => (
+                          <div key={k} style={{ background: '#f5f3ef', borderRadius: 8, padding: '5px 10px', fontSize: 11 }}>
+                            <span style={{ color: '#8a8885' }}>{FACTOR_LABELS[k] ?? k}</span>
+                            <span style={{ fontWeight: 700, color: v >= 20 ? '#1f6f56' : v >= 15 ? '#0b0a09' : '#b03a3a', marginLeft: 5 }}>{v}/25</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
