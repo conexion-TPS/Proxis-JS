@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase'
 import { callGemini } from '@/lib/gemini'
-
-const sb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
 
 function getMesActual() {
   const d = new Date()
@@ -37,14 +32,14 @@ async function buildContext(asesor: string) {
   const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
 
   const [metaRes, reportesRes, ingresoRes, perfilRes] = await Promise.all([
-    sb.from('metas').select('*').eq('asesor', asesor),
-    sb.from('reportes').select('*')
+    supabaseAdmin().from('metas').select('*').eq('asesor', asesor),
+    supabaseAdmin().from('reportes').select('*')
       .eq('asesor', asesor)
       .gte('semana_inicio', `${mes}-01`)
       .lt('semana_inicio', `${next}-01`)
       .order('semana_inicio', { ascending: false }),
-    sb.from('ingresos').select('*').eq('asesor', asesor).eq('mes', mes),
-    sb.from('asesor_perfil').select('resumen_ia').eq('asesor', asesor).limit(1),
+    supabaseAdmin().from('ingresos').select('*').eq('asesor', asesor).eq('mes', mes),
+    supabaseAdmin().from('asesor_perfil').select('resumen_ia').eq('asesor', asesor).limit(1),
   ])
 
   const meta     = metaRes.data?.[0]     ?? {}
@@ -85,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     let promptBody = bodyOverride as string | undefined
     if (!promptBody) {
-      const { data } = await sb.from('prompts')
+      const { data } = await supabaseAdmin().from('prompts')
         .select('body').eq('trigger_id', triggerId).eq('activo', true).limit(1)
       promptBody = data?.[0]?.body
       if (!promptBody) return NextResponse.json({ error: 'No hay prompt activo para este trigger' }, { status: 404 })
