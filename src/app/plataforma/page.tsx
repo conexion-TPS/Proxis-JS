@@ -6,6 +6,10 @@ export default function PlataformaPage() {
     if ((window as any).__plataformaLoaded) return
     ;(window as any).__plataformaLoaded = true
 
+    // Expose Supabase credentials for cuestionario-player.js
+    ;(window as any).__SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL
+    ;(window as any).__SB_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
     function loadScript(src: string, onload?: () => void) {
       const s = document.createElement('script')
       s.src = src
@@ -21,7 +25,11 @@ export default function PlataformaPage() {
         loadScript('/compensacion/compania-z/datos.js?v='+v, () =>
           loadScript('/compensacion/compania-z/perfil.js?v='+v, () =>
             loadScript('/compensacion/compania-z/nodos.js?v='+v, () =>
-              loadScript('/compensacion/compania-z/renta.js?v='+v)
+              loadScript('/compensacion/compania-z/renta.js?v='+v, () =>
+                loadScript('/signal-capture.js?v='+v, () =>
+                  loadScript('/cuestionario-player.js?v='+v)
+                )
+              )
             )
           )
         )
