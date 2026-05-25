@@ -23,6 +23,8 @@ export default function AdminDashboard() {
   const [status, setStatus] = useState<Status>('loading')
   const [statusMsg, setStatusMsg] = useState('Verificando conexión con Supabase…')
   const [sbUrl, setSbUrl] = useState('—')
+  const [geminiOk, setGeminiOk] = useState<boolean | null>(null)
+  const [resendOk,  setResendOk]  = useState<boolean | null>(null)
   const isDev = typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 
@@ -30,6 +32,11 @@ export default function AdminDashboard() {
     const url  = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     setSbUrl(url)
+
+    fetch('/api/admin/status')
+      .then(r => r.json())
+      .then(d => { setGeminiOk(d.gemini); setResendOk(d.resend) })
+      .catch(() => {})
 
     fetch(`${url}/rest/v1/trigger_config?limit=1`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -100,8 +107,8 @@ export default function AdminDashboard() {
       }}>
         <InfoCard label="Ambiente activo" value={isDev ? 'proxis-dev (pruebas)' : 'producción'} />
         <InfoCard label="Supabase URL"    value={sbUrl} mono />
-        <InfoCard label="Gemini API"      value={process.env.GEMINI_KEY ? '✓ Configurada' : '⚠ Pendiente'} />
-        <InfoCard label="Resend API"      value={process.env.RESEND_KEY ? '✓ Configurada' : '⚠ Pendiente'} />
+        <InfoCard label="Gemini API"      value={geminiOk === null ? '…' : geminiOk ? '✓ Configurada' : '⚠ Pendiente'} />
+        <InfoCard label="Resend API"      value={resendOk === null ? '…' : resendOk ? '✓ Configurada' : '⚠ Pendiente'} />
       </div>
 
       <style>{`
