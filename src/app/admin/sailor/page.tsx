@@ -73,12 +73,18 @@ export default function SailorPage() {
       tipo:      'mensaje',
       leido:     false,
     })
-    setSending(false)
     if (!error) {
-      showToast('Mensaje guardado en el feed de Sailor.')
+      // Notificación por email en background (no bloqueante)
+      fetch('/api/email/notificacion-sailor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asesor: sendForm.asesor, contenido: sendForm.contenido.trim() }),
+      }).catch(() => {})
+      showToast('Mensaje enviado. Notificación email en camino.')
       setSendForm(null)
       load()
     }
+    setSending(false)
   }
 
   async function toggleToken(id: string, activo: boolean) {
