@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { SailorFAB } from '@/components/SailorFAB'
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard',    icon: '⊞',  label: 'Dashboard',   group: null },
@@ -155,8 +154,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {children}
       </main>
-
-      <SailorFAB />
     </div>
   )
 }
