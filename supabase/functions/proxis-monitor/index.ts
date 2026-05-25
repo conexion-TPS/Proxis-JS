@@ -69,7 +69,7 @@ async function buildContext(asesor: string) {
   const [y, m] = mes.split('-').map(Number)
   const next   = m === 12 ? `${y+1}-01` : `${y}-${String(m+1).padStart(2,'0')}`
 
-  const [metaRes, reportesRes, ingresoRes, perfilRes] = await Promise.all([
+  const [metaRes, reportesRes, ingresoRes, perfilRes, tpsRes] = await Promise.all([
     sb.from('metas').select('*').eq('asesor', asesor),
     sb.from('reportes').select('*')
       .eq('asesor', asesor)
@@ -77,7 +77,10 @@ async function buildContext(asesor: string) {
       .lt('semana_inicio', `${next}-01`)
       .order('semana_inicio', { ascending: false }),
     sb.from('ingresos').select('*').eq('asesor', asesor).eq('mes', mes),
-    sb.from('asesor_perfil').select('resumen_ia').eq('asesor', asesor).limit(1)
+    sb.from('asesor_perfil').select('resumen_ia').eq('asesor', asesor).limit(1),
+    sb.from('tps_perfiles').select(
+      'perfil_base,confianza_diagnostico,puntaje_a,puntaje_b,rasgos_comerciales,backup_style_activo,deseabilidad_social'
+    ).eq('asesor', asesor).maybeSingle()
   ])
 
   const meta     = metaRes.data?.[0]     || {}
@@ -109,8 +112,34 @@ async function buildContext(asesor: string) {
     pc_promedio:           calcPcPromedio(ultimas4),
     z_proyectados:         calcZProyectados(ultimas4),
     persistencia_actual:   calcPersistencia(ultimas4, meta.meta_contactos_semana || 3),
-    perfil_resumen:        perfilRes.data?.[0]?.resumen_ia || null
+    perfil_resumen:        perfilRes.data?.[0]?.resumen_ia || null,
+    tps_perfil:            tpsRes.data ?? null,
   }
+}
+
+function formatTpsPerfil(tps: any): string {
+  if (!tps) return ''
+  const NOMBRES: Record<string, string> = {
+    E: 'Energético', S: 'Sociable', R: 'Relacional', A: 'Reflexivo', AMB: 'Ambivertido',
+  }
+  const FACTORES: Record<string, string> = {
+    f1: 'Iniciativa Comercial', f2: 'Orientación al Cliente',
+    f3: 'Disciplina de Proceso', f4: 'Estabilidad bajo Presión', f5: 'Apertura al Aprendizaje',
+  }
+  const nombre = NOMBRES[tps.perfil_base] ?? tps.perfil_base
+  let out = `[PERFIL TPS — Evaluación Conductual v1.0]\n`
+  out += `Perfil Base: ${nombre} (${tps.perfil_base}) | Confianza diagnóstico: ${tps.confianza_diagnostico}\n`
+  out += `Eje Iniciativa (A): ${Number(tps.puntaje_a).toFixed(2)}/4.0 | Eje Calidez (B): ${Number(tps.puntaje_b).toFixed(2)}/4.0\n`
+  if (tps.rasgos_comerciales && Object.keys(tps.rasgos_comerciales).length) {
+    out += `Rasgos Comerciales:\n`
+    for (const [k, v] of Object.entries(tps.rasgos_comerciales as Record<string, number>)) {
+      const estrellas = v >= 20 ? '★★★' : v >= 15 ? '★★' : '★'
+      out += `  · ${FACTORES[k] ?? k}: ${v}/25 ${estrellas}\n`
+    }
+  }
+  if (tps.backup_style_activo) out += `⚠️ Señal Backup Style activa: tendencia a ceder bajo presión para evitar desaprobación.\n`
+  if (tps.deseabilidad_social) out += `⚠️ Posible deseabilidad social detectada en Módulo C.\n`
+  return out.trim()
 }
 
 /* ── Evaluar condición del trigger ──────────────────────────── */
@@ -192,6 +221,85 @@ async function sendEmail(asesor: string, asunto: string, cuerpo: string, remiten
   }
 }
 
+/* ── Captura inmanente vía email ────────────────────────────── */
+
+const PROB_CAPTURA_EMAIL = 0.25  // 25% de los mensajes llevan pregunta
+
+async function decidirCapturaEmail(asesor: string): Promise<{
+  capturar: boolean; pregunta?: string; preguntaId?: string; dimension?: string
+}> {
+  if (Math.random() > PROB_CAPTURA_EMAIL) return { capturar: false }
+
+  // Verificar que no se envió pregunta recientemente (cooldown 14 días)
+  const since14 = new Date(Date.now() - 14 * 86400_000).toISOString()
+  const { data: recent } = await sb
+    .from('behavioral_signals')
+    .select('id')
+    .eq('asesor', asesor)
+    .eq('fuente', 'email')
+    .gte('created_at', since14)
+    .limit(1)
+  if (recent?.length) return { capturar: false }
+
+  // Encontrar dimensión con menos señales
+  const { data: senales } = await sb
+    .from('behavioral_signals')
+    .select('dimension_target')
+    .eq('asesor', asesor)
+    .limit(200)
+
+  const conteo: Record<string, number> = {}
+  for (const s of senales ?? []) {
+    const d = s.dimension_target || 'otro'
+    conteo[d] = (conteo[d] || 0) + 1
+  }
+  const DIMS = ['identidad_vendedora','relacion_prospeccion','modelos_mentales',
+                'relacion_feedback','perfil_conductual_notas','contexto_situacional']
+  const sorted = DIMS.sort((a, b) => (conteo[a] || 0) - (conteo[b] || 0))
+  const targetDim = sorted[0]
+
+  // Buscar pregunta activa para esa dimensión
+  const { data: cuesList } = await sb
+    .from('cuestionarios')
+    .select('id')
+    .eq('activo', true)
+    .limit(5)
+
+  if (!cuesList?.length) return { capturar: false }
+
+  const cueIds = cuesList.map((c: any) => c.id)
+  const { data: pregs } = await sb
+    .from('preguntas')
+    .select('id, texto, tipo_respuesta, opciones')
+    .in('cuestionario_id', cueIds)
+    .eq('dimension_target', targetDim)
+    .limit(5)
+
+  if (!pregs?.length) return { capturar: false }
+
+  const preg = pregs[Math.floor(Math.random() * pregs.length)]
+
+  // Formatear la pregunta para email
+  let pregTexto = `\n\n---\n💬 Pregunta rápida del coach:\n\n${preg.texto}\n`
+  if (preg.tipo_respuesta === 'escala_4') {
+    const labels = preg.opciones?.labels ?? ['Muy en desacuerdo','En desacuerdo','De acuerdo','Muy de acuerdo']
+    pregTexto += labels.map((l: string, i: number) => `  ${i+1}. ${l}`).join('\n')
+    pregTexto += '\n\nResponde simplemente con el número (1-4) respondiendo a este email.'
+  } else if (preg.tipo_respuesta === 'si_no') {
+    pregTexto += '\nResponde Sí o No respondiendo a este email.'
+  } else if (preg.tipo_respuesta === 'alternativas' && preg.opciones?.items) {
+    pregTexto += preg.opciones.items.map((item: any, i: number) =>
+      `  ${i+1}. ${item.label ?? item}`
+    ).join('\n')
+    pregTexto += '\n\nResponde con el número de tu opción.'
+  } else {
+    pregTexto += '\nResponde con tus palabras respondiendo a este email.'
+  }
+  pregTexto += '\n\n(Esta es una pregunta opcional — puedes ignorarla si lo prefieres.)'
+
+  return { capturar: true, pregunta: pregTexto, preguntaId: preg.id, dimension: targetDim }
+}
+
 /* ── Cooldown ───────────────────────────────────────────────── */
 
 async function cooldownOk(asesor: string, triggerId: string, days: number): Promise<boolean> {
@@ -253,20 +361,39 @@ Deno.serve(async (_req: Request) => {
         }
 
         const compilado    = compileTemplate(prompts[0].body, ctx)
+        const tpsBlock     = ctx.tps_perfil ? formatTpsPerfil(ctx.tps_perfil) + '\n\n' : ''
         const perfilBlock  = ctx.perfil_resumen
           ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n`
           : ''
-        const body         = await callGemini(perfilBlock + compilado)
+        const body         = await callGemini(tpsBlock + perfilBlock + compilado)
+
+        // Captura inmanente: posiblemente adjuntar pregunta al email
+        const captura = await decidirCapturaEmail(asesor)
+        const bodyFinal = captura.capturar && captura.pregunta
+          ? body + captura.pregunta
+          : body
 
         await sb.from('message_log').insert({
           asesor,
           trigger_id:     tid,
-          body,
+          body:           bodyFinal,
           prompt_version: prompts[0].version
         })
 
+        // Registrar señal pendiente de respuesta si se envió pregunta
+        if (captura.capturar && captura.preguntaId) {
+          await sb.from('behavioral_signals').insert({
+            asesor,
+            fuente:           'email',
+            tipo:             'pregunta_enviada',
+            valor:            captura.preguntaId,
+            dimension_target: captura.dimension ?? null,
+            procesada:        false,
+          })
+        }
+
         const asunto = trigger.asunto || 'Mensaje de tu coach Proxis'
-        await sendEmail(asesor, asunto, body, remitente)
+        await sendEmail(asesor, asunto, bodyFinal, remitente)
 
         item.status = 'sent'
       } catch (e: any) {
