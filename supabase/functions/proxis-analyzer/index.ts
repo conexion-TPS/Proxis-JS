@@ -47,12 +47,16 @@ interface GeminiAnalysis {
     confianza: number
     valor_sugerido: string
     evidencia: string
+    accion_tipo: 'trigger' | 'ajuste_dimension' | 'escalar_supervisor' | 'ninguna'
+    accion_descripcion: string
   }>
   gaps_detectados: Array<{
     dimension: string
     descripcion: string
     prioridad: number
   }>
+  nivel_riesgo: 'activo' | 'en_riesgo' | 'critico'
+  nivel_riesgo_nota: string
   progresion_integrador: number
   confianza_perfil: number
   resumen_analisis: string
@@ -148,17 +152,26 @@ ${conocimientoTexto || '(vacía)'}
 
 ## Instrucciones
 Analiza las señales y genera:
-1. Hipótesis conductuales (máx. 5): inferencias sobre dimensiones del perfil, con nivel de confianza 0-100
+1. Hipótesis conductuales (máx. 5): inferencias sobre dimensiones del perfil, con nivel de confianza 0-100.
+   Por cada hipótesis, propone una acción concreta para que el supervisor o coach tome con este asesor.
 2. Vacíos de conocimiento (máx. 3): dimensiones donde hay datos insuficientes para perfilar
-3. Progresión hacia perfil integrador (0-100): qué tan maduro es el perfil conductual basado en las evidencias
-4. Nivel de confianza global del perfil (0-100)
-5. Resumen ejecutivo de 2-3 oraciones
+3. Nivel de riesgo del asesor: 'activo' (todo bien), 'en_riesgo' (señales de alerta que requieren atención), 'critico' (múltiples señales graves, intervención urgente)
+4. Progresión hacia perfil integrador (0-100): qué tan maduro es el perfil conductual basado en las evidencias
+5. Nivel de confianza global del perfil (0-100)
+6. Resumen ejecutivo de 2-3 oraciones
 
 Las dimensiones válidas son: identidad_vendedora, relacion_prospeccion, modelos_mentales, relacion_feedback, perfil_conductual_notas, contexto_situacional
 
 Los perfiles Merrill-Reid: E (Energético/Driver/Águila), S (Sociable/Expressive/Pavo Real), R (Relacional/Amiable/Paloma), A (Reflexivo/Analytical/Búho)
 
+Acciones válidas por hipótesis:
+- "trigger": enviar un mensaje de coaching específico al asesor (describe qué mensaje en accion_descripcion)
+- "ajuste_dimension": actualizar una dimensión del perfil con el valor sugerido
+- "escalar_supervisor": notificar al supervisor con contexto específico
+- "ninguna": la hipótesis requiere solo observación por ahora
+
 IMPORTANTE: El perfil es siempre una hipótesis de trabajo, no un diagnóstico. Requiere consenso de múltiples evidencias.
+El nivel de riesgo debe ser 'critico' solo si hay señales claras de abandono, inactividad prolongada o resultados muy por debajo de meta.
 
 Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
 {
@@ -168,7 +181,9 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
       "dimension_afectada": "nombre_dimension",
       "confianza": 75,
       "valor_sugerido": "texto sugerido para la dimensión",
-      "evidencia": "señales específicas que sustentan esta hipótesis"
+      "evidencia": "señales específicas que sustentan esta hipótesis",
+      "accion_tipo": "trigger",
+      "accion_descripcion": "descripción específica de la acción a tomar"
     }
   ],
   "gaps_detectados": [
@@ -178,6 +193,8 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
       "prioridad": 3
     }
   ],
+  "nivel_riesgo": "activo",
+  "nivel_riesgo_nota": "razón breve del nivel de riesgo asignado",
   "progresion_integrador": 45,
   "confianza_perfil": 60,
   "resumen_analisis": "resumen ejecutivo"
@@ -197,6 +214,7 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
 
   // 6. Guardar hipótesis en deductions_log
   let hipotesisCount = 0
+  const VALID_ACCION = ['trigger', 'ajuste_dimension', 'escalar_supervisor', 'ninguna']
   for (const h of (analysis.hipotesis ?? [])) {
     await sb.from('deductions_log').insert({
       asesor,
@@ -205,6 +223,8 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
       confianza:          h.confianza,
       valor_sugerido:     h.valor_sugerido,
       evidencia:          h.evidencia,
+      accion_tipo:        VALID_ACCION.includes(h.accion_tipo) ? h.accion_tipo : 'ninguna',
+      accion_descripcion: h.accion_descripcion ?? null,
       senales_usadas:     sigIds.slice(0, 10),
       estado:             'pendiente'
     })
@@ -235,16 +255,22 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
     }
   }
 
-  // 8. Actualizar progresion_integrador y confianza_perfil en asesor_perfil
-  const nuevaProgresion   = analysis.progresion_integrador ?? perfil.progresion_integrador ?? 0
-  const nuevaConfianza    = analysis.confianza_perfil      ?? perfil.confianza_perfil      ?? 0
+  // 8. Actualizar progresion, confianza y nivel_riesgo en asesor_perfil
+  const nuevaProgresion = analysis.progresion_integrador ?? perfil.progresion_integrador ?? 0
+  const nuevaConfianza  = analysis.confianza_perfil      ?? perfil.confianza_perfil      ?? 0
+  const VALID_RIESGO    = ['activo', 'en_riesgo', 'critico']
+  const nuevoRiesgo     = VALID_RIESGO.includes(analysis.nivel_riesgo) ? analysis.nivel_riesgo : 'activo'
+  const now             = new Date().toISOString()
 
   await sb.from('asesor_perfil').upsert(
     {
       asesor,
       progresion_integrador: nuevaProgresion,
       confianza_perfil:      nuevaConfianza,
-      updated_at:            new Date().toISOString()
+      nivel_riesgo:          nuevoRiesgo,
+      nivel_riesgo_at:       now,
+      nivel_riesgo_nota:     analysis.nivel_riesgo_nota ?? null,
+      updated_at:            now
     },
     { onConflict: 'asesor' }
   )
