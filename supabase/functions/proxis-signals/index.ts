@@ -21,6 +21,11 @@ const DEDUP_DAYS: Record<string, number> = {
   persistencia_baja:                   6,
   bajo_ingreso_mensual:               20,
   meta_ingresos_superada:             20,
+  // Fase 2.6 — nuevos triggers de piloto
+  riesgo_elevado:                      5,
+  progresion_hito:                    30,
+  sin_mensajes_recientes:             12,
+  hipotesis_acumuladas:                7,
 }
 
 // ── Helpers de fecha ─────────────────────────────────────────────────────────
@@ -75,7 +80,9 @@ async function buildContext(asesor: string) {
   const [y, m] = mes.split('-').map(Number)
   const next   = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
 
-  const [metaRes, reportesRes, ingresoRes] = await Promise.all([
+  const hace14d = new Date(Date.now() - 14 * 86_400_000).toISOString()
+
+  const [metaRes, reportesRes, ingresoRes, perfilRes, ultimoMsgRes, hipPendRes] = await Promise.all([
     sb.from('metas')
       .select('meta_contactos_semana,meta_prospectos_mes,meta_ingresos,perfil_conductual')
       .eq('asesor', asesor)
@@ -90,10 +97,26 @@ async function buildContext(asesor: string) {
       .eq('asesor', asesor)
       .eq('mes', mes)
       .maybeSingle(),
+    sb.from('asesor_perfil')
+      .select('nivel_riesgo,progresion_integrador')
+      .eq('asesor', asesor)
+      .maybeSingle(),
+    sb.from('sailor_messages')
+      .select('created_at')
+      .eq('asesor', asesor)
+      .eq('origen', 'coach_ia')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    sb.from('deductions_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('asesor', asesor)
+      .eq('estado', 'pendiente'),
   ])
 
   const meta     = (metaRes.data    || {}) as Record<string, any>
   const reportes = (reportesRes.data || []) as any[]
+  const perfil   = perfilRes.data   || null
 
   // Cargar contactos de cada reporte secuencialmente (evita burst de queries en paralelo)
   for (const r of reportes) {
@@ -119,6 +142,13 @@ async function buildContext(asesor: string) {
     persistencia_actual: calcPersistencia(reportes, meta_contactos_semana),
     ingreso_mes_actual:  (ingresoRes.data?.ingreso_real as number) || 0,
     mes_actual: mes,
+    // Fase 2.6
+    nivel_riesgo:          perfil?.nivel_riesgo          as string | null ?? null,
+    progresion_integrador: perfil?.progresion_integrador as number | null ?? null,
+    dias_sin_mensaje: ultimoMsgRes.data
+      ? Math.floor((Date.now() - new Date(ultimoMsgRes.data.created_at).getTime()) / 86_400_000)
+      : 999,
+    hipotesis_pendientes: (hipPendRes.count ?? 0) as number,
   }
 }
 
@@ -233,6 +263,56 @@ function evaluateSignals(ctx: Awaited<ReturnType<typeof buildContext>>): SignalS
         pct:           +(ctx.ingreso_mes_actual / ctx.meta_ingresos * 100).toFixed(1),
         mes:           ctx.mes_actual,
       },
+    })
+  }
+
+  // ─ Fase 2.6: Riesgo elevado ─────────────────────────────────────────────────
+  if (ctx.nivel_riesgo === 'en_riesgo' || ctx.nivel_riesgo === 'critico') {
+    signals.push({
+      tipo:             'riesgo_elevado',
+      valor:            ctx.nivel_riesgo,
+      dimension_target: 'contexto_situacional',
+      confianza_hint:   85,
+      contexto: { nivel_riesgo: ctx.nivel_riesgo, mes: ctx.mes_actual },
+    })
+  }
+
+  // ─ Fase 2.6: Hito de progresión ─────────────────────────────────────────────
+  if (ctx.progresion_integrador !== null) {
+    const hito = ctx.progresion_integrador >= 75 ? 75
+               : ctx.progresion_integrador >= 50 ? 50
+               : ctx.progresion_integrador >= 25 ? 25
+               : null
+    if (hito !== null) {
+      signals.push({
+        tipo:             'progresion_hito',
+        valor:            String(hito),
+        dimension_target: 'identidad_vendedora',
+        confianza_hint:   75,
+        contexto: { hito, progresion_actual: ctx.progresion_integrador, mes: ctx.mes_actual },
+      })
+    }
+  }
+
+  // ─ Fase 2.6: Sin mensajes recientes del coach ───────────────────────────────
+  if (ctx.dias_sin_mensaje >= 14) {
+    signals.push({
+      tipo:             'sin_mensajes_recientes',
+      valor:            String(ctx.dias_sin_mensaje),
+      dimension_target: 'relacion_feedback',
+      confianza_hint:   60,
+      contexto: { dias_sin_mensaje: ctx.dias_sin_mensaje, mes: ctx.mes_actual },
+    })
+  }
+
+  // ─ Fase 2.6: Hipótesis acumuladas sin revisar ───────────────────────────────
+  if (ctx.hipotesis_pendientes >= 3) {
+    signals.push({
+      tipo:             'hipotesis_acumuladas',
+      valor:            String(ctx.hipotesis_pendientes),
+      dimension_target: 'perfil_conductual_notas',
+      confianza_hint:   70,
+      contexto: { hipotesis_pendientes: ctx.hipotesis_pendientes, mes: ctx.mes_actual },
     })
   }
 
