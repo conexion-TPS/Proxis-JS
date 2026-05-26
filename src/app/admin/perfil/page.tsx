@@ -22,7 +22,19 @@ type PerfilRow = {
   perfil_conductual_notas: string | null
   contexto_situacional: string | null
   resumen_ia: string | null
+  relato_evolucion: string | null
+  relato_evolucion_at: string | null
   updated_at: string | null
+}
+
+type HistorialRow = {
+  id: string
+  snapshot_at: string
+  progresion_integrador: number | null
+  confianza_perfil: number | null
+  nivel_riesgo: 'activo' | 'en_riesgo' | 'critico' | null
+  hipotesis_count: number
+  senales_procesadas: number
 }
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
@@ -31,6 +43,7 @@ export default function PerfilPage() {
   const [asesores,  setAsesores]  = useState<string[]>([])
   const [selAsesor, setSelAsesor] = useState('')
   const [perfil,    setPerfil]    = useState<Partial<PerfilRow>>({})
+  const [historial, setHistorial] = useState<HistorialRow[]>([])
   const [saving,    setSaving]    = useState(false)
   const [savingIA,  setSavingIA]  = useState(false)
   const [chat,      setChat]      = useState<ChatMsg[]>([])
@@ -53,11 +66,19 @@ export default function PerfilPage() {
     setSelAsesor(asesor)
     setChat([])
     setPerfil({})
+    setHistorial([])
     if (!asesor) return
-    const { data } = await supabase.from('asesor_perfil')
-      .select('*').eq('asesor', asesor).limit(1)
-    if (data?.[0]) setPerfil(data[0])
+    const [perfilRes, histRes] = await Promise.all([
+      supabase.from('asesor_perfil').select('*').eq('asesor', asesor).limit(1),
+      supabase.from('asesor_perfil_historial')
+        .select('id, snapshot_at, progresion_integrador, confianza_perfil, nivel_riesgo, hipotesis_count, senales_procesadas')
+        .eq('asesor', asesor)
+        .order('snapshot_at', { ascending: true })
+        .limit(20),
+    ])
+    if (perfilRes.data?.[0]) setPerfil(perfilRes.data[0])
     else setPerfil({ asesor })
+    setHistorial(histRes.data ?? [])
   }
 
   async function guardar() {
@@ -230,6 +251,71 @@ export default function PerfilPage() {
               />
             </div>
 
+            {/* Evolución del perfil */}
+            {historial.length > 0 && (
+              <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Evolución del perfil</div>
+                <div style={{ fontSize: 11, color: '#8a8885', marginBottom: 16 }}>
+                  {historial.length} ciclos de análisis registrados
+                </div>
+
+                {/* Sparkline */}
+                <Sparkline rows={historial} />
+
+                {/* Timeline de riesgo */}
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+                  {historial.map((h, i) => (
+                    <div key={h.id} title={`${h.snapshot_at.slice(0,10)} — ${h.nivel_riesgo ?? '?'}`}
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                      }}>
+                      <div style={{
+                        width: 10, height: 10, borderRadius: '50%',
+                        background: h.nivel_riesgo === 'critico' ? '#b03a3a' : h.nivel_riesgo === 'en_riesgo' ? '#a8691a' : '#1f6f56',
+                        border: i === historial.length - 1 ? '2px solid #0b0a09' : '2px solid transparent',
+                      }} />
+                      {i === 0 || i === historial.length - 1 ? (
+                        <span style={{ fontSize: 9, color: '#8a8885' }}>{h.snapshot_at.slice(5,10)}</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                  {[{ color: '#1f6f56', label: 'Activo' }, { color: '#a8691a', label: 'En riesgo' }, { color: '#b03a3a', label: 'Crítico' }].map(({ color, label }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                      <span style={{ fontSize: 10, color: '#8a8885' }}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Relato de evolución */}
+                {perfil.relato_evolucion ? (
+                  <div style={{ marginTop: 16, padding: '14px 16px', background: '#fafaf7', borderRadius: 10, border: '1px solid #e8e6e3' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#0b0a09' }}>Relato IA de evolución</span>
+                      {perfil.relato_evolucion_at && (
+                        <span style={{ fontSize: 10, color: '#8a8885' }}>
+                          Generado {new Date(perfil.relato_evolucion_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 13, lineHeight: 1.7, color: '#2b2926', margin: 0 }}>
+                      {perfil.relato_evolucion}
+                    </p>
+                  </div>
+                ) : historial.length >= 3 ? (
+                  <div style={{ marginTop: 14, fontSize: 12, color: '#8a8885', fontStyle: 'italic' }}>
+                    El relato de evolución se generará automáticamente en el próximo ciclo del analizador (domingo 22:00 UTC).
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 14, fontSize: 12, color: '#8a8885', fontStyle: 'italic' }}>
+                    Se necesitan al menos 3 ciclos de análisis para generar el relato de evolución ({3 - historial.length} más).
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Save bar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
               {perfil.updated_at && (
@@ -311,6 +397,67 @@ export default function PerfilPage() {
           padding: '10px 22px', borderRadius: 30, zIndex: 999,
         }}>{toast.msg}</div>
       )}
+    </div>
+  )
+}
+
+function Sparkline({ rows }: { rows: HistorialRow[] }) {
+  if (rows.length < 2) return null
+  const W = 400, H = 80, PAD = 8
+  const innerW = W - PAD * 2
+  const innerH = H - PAD * 2
+
+  function toPoints(values: (number | null)[], color: string) {
+    const filled = values.map(v => v ?? 0)
+    const pts = filled.map((v, i) => {
+      const x = PAD + (i / (filled.length - 1)) * innerW
+      const y = PAD + innerH - (v / 100) * innerH
+      return `${x},${y}`
+    })
+    return (
+      <polyline
+        points={pts.join(' ')}
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinejoin="round" strokeLinecap="round"
+      />
+    )
+  }
+
+  const progValues = rows.map(r => r.progresion_integrador)
+  const confValues = rows.map(r => r.confianza_perfil)
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: H, display: 'block' }}>
+        {/* Grid lines */}
+        {[0, 25, 50, 75, 100].map(pct => {
+          const y = PAD + innerH - (pct / 100) * innerH
+          return <line key={pct} x1={PAD} y1={y} x2={W - PAD} y2={y} stroke="#e8e6e3" strokeWidth="0.5" />
+        })}
+        {toPoints(progValues, '#1f6f56')}
+        {toPoints(confValues, '#1a56c4')}
+        {/* Dots at last point */}
+        {(() => {
+          const last = rows[rows.length - 1]
+          const x = W - PAD
+          const yProg = PAD + innerH - ((last.progresion_integrador ?? 0) / 100) * innerH
+          const yConf = PAD + innerH - ((last.confianza_perfil ?? 0) / 100) * innerH
+          return <>
+            <circle cx={x} cy={yProg} r={3} fill="#1f6f56" />
+            <circle cx={x} cy={yConf} r={3} fill="#1a56c4" />
+          </>
+        })()}
+      </svg>
+      <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 20, height: 2, background: '#1f6f56', borderRadius: 1 }} />
+          <span style={{ fontSize: 10, color: '#4a4844' }}>Progresión integrador</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 20, height: 2, background: '#1a56c4', borderRadius: 1 }} />
+          <span style={{ fontSize: 10, color: '#4a4844' }}>Confianza perfil</span>
+        </div>
+      </div>
     </div>
   )
 }
