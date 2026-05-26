@@ -10,6 +10,10 @@ type Hipotesis = {
   evidencia: string | null
   estado: 'pendiente' | 'validada' | 'rechazada' | 'editada'
   correccion: string | null; created_at: string; reviewed_at: string | null
+  accion_tipo: 'trigger' | 'ajuste_dimension' | 'escalar_supervisor' | 'ninguna' | null
+  accion_descripcion: string | null
+  accion_ejecutada: boolean
+  accion_ejecutada_at: string | null
 }
 type Proposal = {
   id: string; gap_id: string | null; asesor: string | null
@@ -24,14 +28,34 @@ type Gap = {
   descripcion: string; prioridad: number | null; estado: string
   created_at: string
 }
+type RiesgoRow = { asesor: string; nivel_riesgo: string | null; nivel_riesgo_nota: string | null; nivel_riesgo_at: string | null }
 
 type Tab = 'pendientes' | 'historial' | 'propuestas' | 'vacios'
+
+const ACCION_LABEL: Record<string, string> = {
+  trigger:             'Trigger',
+  ajuste_dimension:    'Ajuste perfil',
+  escalar_supervisor:  'Escalar supervisor',
+  ninguna:             'Sin acción',
+}
+const ACCION_COLOR: Record<string, { bg: string; color: string }> = {
+  trigger:            { bg: '#e8f0fd', color: '#1a56c4' },
+  ajuste_dimension:   { bg: '#e6f3ed', color: '#1f6f56' },
+  escalar_supervisor: { bg: '#f8ecd6', color: '#a8691a' },
+  ninguna:            { bg: '#f0ede8', color: '#8a8885' },
+}
+const RIESGO_COLOR: Record<string, { bg: string; color: string; label: string }> = {
+  activo:    { bg: '#e6f3ed', color: '#1f6f56', label: 'Activo' },
+  en_riesgo: { bg: '#f8ecd6', color: '#a8691a', label: 'En riesgo' },
+  critico:   { bg: '#fbe9e9', color: '#b03a3a', label: 'Crítico' },
+}
 
 export default function HipotesisPage() {
   const [tab, setTab]             = useState<Tab>('pendientes')
   const [hipotesis, setHipotesis] = useState<Hipotesis[]>([])
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [gaps,      setGaps]      = useState<Gap[]>([])
+  const [riesgos,   setRiesgos]   = useState<RiesgoRow[]>([])
   const [editing,   setEditing]   = useState<{ id: string; text: string } | null>(null)
   const [toast,     setToast]     = useState<{ msg: string; err?: boolean } | null>(null)
   const [loading,   setLoading]   = useState(true)
@@ -42,14 +66,16 @@ export default function HipotesisPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [h, p, g] = await Promise.all([
+    const [h, p, g, r] = await Promise.all([
       supabase.from('deductions_log').select('*').order('confianza', { ascending: false }),
       supabase.from('knowledge_proposals').select('*').order('created_at', { ascending: false }),
       supabase.from('knowledge_gaps').select('*').order('prioridad', { ascending: false }),
+      supabase.from('asesor_perfil').select('asesor, nivel_riesgo, nivel_riesgo_nota, nivel_riesgo_at').not('nivel_riesgo', 'is', null),
     ])
     setHipotesis(h.data ?? [])
     setProposals(p.data ?? [])
     setGaps(g.data ?? [])
+    setRiesgos(r.data ?? [])
     setLoading(false)
   }, [])
 
@@ -84,6 +110,29 @@ export default function HipotesisPage() {
     load()
   }
 
+  async function ejecutarAccion(h: Hipotesis) {
+    const now = new Date().toISOString()
+    await supabase.from('deductions_log').update({
+      accion_ejecutada: true,
+      accion_ejecutada_at: now,
+    }).eq('id', h.id)
+
+    if (h.accion_tipo === 'ajuste_dimension' && h.dimension_afectada && h.valor_sugerido) {
+      const campo = dimensionToColumn(h.dimension_afectada)
+      if (campo) {
+        await supabase.from('asesor_perfil').upsert({
+          asesor: h.asesor,
+          [campo]: h.valor_sugerido,
+          updated_at: now,
+        }, { onConflict: 'asesor' })
+      }
+    }
+
+    const label = ACCION_LABEL[h.accion_tipo ?? 'ninguna'] ?? 'Acción'
+    showToast(`${label} marcada como ejecutada. Pendiente validación humana.`)
+    load()
+  }
+
   async function aprobarPropuesta(p: Proposal) {
     await supabase.from('knowledge_base_conductual').insert({
       titulo:            p.titulo ?? '(sin título)',
@@ -112,7 +161,6 @@ export default function HipotesisPage() {
   async function investigarGap(id: string) {
     await supabase.from('knowledge_gaps').update({ estado: 'en_investigacion' }).eq('id', id)
     showToast('Investigando con IA… esto puede tardar unos segundos.')
-    // Invoke proxis-researcher Edge Function for this specific gap
     try {
       const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
       const res = await fetch(`${sbUrl}/functions/v1/proxis-researcher?gap_id=${id}`, {
@@ -139,6 +187,9 @@ export default function HipotesisPage() {
   const propPend  = proposals.filter(p => p.estado === 'pendiente')
   const gapsPend  = gaps.filter(g => g.estado !== 'cubierto')
 
+  const criticos   = riesgos.filter(r => r.nivel_riesgo === 'critico')
+  const enRiesgo   = riesgos.filter(r => r.nivel_riesgo === 'en_riesgo')
+
   const TABS: { key: Tab; label: string; count?: number }[] = [
     { key: 'pendientes',  label: 'Hipótesis pendientes', count: pending.length },
     { key: 'historial',   label: 'Historial' },
@@ -155,6 +206,33 @@ export default function HipotesisPage() {
         <span style={{ color: '#c8c6c3' }}>/</span>
         <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Hipótesis IA</h1>
       </div>
+
+      {/* Riesgo summary bar */}
+      {riesgos.length > 0 && (
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+          {criticos.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '8px 14px', background: '#fbe9e9', borderRadius: 10, border: '1px solid #f5c6c6' }}>
+              <span style={{ fontSize: 14 }}>🔴</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#b03a3a' }}>{criticos.length} crítico{criticos.length > 1 ? 's' : ''}</span>
+              <span style={{ fontSize: 11, color: '#b03a3a', opacity: 0.8 }}>{criticos.map(r => r.asesor.split(' ')[0]).join(', ')}</span>
+            </div>
+          )}
+          {enRiesgo.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '8px 14px', background: '#f8ecd6', borderRadius: 10, border: '1px solid #f0d49a' }}>
+              <span style={{ fontSize: 14 }}>🟡</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#a8691a' }}>{enRiesgo.length} en riesgo</span>
+              <span style={{ fontSize: 11, color: '#a8691a', opacity: 0.8 }}>{enRiesgo.map(r => r.asesor.split(' ')[0]).join(', ')}</span>
+            </div>
+          )}
+          {riesgos.filter(r => r.nivel_riesgo === 'activo').length > 0 && (
+            <div style={{ padding: '8px 14px', background: '#e6f3ed', borderRadius: 10, border: '1px solid #b3dfc9' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#1f6f56' }}>
+                {riesgos.filter(r => r.nivel_riesgo === 'activo').length} activos
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid #e8e6e3' }}>
@@ -206,8 +284,42 @@ export default function HipotesisPage() {
                           style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbf135', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, resize: 'vertical', outline: 'none' }}
                         />
                       ) : (
-                        <p style={{ fontSize: 13, lineHeight: 1.6, color: '#0b0a09' }}>{h.hipotesis}</p>
+                        <p style={{ fontSize: 13, lineHeight: 1.6, color: '#0b0a09', marginBottom: 8 }}>{h.hipotesis}</p>
                       )}
+                      {h.evidencia && (
+                        <p style={{ fontSize: 11, color: '#8a8885', fontStyle: 'italic', marginBottom: 8 }}>
+                          Evidencia: {h.evidencia}
+                        </p>
+                      )}
+
+                      {/* Acción propuesta */}
+                      {h.accion_tipo && h.accion_tipo !== 'ninguna' && (
+                        <div style={{
+                          marginTop: 10, padding: '10px 14px', borderRadius: 8,
+                          background: ACCION_COLOR[h.accion_tipo]?.bg ?? '#f5f3ef',
+                          border: `1px solid ${ACCION_COLOR[h.accion_tipo]?.color ?? '#e8e6e3'}30`,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <span style={{
+                              fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20,
+                              background: ACCION_COLOR[h.accion_tipo]?.color ?? '#8a8885',
+                              color: '#fff',
+                            }}>
+                              {ACCION_LABEL[h.accion_tipo] ?? h.accion_tipo}
+                            </span>
+                            <span style={{ fontSize: 11, color: '#4a4844', fontWeight: 600 }}>Acción propuesta por IA</span>
+                            {h.accion_ejecutada && (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#e6f3ed', color: '#1f6f56' }}>
+                                Ejecutada
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: 12, color: '#2b2926', lineHeight: 1.5, margin: 0 }}>
+                            {h.accion_descripcion ?? '—'}
+                          </p>
+                        </div>
+                      )}
+
                       <div style={{ fontSize: 11, color: '#8a8885', marginTop: 8 }}>
                         {new Date(h.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </div>
@@ -223,6 +335,9 @@ export default function HipotesisPage() {
                           <ActionBtn onClick={() => validar(h)} color="#1f6f56">Validar</ActionBtn>
                           <ActionBtn onClick={() => setEditing({ id: h.id, text: h.hipotesis })} color="#a8691a">Editar</ActionBtn>
                           <ActionBtn onClick={() => rechazar(h.id)} color="#b03a3a">Rechazar</ActionBtn>
+                          {h.accion_tipo && h.accion_tipo !== 'ninguna' && !h.accion_ejecutada && (
+                            <ActionBtn onClick={() => ejecutarAccion(h)} color="#1a56c4">Ejecutar acción</ActionBtn>
+                          )}
                         </>
                       )}
                     </div>
@@ -244,9 +359,16 @@ export default function HipotesisPage() {
                 }}>
                   <EstadoBadge estado={h.estado} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{h.asesor}</span>
                       {h.dimension_afectada && <DimBadge>{h.dimension_afectada}</DimBadge>}
+                      {h.accion_tipo && h.accion_tipo !== 'ninguna' && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                          background: ACCION_COLOR[h.accion_tipo]?.bg ?? '#f5f3ef',
+                          color: ACCION_COLOR[h.accion_tipo]?.color ?? '#4a4844',
+                        }}>{ACCION_LABEL[h.accion_tipo]}{h.accion_ejecutada ? ' ✓' : ''}</span>
+                      )}
                     </div>
                     <p style={{ fontSize: 12, color: '#4a4844', lineHeight: 1.5 }}>{h.correccion ?? h.hipotesis}</p>
                   </div>
