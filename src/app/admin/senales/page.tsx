@@ -11,11 +11,19 @@ type Signal = {
   procesada: boolean; created_at: string
 }
 
-const FUENTES = ['plataforma','email','sailor','cuestionario','manual']
+const FUENTES = ['plataforma','email','sailor','cuestionario','manual','supervisor']
 const FUENTE_COLORS: Record<string, string> = {
   plataforma: '#1f6f56', email: '#a8691a', sailor: '#0b0a09',
-  cuestionario: '#8e35d4', manual: '#4a4844',
+  cuestionario: '#8e35d4', manual: '#4a4844', supervisor: '#2563a8',
 }
+
+const DIMENSIONES = [
+  'relacion_prospeccion',
+  'identidad_vendedora',
+  'modelos_mentales',
+  'relacion_feedback',
+  'contexto_situacional',
+]
 
 export default function SenalesPage() {
   const [signals,    setSignals]    = useState<Signal[]>([])
@@ -24,6 +32,14 @@ export default function SenalesPage() {
   const [filterF,    setFilterF]    = useState('')
   const [filterProc, setFilterProc] = useState<'all' | 'pending' | 'done'>('all')
   const [loading,    setLoading]    = useState(true)
+
+  // Formulario de observación de supervisor
+  const [obsAsesor,  setObsAsesor]  = useState('')
+  const [obsTexto,   setObsTexto]   = useState('')
+  const [obsDim,     setObsDim]     = useState('')
+  const [obsPerfil,  setObsPerfil]  = useState('')
+  const [obsSaving,  setObsSaving]  = useState(false)
+  const [obsOk,      setObsOk]      = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -43,6 +59,29 @@ export default function SenalesPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  async function saveObservacion() {
+    if (!obsAsesor || !obsTexto.trim()) return
+    setObsSaving(true)
+    await supabase.from('behavioral_signals').insert({
+      asesor:           obsAsesor,
+      fuente:           'supervisor',
+      tipo:             'observacion_supervisor',
+      valor:            obsTexto.trim(),
+      dimension_target: obsDim || null,
+      perfil_hint:      obsPerfil || null,
+      confianza_hint:   55,
+      procesada:        false,
+      contexto:         { origen: 'admin_manual' },
+    })
+    setObsTexto('')
+    setObsDim('')
+    setObsPerfil('')
+    setObsSaving(false)
+    setObsOk(true)
+    setTimeout(() => setObsOk(false), 3000)
+    load()
+  }
 
   // Cobertura de dimensiones
   const dimCoverage = (() => {
@@ -69,6 +108,52 @@ export default function SenalesPage() {
         </Link>
         <span style={{ color: '#c8c6c3' }}>/</span>
         <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Señales de comportamiento</h1>
+      </div>
+
+      {/* Formulario de observación de supervisor */}
+      <div style={{ background: '#fff', border: '1px solid #d0e4f7', borderRadius: 12, padding: '20px 24px', marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#2563a8', marginBottom: 14 }}>
+          Registrar observación de supervisor
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <select value={obsAsesor} onChange={e => setObsAsesor(e.target.value)} style={{ ...selStyle, minWidth: 180 }}>
+            <option value="">Asesor…</option>
+            {asesores.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <select value={obsDim} onChange={e => setObsDim(e.target.value)} style={{ ...selStyle, minWidth: 200 }}>
+            <option value="">Dimensión (opcional)</option>
+            {DIMENSIONES.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <select value={obsPerfil} onChange={e => setObsPerfil(e.target.value)} style={{ ...selStyle, minWidth: 120 }}>
+            <option value="">Perfil hint</option>
+            {['E','S','R','A'].map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 10, alignItems: 'flex-end' }}>
+          <textarea
+            value={obsTexto}
+            onChange={e => setObsTexto(e.target.value)}
+            placeholder="Observación del supervisor sobre el asesor…"
+            rows={3}
+            style={{ flex: 1, padding: '10px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, color: '#0b0a09', resize: 'vertical', outline: 'none' }}
+          />
+          <button
+            onClick={saveObservacion}
+            disabled={obsSaving || !obsAsesor || !obsTexto.trim()}
+            style={{
+              padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+              cursor: obsSaving || !obsAsesor || !obsTexto.trim() ? 'not-allowed' : 'pointer',
+              border: 'none', background: obsOk ? '#1f6f56' : '#2563a8', color: '#fff',
+              opacity: obsSaving || !obsAsesor || !obsTexto.trim() ? 0.5 : 1,
+              transition: 'background 0.2s', whiteSpace: 'nowrap',
+            }}
+          >
+            {obsOk ? '✓ Guardado' : obsSaving ? 'Guardando…' : 'Guardar señal'}
+          </button>
+        </div>
+        <div style={{ fontSize: 11, color: '#8a8885', marginTop: 8 }}>
+          Confianza fija: 55% · fuente: supervisor · tipo: observacion_supervisor
+        </div>
       </div>
 
       {/* Stats row */}
