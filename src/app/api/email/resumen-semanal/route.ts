@@ -11,10 +11,10 @@ export async function POST(req: NextRequest) {
   const semana  = new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'long' })
     .formatRange(new Date(desde7d), new Date())
 
-  const { data: creds } = await sb
-    .from('asesor_credentials')
-    .select('asesor, email')
-    .eq('activo', true)
+  const [{ data: creds }, { data: tmpl }] = await Promise.all([
+    sb.from('asesor_credentials').select('asesor, email').eq('activo', true),
+    sb.from('email_templates').select('asunto, cuerpo_html').eq('tipo', 'resumen_semanal').eq('activo', true).maybeSingle(),
+  ])
 
   const asesores = body.asesor
     ? (creds ?? []).filter(c => c.asesor === body.asesor)
@@ -46,12 +46,14 @@ export async function POST(req: NextRequest) {
     }
 
     const { error } = await sendResumenSemanal({
-      to:       cred.email,
-      asesor:   cred.asesor,
+      to:          cred.email,
+      asesor:      cred.asesor,
       semana,
-      mensajes: (msgs as any)?.length ?? 0,
-      senales:  (senales as any)?.length ?? 0,
-      perfil:   perfil?.perfil_base ? PERFIL_NOMBRE[perfil.perfil_base] : null,
+      mensajes:    (msgs as any)?.length ?? 0,
+      senales:     (senales as any)?.length ?? 0,
+      perfil:      perfil?.perfil_base ? PERFIL_NOMBRE[perfil.perfil_base] : null,
+      asunto:      tmpl?.asunto      ?? undefined,
+      cuerpo_html: tmpl?.cuerpo_html ?? undefined,
     })
 
     resultados.push({

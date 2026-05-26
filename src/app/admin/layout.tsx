@@ -6,7 +6,8 @@ import Link from 'next/link'
 
 const NAV_ITEMS = [
   { href: '/admin/dashboard',    icon: '⊞',  label: 'Dashboard',   group: null },
-  { href: '/admin/prompts',      icon: '✍️', label: 'Prompts',     group: 'Mensajes' },
+  { href: '/admin/prompts',         icon: '✍️', label: 'Prompts',          group: 'Mensajes' },
+  { href: '/admin/email-templates', icon: '✉️', label: 'Email templates', group: 'Mensajes' },
   { href: '/admin/triggers',     icon: '⚡',  label: 'Triggers',    group: 'Mensajes' },
   { href: '/admin/review',       icon: '🔍', label: 'Revisión',    group: 'Mensajes' },
   { href: '/admin/perfil',       icon: '🧩', label: 'Perfiles',    group: 'IA' },

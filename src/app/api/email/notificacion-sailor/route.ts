@@ -9,20 +9,21 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = supabaseAdmin()
-  const { data: cred } = await sb
-    .from('asesor_credentials')
-    .select('email')
-    .eq('asesor', asesor)
-    .maybeSingle()
+  const [credRes, tmplRes] = await Promise.all([
+    sb.from('asesor_credentials').select('email').eq('asesor', asesor).maybeSingle(),
+    sb.from('email_templates').select('asunto, cuerpo_html').eq('tipo', 'notificacion_sailor').eq('activo', true).maybeSingle(),
+  ])
 
-  if (!cred?.email) {
+  if (!credRes.data?.email) {
     return NextResponse.json({ error: 'Sin email registrado para este asesor' }, { status: 404 })
   }
 
   const { error } = await sendNotificacionSailor({
-    to:      cred.email,
+    to:          credRes.data.email,
     asesor,
-    preview: contenido,
+    preview:     contenido,
+    asunto:      tmplRes.data?.asunto      ?? undefined,
+    cuerpo_html: tmplRes.data?.cuerpo_html ?? undefined,
   })
 
   if (error) {
