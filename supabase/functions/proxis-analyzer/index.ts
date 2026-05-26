@@ -86,6 +86,24 @@ async function callGemini(prompt: string): Promise<string> {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
 }
 
+async function callGeminiText(prompt: string): Promise<string> {
+  if (!GEMINI_KEY) throw new Error('GEMINI_KEY no configurada')
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 1200, temperature: 0.6 }
+      })
+    }
+  )
+  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
+  const data = await res.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+}
+
 /* ── Análisis de un asesor ──────────────────────────────────── */
 
 async function analizarAsesor(asesor: string): Promise<{
@@ -279,6 +297,78 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
   await sb.from('behavioral_signals')
     .update({ procesada: true })
     .in('id', sigIds)
+
+  // 10. Guardar snapshot en asesor_perfil_historial
+  const { data: perfilFull } = await sb
+    .from('asesor_perfil')
+    .select('*')
+    .eq('asesor', asesor)
+    .limit(1)
+  const pf = perfilFull?.[0] ?? {}
+
+  await sb.from('asesor_perfil_historial').insert({
+    asesor,
+    snapshot_at:            now,
+    progresion_integrador:  nuevaProgresion,
+    confianza_perfil:       nuevaConfianza,
+    nivel_riesgo:           nuevoRiesgo,
+    hipotesis_count:        hipotesisCount,
+    senales_procesadas:     seналes.length,
+    identidad_vendedora:    pf.identidad_vendedora     ?? null,
+    relacion_prospeccion:   pf.relacion_prospeccion    ?? null,
+    modelos_mentales:       pf.modelos_mentales        ?? null,
+    relacion_feedback:      pf.relacion_feedback       ?? null,
+    perfil_conductual_notas:pf.perfil_conductual_notas ?? null,
+    contexto_situacional:   pf.contexto_situacional    ?? null,
+    resumen_ia:             pf.resumen_ia              ?? null,
+  })
+
+  // 11. Relato de evolución (solo si hay ≥3 snapshots y el último tiene >7d de antigüedad)
+  const { count: snapCount } = await sb
+    .from('asesor_perfil_historial')
+    .select('id', { count: 'exact', head: true })
+    .eq('asesor', asesor)
+
+  const relatoVencido = !pf.relato_evolucion_at ||
+    (Date.now() - new Date(pf.relato_evolucion_at).getTime()) > 7 * 86_400_000
+
+  if ((snapCount ?? 0) >= 3 && relatoVencido) {
+    const { data: ultSnaps } = await sb
+      .from('asesor_perfil_historial')
+      .select('snapshot_at, progresion_integrador, confianza_perfil, nivel_riesgo, resumen_ia')
+      .eq('asesor', asesor)
+      .order('snapshot_at', { ascending: false })
+      .limit(6)
+
+    const tabla = (ultSnaps ?? []).map(s =>
+      `• ${s.snapshot_at.slice(0,10)} | progresión: ${s.progresion_integrador ?? '?'}% | confianza: ${s.confianza_perfil ?? '?'}% | riesgo: ${s.nivel_riesgo ?? '?'}\n  resumen: ${String(s.resumen_ia ?? '(sin resumen)').slice(0, 200)}`
+    ).join('\n')
+
+    const relatoPrompt = `Eres un analista de desarrollo humano experto en el modelo Merrill-Reid y la metodología TPS.
+Analiza la evolución conductual del asesor ${asesor} con base en ${ultSnaps?.length} snapshots de perfil (del más reciente al más antiguo):
+
+${tabla}
+
+Genera un relato de evolución en texto libre (máx. 250 palabras) que:
+1. Describe el arco de desarrollo del asesor
+2. Señala los cambios más significativos en su perfil conductual
+3. Identifica patrones de progreso o regresión
+4. Da una perspectiva sobre hacia dónde se dirige su desarrollo
+
+Usa lenguaje preciso, en tercera persona, enfocado en comportamientos observables. No uses bullet points.`
+
+    try {
+      const relato = await callGeminiText(relatoPrompt)
+      if (relato) {
+        await sb.from('asesor_perfil').upsert(
+          { asesor, relato_evolucion: relato, relato_evolucion_at: now, updated_at: now },
+          { onConflict: 'asesor' }
+        )
+      }
+    } catch (e) {
+      console.error(`[${asesor}] Error generando relato evolución:`, e)
+    }
+  }
 
   return {
     hipotesis:        hipotesisCount,
