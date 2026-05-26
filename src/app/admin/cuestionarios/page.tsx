@@ -37,6 +37,8 @@ export default function CuestionariosPage() {
   const [respuestas,   setRespuestas]  = useState<Respuesta[]>([])
   const [perfiles,     setPerfiles]    = useState<TpsPerfil[]>([])
   const [selCuest,     setSelCuest]    = useState<Cuestionario | null>(null)
+  const [allPreguntas, setAllPreguntas] = useState<Pregunta[]>([])
+  const [filterCuest,  setFilterCuest] = useState<string>('all')
   const [showModal,    setShowModal]   = useState(false)
   const [editId,       setEditId]      = useState<string | null>(null)
   const [form,         setForm]        = useState({ nombre: '', tipo: '', descripcion: '', activo: true })
@@ -57,9 +59,16 @@ export default function CuestionariosPage() {
     setPerfiles(data ?? [])
   }, [])
 
+  const loadAllPreguntas = useCallback(async () => {
+    const { data } = await supabase.from('preguntas').select('*').order('cuestionario_id').order('orden')
+    setAllPreguntas(data ?? [])
+  }, [])
+
   useEffect(() => { loadCuests() }, [loadCuests])
 
   useEffect(() => { if (tab === 'perfiles') loadPerfiles() }, [tab, loadPerfiles])
+
+  useEffect(() => { if (tab === 'preguntas') loadAllPreguntas() }, [tab, loadAllPreguntas])
 
   async function loadPreguntas(cid: string) {
     const { data } = await supabase.from('preguntas').select('*').eq('cuestionario_id', cid).order('orden')
@@ -236,8 +245,73 @@ export default function CuestionariosPage() {
       )}
 
       {tab === 'preguntas' && (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885' }}>
-          Selecciona un cuestionario en la pestaña anterior para gestionar sus preguntas.
+        <div>
+          {/* Filtro por cuestionario */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              Cuestionario
+            </label>
+            <select
+              value={filterCuest}
+              onChange={e => setFilterCuest(e.target.value)}
+              style={{ padding: '7px 12px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, color: '#0b0a09', background: '#fff', outline: 'none' }}
+            >
+              <option value="all">Todos ({allPreguntas.length} preguntas)</option>
+              {cuests.map(c => {
+                const count = allPreguntas.filter(p => p.cuestionario_id === c.id).length
+                return <option key={c.id} value={c.id}>{c.nombre} ({count})</option>
+              })}
+            </select>
+            <span style={{ fontSize: 12, color: '#8a8885', marginLeft: 'auto' }}>
+              {(filterCuest === 'all' ? allPreguntas : allPreguntas.filter(p => p.cuestionario_id === filterCuest)).length} preguntas
+            </span>
+          </div>
+
+          {/* Lista de preguntas */}
+          {allPreguntas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885', fontSize: 13 }}>
+              No hay preguntas cargadas en ningún cuestionario.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {(filterCuest === 'all' ? allPreguntas : allPreguntas.filter(p => p.cuestionario_id === filterCuest))
+                .map((p, i) => {
+                  const cuestNombre = cuests.find(c => c.id === p.cuestionario_id)?.nombre ?? p.cuestionario_id.slice(0, 8)
+                  return (
+                    <div key={p.id} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 10, padding: '11px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: '#c8c6c3', flexShrink: 0, marginTop: 2, minWidth: 28, textAlign: 'right' }}>
+                        {p.orden}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: '#0b0a09', marginBottom: 5 }}>{p.texto}</div>
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                          {filterCuest === 'all' && (
+                            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, background: '#0b0a0912', color: '#4a4844', border: '1px solid #e8e6e3' }}>
+                              {cuestNombre}
+                            </span>
+                          )}
+                          {p.tipo_respuesta && (
+                            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, background: '#f5f3ef', color: '#4a4844', border: '1px solid #e8e6e3' }}>
+                              {p.tipo_respuesta}
+                            </span>
+                          )}
+                          {p.dimension_target && (
+                            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, background: '#e6f3ed', color: '#1f6f56', border: '1px solid #e6f3ed' }}>
+                              {p.dimension_target}
+                            </span>
+                          )}
+                          {p.perfil_hint && (
+                            <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20, background: '#f8ecd6', color: '#a8691a', border: '1px solid #f8ecd6' }}>
+                              {p.perfil_hint}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
         </div>
       )}
 
