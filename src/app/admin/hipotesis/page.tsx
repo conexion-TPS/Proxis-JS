@@ -44,11 +44,6 @@ const ACCION_COLOR: Record<string, { bg: string; color: string }> = {
   escalar_supervisor: { bg: '#f8ecd6', color: '#a8691a' },
   ninguna:            { bg: '#f0ede8', color: '#8a8885' },
 }
-const RIESGO_COLOR: Record<string, { bg: string; color: string; label: string }> = {
-  activo:    { bg: '#e6f3ed', color: '#1f6f56', label: 'Activo' },
-  en_riesgo: { bg: '#f8ecd6', color: '#a8691a', label: 'En riesgo' },
-  critico:   { bg: '#fbe9e9', color: '#b03a3a', label: 'Crítico' },
-}
 
 export default function HipotesisPage() {
   const [tab, setTab]             = useState<Tab>('pendientes')
