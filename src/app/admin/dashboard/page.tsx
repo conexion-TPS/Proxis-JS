@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 
 const NAV_CARDS = [
@@ -17,103 +17,237 @@ const NAV_CARDS = [
   { href: '/admin/analytics',     icon: '📊', title: 'Analytics',            desc: 'Mensajes por trigger, feedback por asesor, evolución temporal de métricas.',                            badge: 'Reportes' },
 ]
 
-type Status = 'loading' | 'ok' | 'error'
+type SbStatus = 'loading' | 'ok' | 'error'
+
+interface SystemStatus {
+  gemini: boolean
+  resend: boolean
+  cron: Array<{ jobname: string; schedule: string; active: boolean; last_run: string | null; last_status: string | null }>
+  signals: { pending: number; total: number }
+  triggers: { active: number; paused: number }
+  messages: { last24h: number; last7d: number }
+  cuestionarios: { tps_preguntas: number }
+}
 
 export default function AdminDashboard() {
-  const [status, setStatus] = useState<Status>('loading')
-  const [statusMsg, setStatusMsg] = useState('Verificando conexión con Supabase…')
-  const [sbUrl, setSbUrl] = useState('—')
-  const [geminiOk, setGeminiOk] = useState<boolean | null>(null)
-  const [resendOk,  setResendOk]  = useState<boolean | null>(null)
+  const [sbStatus,   setSbStatus]   = useState<SbStatus>('loading')
+  const [sys,        setSys]        = useState<SystemStatus | null>(null)
+  const [sysLoading, setSysLoading] = useState(true)
+  const [lastCheck,  setLastCheck]  = useState<string>('')
   const isDev = typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('proxis-dev'))
 
-  useEffect(() => {
-    const url  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    setSbUrl(url)
+  const runChecks = useCallback(async () => {
+    setSysLoading(true)
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-    fetch('/api/admin/status')
-      .then(r => r.json())
-      .then(d => { setGeminiOk(d.gemini); setResendOk(d.resend) })
-      .catch(() => {})
-
+    // Supabase connectivity
     fetch(`${url}/rest/v1/trigger_config?limit=1`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
     })
-      .then(r => {
-        if (r.ok) {
-          setStatus('ok')
-          setStatusMsg(`Supabase conectado — ${isDev ? 'proxis-dev' : 'producción'} responde correctamente.`)
-        } else throw new Error(`HTTP ${r.status}`)
-      })
-      .catch(e => {
-        setStatus('error')
-        setStatusMsg(`Error de conexión — ${e.message}. Verifica la URL y la key de Supabase.`)
-      })
-  }, [isDev])
+      .then(r => setSbStatus(r.ok ? 'ok' : 'error'))
+      .catch(() => setSbStatus('error'))
 
-  const dotColor = status === 'ok' ? '#1a9e4a' : status === 'error' ? '#b03a3a' : '#a8691a'
-  const dotGlow  = status === 'ok'
-    ? '0 0 0 3px rgba(26,158,74,0.15)'
-    : status === 'error'
-    ? '0 0 0 3px rgba(176,58,58,0.15)'
-    : '0 0 0 3px rgba(168,105,26,0.15)'
+    // Full system status
+    try {
+      const r = await fetch('/api/admin/status')
+      const d: SystemStatus = await r.json()
+      setSys(d)
+      setLastCheck(new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }))
+    } catch {
+      /* silent */
+    } finally {
+      setSysLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { runChecks() }, [runChecks])
+
+  const sbColor = sbStatus === 'ok' ? '#1a9e4a' : sbStatus === 'error' ? '#b03a3a' : '#a8691a'
+  const sbGlow  = sbStatus === 'ok' ? '0 0 0 3px rgba(26,158,74,0.15)' : sbStatus === 'error' ? '0 0 0 3px rgba(176,58,58,0.15)' : '0 0 0 3px rgba(168,105,26,0.15)'
 
   return (
     <div style={{ padding: '40px 36px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
-      <h1 style={{
-        fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em',
-        color: '#0b0a09', marginBottom: 4,
-      }}>Panel de administración</h1>
-      <p style={{ fontSize: 13, color: '#4a4844', marginBottom: 32 }}>
-        Gestiona prompts, triggers, mensajes y base de conocimiento del sistema IA.
-      </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32 }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: '#0b0a09', marginBottom: 4 }}>
+            Panel de administración
+          </h1>
+          <p style={{ fontSize: 13, color: '#4a4844' }}>
+            Gestiona prompts, triggers, mensajes y base de conocimiento del sistema IA.
+          </p>
+        </div>
+        <button
+          onClick={runChecks}
+          disabled={sysLoading}
+          style={{ padding: '8px 16px', background: '#f5f3ef', border: '1px solid #e8e6e3', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: sysLoading ? 'default' : 'pointer', fontFamily: 'inherit', color: '#4a4844', opacity: sysLoading ? 0.6 : 1 }}
+        >
+          {sysLoading ? 'Verificando…' : 'Actualizar estado'}
+        </button>
+      </div>
 
-      {/* Status banner */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        background: '#fff', border: '1px solid #e8e6e3',
-        borderRadius: 12, padding: '14px 18px', marginBottom: 32,
-        fontSize: 13,
-      }}>
-        <div style={{
-          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-          background: dotColor, boxShadow: dotGlow,
-          animation: status === 'loading' ? 'pulseDot 1.2s infinite' : 'none',
-        }} />
-        <span style={{ color: '#4a4844' }}>
-          <strong style={{ color: '#0b0a09' }}>
-            {status === 'ok' ? 'Supabase conectado' : status === 'error' ? 'Error de conexión' : 'Verificando…'}
-          </strong>
-          {' — '}{statusMsg.replace(/^[^—]+— /, '')}
-        </span>
+      {/* ── SYSTEM HEALTH PANEL ─────────────────────────────────────── */}
+      <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 14, padding: '20px 24px', marginBottom: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#8a8885' }}>
+            Estado del sistema
+          </div>
+          {lastCheck && (
+            <div style={{ fontSize: 11, color: '#c8c6c3', fontFamily: 'var(--font-mono), monospace' }}>
+              Última verificación: {lastCheck}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+
+          {/* Supabase */}
+          <HealthCard
+            label="Supabase"
+            status={sbStatus === 'ok' ? 'ok' : sbStatus === 'error' ? 'error' : 'loading'}
+            value={sbStatus === 'ok' ? 'Conectado' : sbStatus === 'error' ? 'Error de conexión' : 'Verificando…'}
+            sub={isDev ? 'proxis-dev' : 'producción'}
+          />
+
+          {/* Gemini */}
+          <HealthCard
+            label="Gemini API"
+            status={sys === null ? 'loading' : sys.gemini ? 'ok' : 'error'}
+            value={sys === null ? '…' : sys.gemini ? 'Respondiendo' : 'Sin respuesta'}
+            sub="gemini-2.5-flash"
+          />
+
+          {/* Resend */}
+          <HealthCard
+            label="Resend Email"
+            status={sys === null ? 'loading' : sys.resend ? 'ok' : 'warn'}
+            value={sys === null ? '…' : sys.resend ? 'Clave configurada' : 'Clave no encontrada'}
+            sub="proxis@theprecisionselling.com"
+          />
+
+          {/* Señales pendientes */}
+          <HealthCard
+            label="Señales pendientes"
+            status={sys === null ? 'loading' : (sys.signals.pending > 50 ? 'warn' : 'ok')}
+            value={sys === null ? '…' : `${sys.signals.pending} sin procesar`}
+            sub={sys ? `${sys.signals.total} total` : ''}
+          />
+
+          {/* Triggers */}
+          <HealthCard
+            label="Triggers"
+            status={sys === null ? 'loading' : (sys.triggers.active > 0 ? 'ok' : 'warn')}
+            value={sys === null ? '…' : `${sys.triggers.active} activos`}
+            sub={sys ? `${sys.triggers.paused} pausados` : ''}
+          />
+
+          {/* Mensajes 24h */}
+          <HealthCard
+            label="Mensajes enviados"
+            status={sys === null ? 'loading' : 'ok'}
+            value={sys === null ? '…' : `${sys.messages.last24h} (24h)`}
+            sub={sys ? `${sys.messages.last7d} esta semana` : ''}
+          />
+
+          {/* Cuestionario TPS */}
+          <HealthCard
+            label="Instrumento TPS"
+            status={sys === null ? 'loading' : (sys.cuestionarios.tps_preguntas >= 57 ? 'ok' : sys.cuestionarios.tps_preguntas > 0 ? 'warn' : 'error')}
+            value={sys === null ? '…' : `${sys.cuestionarios.tps_preguntas} / 57 preguntas`}
+            sub={sys?.cuestionarios.tps_preguntas === 57 ? 'Completo' : 'Revisar seed'}
+          />
+
+        </div>
+
+        {/* Cron jobs */}
+        {sys && sys.cron && sys.cron.length > 0 && (
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid #f0ede8' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8885', marginBottom: 10 }}>
+              Edge Functions — Cron Jobs
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {sys.cron.map((job) => {
+                const ok = job.active && job.last_status !== 'failed'
+                return (
+                  <div key={job.jobname} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                    <Dot status={!job.active ? 'warn' : ok ? 'ok' : 'error'} />
+                    <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: '#4a4844', minWidth: 200 }}>
+                      {job.jobname}
+                    </span>
+                    <span style={{ color: '#8a8885' }}>{job.schedule}</span>
+                    <span style={{ marginLeft: 'auto', color: job.last_run ? '#8a8885' : '#c8c6c3', fontSize: 11 }}>
+                      {job.last_run
+                        ? `Último run: ${new Date(job.last_run).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                        : 'Sin ejecuciones registradas'}
+                    </span>
+                    {job.last_status && (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: job.last_status === 'succeeded' ? '#e6f3ed' : '#fbe9e9', color: job.last_status === 'succeeded' ? '#1f6f56' : '#b03a3a' }}>
+                        {job.last_status}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+              {/* proxis-researcher — manual, no cron */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                <Dot status="ok" />
+                <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: '#4a4844', minWidth: 200 }}>
+                  proxis-researcher
+                </span>
+                <span style={{ color: '#8a8885' }}>manual (desde Hipótesis)</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Nav cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-        gap: 16, marginBottom: 40,
-      }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginBottom: 40 }}>
         {NAV_CARDS.map(card => (
           <NavCard key={card.href} {...card} />
         ))}
       </div>
 
-      {/* Info grid */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16,
-      }}>
-        <InfoCard label="Ambiente activo" value={isDev ? 'proxis-dev (pruebas)' : 'producción'} />
-        <InfoCard label="Supabase URL"    value={sbUrl} mono />
-        <InfoCard label="Gemini API"      value={geminiOk === null ? '…' : geminiOk ? '✓ Configurada' : '⚠ Pendiente'} />
-        <InfoCard label="Resend API"      value={resendOk === null ? '…' : resendOk ? '✓ Configurada' : '⚠ Pendiente'} />
-      </div>
-
       <style>{`
         @keyframes pulseDot { 0%,100%{opacity:1} 50%{opacity:0.4} }
       `}</style>
+    </div>
+  )
+}
+
+type HealthStatus = 'ok' | 'warn' | 'error' | 'loading'
+
+const STATUS_COLORS: Record<HealthStatus, { dot: string; bg: string; border: string; text: string }> = {
+  ok:      { dot: '#1a9e4a', bg: '#f0faf4', border: '#c3e8d0', text: '#1a9e4a' },
+  warn:    { dot: '#a8691a', bg: '#fdf4e6', border: '#f5d9a0', text: '#a8691a' },
+  error:   { dot: '#b03a3a', bg: '#fbe9e9', border: '#f0b8b8', text: '#b03a3a' },
+  loading: { dot: '#c8c6c3', bg: '#f5f3ef', border: '#e8e6e3', text: '#8a8885' },
+}
+
+function Dot({ status }: { status: HealthStatus }) {
+  const c = STATUS_COLORS[status]
+  return (
+    <span style={{
+      width: 7, height: 7, borderRadius: '50%', background: c.dot, flexShrink: 0,
+      animation: status === 'loading' ? 'pulseDot 1.2s infinite' : 'none',
+      display: 'inline-block',
+    }} />
+  )
+}
+
+function HealthCard({ label, status, value, sub }: { label: string; status: HealthStatus; value: string; sub?: string }) {
+  const c = STATUS_COLORS[status]
+  return (
+    <div style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: '12px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <Dot status={status} />
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8885' }}>
+          {label}
+        </span>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#0b0a09' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: '#8a8885', marginTop: 2 }}>{sub}</div>}
     </div>
   )
 }
