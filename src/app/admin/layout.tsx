@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: '/admin/conocimiento', icon: '🧬', label: 'Conocimiento', group: 'IA' },
   { href: '/admin/knowledge',    icon: '🧠', label: 'Base KB',     group: 'IA' },
   { href: '/admin/sailor',       icon: '⛵', label: 'Sailor',      group: 'IA' },
+  { href: '/admin/supervisores',  icon: '🏢', label: 'Supervisores', group: null },
   { href: '/admin/usuarios',     icon: '👥', label: 'Usuarios',    group: null },
   { href: '/admin/analytics',    icon: '📊', label: 'Analytics',   group: null },
 ]
