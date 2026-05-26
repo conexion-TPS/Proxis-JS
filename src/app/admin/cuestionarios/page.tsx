@@ -28,7 +28,7 @@ const FACTOR_LABELS: Record<string, string> = {
   f1: 'Iniciativa', f2: 'Orient. Cliente', f3: 'Disciplina', f4: 'Estabilidad', f5: 'Aprendizaje',
 }
 
-type Tab = 'cuestionarios' | 'preguntas' | 'respuestas' | 'perfiles'
+type Tab = 'cuestionarios' | 'preguntas' | 'respuestas' | 'perfiles' | 'preview'
 
 export default function CuestionariosPage() {
   const [tab,          setTab]         = useState<Tab>('cuestionarios')
@@ -45,6 +45,7 @@ export default function CuestionariosPage() {
   const [pForm,        setPForm]       = useState({ texto: '', tipo_respuesta: 'escala_4', dimension_target: '', perfil_hint: '' })
   const [showPModal,   setShowPModal]  = useState(false)
   const [saving,       setSaving]      = useState(false)
+  const [generando,    setGenerando]   = useState(false)
   const [toast,        setToast]       = useState<{ msg: string; err?: boolean } | null>(null)
 
   function showToast(msg: string, err = false) { setToast({ msg, err }); setTimeout(() => setToast(null), 3200) }
@@ -136,6 +137,29 @@ export default function CuestionariosPage() {
     if (selCuest) loadPreguntas(selCuest.id)
   }
 
+  async function generarSenales() {
+    if (!selCuest) return
+    setGenerando(true)
+    try {
+      const resp = await fetch('/api/admin/cuestionarios/generar-senales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cuestionario_id: selCuest.id }),
+      })
+      const json = await resp.json()
+      if (json.error) { showToast(json.error, true); return }
+      showToast(json.created > 0
+        ? `${json.created} señal${json.created !== 1 ? 'es' : ''} generada${json.created !== 1 ? 's' : ''}`
+        : json.message ?? 'Sin respuestas nuevas'
+      )
+      if (selCuest) loadRespuestas(selCuest.id)
+    } catch {
+      showToast('Error al generar señales', true)
+    } finally {
+      setGenerando(false)
+    }
+  }
+
   const byAsesor = (() => {
     const map: Record<string, number> = {}
     for (const r of respuestas) {
@@ -162,7 +186,7 @@ export default function CuestionariosPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid #e8e6e3' }}>
-        {[['cuestionarios','Cuestionarios'],['preguntas','Banco de preguntas'],['respuestas','Respuestas'],['perfiles','Perfiles TPS']].map(([k, l]) => (
+        {[['cuestionarios','Cuestionarios'],['preguntas','Banco de preguntas'],['respuestas','Respuestas'],['preview','Preview'],['perfiles','Perfiles TPS']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as Tab)} style={{
             padding: '10px 16px', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
             fontSize: 13, fontWeight: tab === k ? 700 : 400,
@@ -319,12 +343,21 @@ export default function CuestionariosPage() {
         <div>
           {!selCuest ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885' }}>
-              Selecciona un cuestionario para ver las respuestas.
+              Selecciona un cuestionario en la pestaña Cuestionarios para ver sus respuestas.
             </div>
           ) : (
             <>
-              <div style={{ marginBottom: 16, fontSize: 13, color: '#4a4844' }}>
-                Respuestas para: <strong>{selCuest.nombre}</strong> — {respuestas.length} total
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ fontSize: 13, color: '#4a4844' }}>
+                  Respuestas para: <strong>{selCuest.nombre}</strong> — {respuestas.length} total
+                </div>
+                <button onClick={generarSenales} disabled={generando} style={{
+                  padding: '7px 14px', background: generando ? '#f5f3ef' : '#1f6f56', color: generando ? '#8a8885' : '#fff',
+                  border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  cursor: generando ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                }}>
+                  {generando ? 'Generando…' : '⚡ Generar señales'}
+                </button>
               </div>
               {byAsesor.length > 0 && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
@@ -345,6 +378,48 @@ export default function CuestionariosPage() {
                 </div>
               ))}
             </>
+          )}
+        </div>
+      )}
+
+      {tab === 'preview' && (
+        <div>
+          {!selCuest ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885' }}>
+              Selecciona un cuestionario en la pestaña Cuestionarios para previsualizar.
+            </div>
+          ) : (
+            <div style={{ maxWidth: 620, margin: '0 auto' }}>
+              <div style={{ background: '#0b0a09', borderRadius: '16px 16px 0 0', padding: '28px 32px' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 6 }}>{selCuest.nombre}</div>
+                {selCuest.descripcion && <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>{selCuest.descripcion}</div>}
+                <div style={{ marginTop: 12, fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  {preguntas.length} pregunta{preguntas.length !== 1 ? 's' : ''} · {selCuest.tipo ?? 'cuestionario'}
+                </div>
+              </div>
+              <div style={{ background: '#fff', borderRadius: '0 0 16px 16px', border: '1px solid #e8e6e3', borderTop: 'none', padding: '24px 32px' }}>
+                {preguntas.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#8a8885', padding: '24px 0' }}>Sin preguntas aún.</div>
+                ) : preguntas.map((p, i) => (
+                  <div key={p.id} style={{ marginBottom: 28 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0b0a09', marginBottom: 10, lineHeight: 1.5 }}>
+                      {i + 1}. {p.texto}
+                    </div>
+                    <PreviewInput tipo={p.tipo_respuesta} />
+                    {(p.dimension_target || p.perfil_hint) && (
+                      <div style={{ marginTop: 6, display: 'flex', gap: 5 }}>
+                        {p.dimension_target && <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 20, background: '#e6f3ed', color: '#1f6f56', border: '1px solid #e6f3ed', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{p.dimension_target}</span>}
+                        {p.perfil_hint && <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 20, background: '#f8ecd6', color: '#a8691a', border: '1px solid #f8ecd6', fontWeight: 600 }}>perfil {p.perfil_hint}</span>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <button disabled style={{ width: '100%', padding: '14px', background: '#cbf135', color: '#0b0a09', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'not-allowed', fontFamily: 'inherit', marginTop: 8 }}>
+                  Enviar respuestas
+                </button>
+                <div style={{ textAlign: 'center', fontSize: 11, color: '#c8c6c3', marginTop: 10 }}>Vista previa — los botones no son funcionales aquí</div>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -493,6 +568,40 @@ function FField({ label, children }: { label: string; children: React.ReactNode 
     </div>
   )
 }
+function PreviewInput({ tipo }: { tipo: string | null }) {
+  if (tipo === 'escala_4' || tipo === 'escala_5') {
+    const n = tipo === 'escala_4' ? 4 : 5
+    const labels = tipo === 'escala_4'
+      ? ['Nunca', 'Casi nunca', 'Frecuentemente', 'Siempre']
+      : ['Nunca', 'Rara vez', 'A veces', 'Frecuentemente', 'Siempre']
+    return (
+      <div style={{ display: 'flex', gap: 8 }}>
+        {Array.from({ length: n }, (_, i) => (
+          <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ width: '100%', aspectRatio: '1', border: '2px solid #e8e6e3', borderRadius: '50%', margin: '0 auto 4px', maxWidth: 36 }} />
+            <div style={{ fontSize: 9, color: '#8a8885', lineHeight: 1.2 }}>{labels[i]}</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (tipo === 'si_no') return (
+    <div style={{ display: 'flex', gap: 10 }}>
+      {['Sí', 'No'].map(l => (
+        <div key={l} style={{ flex: 1, padding: '10px', border: '1px solid #e8e6e3', borderRadius: 8, textAlign: 'center', fontSize: 13, color: '#4a4844' }}>{l}</div>
+      ))}
+    </div>
+  )
+  if (tipo === 'alternativas') return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {['Opción A', 'Opción B', 'Opción C'].map(l => (
+        <div key={l} style={{ padding: '9px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontSize: 13, color: '#8a8885' }}>{l}</div>
+      ))}
+    </div>
+  )
+  return <textarea disabled rows={3} placeholder="Escribe tu respuesta aquí…" style={{ width: '100%', padding: '10px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, color: '#8a8885', resize: 'none', boxSizing: 'border-box' }} />
+}
+
 function SmBtn({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) {
   return <button onClick={onClick} style={{ padding: '6px 12px', border: '1px solid #e8e6e3', borderRadius: 8, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', background: danger ? '#fbe9e9' : '#fff', color: danger ? '#b03a3a' : '#4a4844' }}>{children}</button>
 }

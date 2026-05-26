@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       pregunta_id: r.pregunta_id,
       respuesta:   String(r.respuesta),
       contexto:    r.contexto ?? null,
+      procesado:   !!r.dimension_target,
     })
 
     // Generar señal conductual desde la respuesta
