@@ -4,13 +4,18 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-const PERFILES  = ['Energético','Sociable','Relacional','Reflexivo','Integrador','General']
+const PERFILES       = ['Energético','Sociable','Relacional','Reflexivo','Integrador','General']
+const PERFILES_CORE  = ['Energético','Sociable','Relacional','Reflexivo']
 const CATEGORIAS = [
   'fortaleza','debilidad','tactica_cliente','ciclo_7pasos',
   'backup_style','colision_espejo','diagnostico_perceptual',
   'cierre','pregunta_interna','sales_dna','ruta_desarrollo',
   'variable_situacional','protocolo_intervención',
 ]
+
+type CellStats   = { count: number; avgCompletitud: number }
+type CoverageMatrix = Record<string, Record<string, CellStats>>
+type GapsByCell  = Record<string, number>
 const ETAPAS = ['prospeccion','pre_contacto','acercamiento','presentacion','objeciones','cierre','seguimiento']
 
 type Entry = {
@@ -33,9 +38,13 @@ export default function ConocimientoPage() {
   const [showModal, setShowModal] = useState(false)
   const [editId,    setEditId]   = useState<string | null>(null)
   const [form,      setForm]     = useState({ ...EMPTY_FORM })
-  const [saving,    setSaving]   = useState(false)
-  const [embedding, setEmbedding] = useState(false)
-  const [toast,     setToast]    = useState<{ msg: string; err?: boolean } | null>(null)
+  const [saving,     setSaving]    = useState(false)
+  const [embedding,  setEmbedding] = useState(false)
+  const [scanning,   setScanning]  = useState(false)
+  const [coverage,   setCoverage]  = useState<CoverageMatrix | null>(null)
+  const [gapsByCell, setGapsByCell]= useState<GapsByCell>({})
+  const [showCoverage, setShowCoverage] = useState(false)
+  const [toast,      setToast]     = useState<{ msg: string; err?: boolean } | null>(null)
 
   function showToast(msg: string, err = false) {
     setToast({ msg, err }); setTimeout(() => setToast(null), 3200)
@@ -47,7 +56,15 @@ export default function ConocimientoPage() {
     setEntries(data ?? [])
   }
 
-  useEffect(() => { load() }, [])
+  async function loadCoverage() {
+    const resp = await fetch('/api/admin/knowledge/scan-gaps')
+    if (!resp.ok) return
+    const json = await resp.json()
+    setCoverage(json.matrix ?? null)
+    setGapsByCell(json.gapsByCell ?? {})
+  }
+
+  useEffect(() => { load(); loadCoverage() }, [])
 
   const filtered = entries.filter(e => {
     const matchP = !filterP || e.perfil === filterP
@@ -113,6 +130,24 @@ export default function ConocimientoPage() {
     load()
   }
 
+  async function scanGaps() {
+    setScanning(true)
+    try {
+      const resp = await fetch('/api/admin/knowledge/scan-gaps', { method: 'POST' })
+      const json = await resp.json()
+      if (json.error) { showToast(json.error, true); return }
+      showToast(json.created > 0
+        ? `${json.created} vacío${json.created !== 1 ? 's' : ''} detectado${json.created !== 1 ? 's' : ''} y registrado${json.created !== 1 ? 's' : ''} en Hipótesis`
+        : 'Sin vacíos nuevos — cobertura al día'
+      )
+      loadCoverage()
+    } catch {
+      showToast('Error al escanear', true)
+    } finally {
+      setScanning(false)
+    }
+  }
+
   async function embedAll() {
     setEmbedding(true)
     try {
@@ -138,7 +173,14 @@ export default function ConocimientoPage() {
           <span style={{ color: '#c8c6c3' }}>/</span>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Conocimiento conductual</h1>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={scanGaps} disabled={scanning} style={{
+            padding: '9px 16px', background: scanning ? '#f5f3ef' : '#fff', color: scanning ? '#8a8885' : '#4a4844',
+            border: '1px solid #e8e6e3', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            cursor: scanning ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+          }}>
+            {scanning ? 'Escaneando…' : '🔍 Escanear vacíos'}
+          </button>
           <button onClick={embedAll} disabled={embedding || entries.length === 0} style={{
             padding: '9px 16px', background: embedding ? '#f5f3ef' : '#1f6f56', color: embedding ? '#8a8885' : '#fff',
             border: '1px solid #e8e6e3', borderRadius: 8, fontSize: 13, fontWeight: 600,
@@ -166,6 +208,68 @@ export default function ConocimientoPage() {
             <div style={{ fontSize: 10, color: '#8a8885' }}>{count} entr{count !== 1 ? 'adas' : 'ada'}</div>
           </div>
         ))}
+      </div>
+
+      {/* Coverage heatmap */}
+      <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, marginBottom: 20, overflow: 'hidden' }}>
+        <button onClick={() => setShowCoverage(v => !v)} style={{
+          width: '100%', padding: '12px 18px', background: 'none', border: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#4a4844' }}>
+            Mapa de cobertura — perfil × categoría
+          </span>
+          <span style={{ fontSize: 12, color: '#8a8885' }}>{showCoverage ? '▲ ocultar' : '▼ ver'}</span>
+        </button>
+
+        {showCoverage && coverage && (
+          <div style={{ padding: '0 18px 18px', overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 11, minWidth: 700 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', color: '#8a8885', fontWeight: 600, borderBottom: '1px solid #e8e6e3', whiteSpace: 'nowrap' }}>Categoría</th>
+                  {PERFILES_CORE.map(p => (
+                    <th key={p} style={{ padding: '6px 8px', textAlign: 'center', color: '#4a4844', fontWeight: 700, borderBottom: '1px solid #e8e6e3', whiteSpace: 'nowrap' }}>{p.slice(0,3)}</th>
+                  ))}
+                  <th style={{ padding: '6px 8px', textAlign: 'center', color: '#4a4844', fontWeight: 700, borderBottom: '1px solid #e8e6e3' }}>Gral</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CATEGORIAS.map((cat, i) => (
+                  <tr key={cat} style={{ background: i % 2 === 0 ? '#fafaf9' : '#fff' }}>
+                    <td style={{ padding: '5px 8px', color: '#4a4844', fontWeight: 500, whiteSpace: 'nowrap', borderRight: '1px solid #e8e6e3' }}>{cat}</td>
+                    {[...PERFILES_CORE, 'General'].map(p => {
+                      const cell   = coverage[p]?.[cat] ?? { count: 0, avgCompletitud: 0 }
+                      const hasGap = gapsByCell[`${p}||${cat}`] > 0
+                      const bg     = cell.count === 0 ? '#fde8e8'
+                        : cell.avgCompletitud < 40     ? '#fef3cd'
+                        : cell.avgCompletitud < 70     ? '#d4edda'
+                        :                               '#c3e6cb'
+                      const color  = cell.count === 0 ? '#b03a3a'
+                        : cell.avgCompletitud < 40     ? '#856404'
+                        : '#1f6f56'
+                      return (
+                        <td key={p} title={`${p} × ${cat}: ${cell.count} entrada${cell.count !== 1 ? 's' : ''}, ${Math.round(cell.avgCompletitud)}% completitud${hasGap ? ' · ⚠ gap detectado' : ''}`}
+                          style={{ padding: '5px 8px', textAlign: 'center', background: bg, color, fontWeight: 700, cursor: 'default' }}>
+                          {cell.count > 0 ? cell.count : '—'}
+                          {hasGap && <span style={{ marginLeft: 2, fontSize: 9 }}>⚠</span>}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ marginTop: 10, display: 'flex', gap: 16, fontSize: 10, color: '#8a8885' }}>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#fde8e8', border: '1px solid #e8e6e3', borderRadius: 2, marginRight: 4 }}/>Sin entradas</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#fef3cd', border: '1px solid #e8e6e3', borderRadius: 2, marginRight: 4 }}/>Baja completitud</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#d4edda', border: '1px solid #e8e6e3', borderRadius: 2, marginRight: 4 }}/>Parcial</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#c3e6cb', border: '1px solid #e8e6e3', borderRadius: 2, marginRight: 4 }}/>Bien cubierto</span>
+              <span>⚠ = gap registrado</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters + search */}
