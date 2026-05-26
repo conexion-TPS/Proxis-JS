@@ -13,9 +13,20 @@ const CATEGORIAS = [
   'variable_situacional','protocolo_intervención',
 ]
 
-type CellStats   = { count: number; avgCompletitud: number }
+type CellStats      = { count: number; avgCompletitud: number }
 type CoverageMatrix = Record<string, Record<string, CellStats>>
-type GapsByCell  = Record<string, number>
+type GapsByCell     = Record<string, number>
+
+type Gap = {
+  id: string; categoria: string; perfil_afectado: string | null
+  descripcion: string | null; prioridad: number; estado: string; created_at: string
+}
+type Proposal = {
+  id: string; gap_id: string | null; titulo: string | null; contenido: string
+  perfil: string | null; categoria: string | null; completitud: number
+  regla_inferencia: string | null; accion_correctiva: string | null
+  estado: string; created_at: string
+}
 const ETAPAS = ['prospeccion','pre_contacto','acercamiento','presentacion','objeciones','cierre','seguimiento']
 
 type Entry = {
@@ -40,11 +51,17 @@ export default function ConocimientoPage() {
   const [form,      setForm]     = useState({ ...EMPTY_FORM })
   const [saving,     setSaving]    = useState(false)
   const [embedding,  setEmbedding] = useState(false)
-  const [scanning,   setScanning]  = useState(false)
-  const [coverage,   setCoverage]  = useState<CoverageMatrix | null>(null)
-  const [gapsByCell, setGapsByCell]= useState<GapsByCell>({})
-  const [showCoverage, setShowCoverage] = useState(false)
-  const [toast,      setToast]     = useState<{ msg: string; err?: boolean } | null>(null)
+  const [scanning,      setScanning]      = useState(false)
+  const [coverage,      setCoverage]      = useState<CoverageMatrix | null>(null)
+  const [gapsByCell,    setGapsByCell]    = useState<GapsByCell>({})
+  const [showCoverage,  setShowCoverage]  = useState(false)
+  const [gaps,          setGaps]          = useState<Gap[]>([])
+  const [proposals,     setProposals]     = useState<Proposal[]>([])
+  const [showGaps,      setShowGaps]      = useState(false)
+  const [showProposals, setShowProposals] = useState(false)
+  const [investigando,  setInvestigando]  = useState<string | null>(null)
+  const [actioning,     setActioning]     = useState<string | null>(null)
+  const [toast,         setToast]         = useState<{ msg: string; err?: boolean } | null>(null)
 
   function showToast(msg: string, err = false) {
     setToast({ msg, err }); setTimeout(() => setToast(null), 3200)
@@ -64,7 +81,19 @@ export default function ConocimientoPage() {
     setGapsByCell(json.gapsByCell ?? {})
   }
 
-  useEffect(() => { load(); loadCoverage() }, [])
+  async function loadGaps() {
+    const { data } = await supabase.from('knowledge_gaps')
+      .select('*').neq('estado', 'cubierto').order('prioridad', { ascending: false })
+    setGaps(data ?? [])
+  }
+
+  async function loadProposals() {
+    const { data } = await supabase.from('knowledge_proposals')
+      .select('*').eq('estado', 'pendiente').order('created_at', { ascending: false })
+    setProposals(data ?? [])
+  }
+
+  useEffect(() => { load(); loadCoverage(); loadGaps(); loadProposals() }, [])
 
   const filtered = entries.filter(e => {
     const matchP = !filterP || e.perfil === filterP
@@ -137,14 +166,50 @@ export default function ConocimientoPage() {
       const json = await resp.json()
       if (json.error) { showToast(json.error, true); return }
       showToast(json.created > 0
-        ? `${json.created} vacío${json.created !== 1 ? 's' : ''} detectado${json.created !== 1 ? 's' : ''} y registrado${json.created !== 1 ? 's' : ''} en Hipótesis`
+        ? `${json.created} vacío${json.created !== 1 ? 's' : ''} detectado${json.created !== 1 ? 's' : ''} y registrado${json.created !== 1 ? 's' : ''}`
         : 'Sin vacíos nuevos — cobertura al día'
       )
-      loadCoverage()
+      loadCoverage(); loadGaps()
     } catch {
       showToast('Error al escanear', true)
     } finally {
       setScanning(false)
+    }
+  }
+
+  async function investigarGap(gapId: string) {
+    setInvestigando(gapId)
+    try {
+      const resp = await fetch('/api/admin/knowledge/investigar-gap', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gap_id: gapId }),
+      })
+      const json = await resp.json()
+      if (!json.ok && json.error) { showToast(json.error, true); return }
+      showToast('Investigación completada — nueva propuesta generada')
+      loadGaps(); loadProposals(); loadCoverage()
+    } catch {
+      showToast('Error al investigar', true)
+    } finally {
+      setInvestigando(null)
+    }
+  }
+
+  async function proposalAction(proposalId: string, action: 'aprobar' | 'rechazar') {
+    setActioning(proposalId)
+    try {
+      const resp = await fetch('/api/admin/knowledge/proposal-action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposal_id: proposalId, action }),
+      })
+      const json = await resp.json()
+      if (json.error) { showToast(json.error, true); return }
+      showToast(action === 'aprobar' ? 'Propuesta aprobada — entrada agregada a la KB' : 'Propuesta rechazada')
+      loadProposals(); loadGaps(); load()
+    } catch {
+      showToast('Error', true)
+    } finally {
+      setActioning(null)
     }
   }
 
@@ -271,6 +336,116 @@ export default function ConocimientoPage() {
           </div>
         )}
       </div>
+
+      {/* Vacíos KB */}
+      <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, marginBottom: 16, overflow: 'hidden' }}>
+        <button onClick={() => setShowGaps(v => !v)} style={{
+          width: '100%', padding: '12px 18px', background: 'none', border: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#4a4844' }}>
+            Vacíos de conocimiento
+            {gaps.length > 0 && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 20, background: '#fde8e8', color: '#b03a3a' }}>{gaps.length}</span>}
+          </span>
+          <span style={{ fontSize: 12, color: '#8a8885' }}>{showGaps ? '▲ ocultar' : '▼ ver'}</span>
+        </button>
+        {showGaps && (
+          <div style={{ borderTop: '1px solid #e8e6e3' }}>
+            {gaps.length === 0 ? (
+              <div style={{ padding: '20px 18px', fontSize: 12, color: '#8a8885', textAlign: 'center' }}>Sin vacíos detectados. Ejecuta "Escanear vacíos".</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: '#fafaf9' }}>
+                    {['Perfil','Categoría','Descripción','Prioridad','Estado','Acción'].map(h => (
+                      <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#8a8885', borderBottom: '1px solid #e8e6e3' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {gaps.map(g => {
+                    const estadoColor = g.estado === 'en_investigacion' ? '#a8691a' : g.estado === 'en_revision' ? '#2563a8' : '#b03a3a'
+                    const estadoBg   = g.estado === 'en_investigacion' ? '#fef3cd' : g.estado === 'en_revision' ? '#dbeafe' : '#fde8e8'
+                    return (
+                      <tr key={g.id} style={{ borderBottom: '1px solid #f5f3ef' }}>
+                        <td style={{ padding: '9px 14px' }}>{g.perfil_afectado || '—'}</td>
+                        <td style={{ padding: '9px 14px' }}>{g.categoria}</td>
+                        <td style={{ padding: '9px 14px', maxWidth: 280, color: '#4a4844' }}>{g.descripcion?.slice(0, 100) || '—'}</td>
+                        <td style={{ padding: '9px 14px', textAlign: 'center' }}>
+                          <span style={{ fontWeight: 800, color: g.prioridad >= 4 ? '#b03a3a' : g.prioridad >= 3 ? '#a8691a' : '#8a8885' }}>{g.prioridad}/5</span>
+                        </td>
+                        <td style={{ padding: '9px 14px' }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: estadoBg, color: estadoColor }}>{g.estado}</span>
+                        </td>
+                        <td style={{ padding: '9px 14px' }}>
+                          {(g.estado === 'detectado') && (
+                            <button onClick={() => investigarGap(g.id)} disabled={investigando === g.id} style={{
+                              padding: '4px 12px', background: investigando === g.id ? '#f5f3ef' : '#0b0a09', color: investigando === g.id ? '#8a8885' : '#cbf135',
+                              border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: investigando === g.id ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                            }}>
+                              {investigando === g.id ? 'Investigando…' : '🔬 Investigar'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Propuestas IA */}
+      {proposals.length > 0 && (
+        <div style={{ background: '#fff', border: '1px solid #d0e4f7', borderRadius: 12, marginBottom: 20, overflow: 'hidden' }}>
+          <button onClick={() => setShowProposals(v => !v)} style={{
+            width: '100%', padding: '12px 18px', background: 'none', border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#2563a8' }}>
+              🤖 Propuestas de IA pendientes de revisión
+              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 20, background: '#dbeafe', color: '#2563a8' }}>{proposals.length}</span>
+            </span>
+            <span style={{ fontSize: 12, color: '#8a8885' }}>{showProposals ? '▲ ocultar' : '▼ ver'}</span>
+          </button>
+          {showProposals && (
+            <div style={{ borderTop: '1px solid #d0e4f7', padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {proposals.map(p => (
+                <div key={p.id} style={{ border: '1px solid #e8e6e3', borderRadius: 10, padding: '14px 18px', background: '#fafff9' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{p.titulo || '(sin título)'}</div>
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                        {p.perfil   && <Badge color="#f5f3ef">{p.perfil}</Badge>}
+                        {p.categoria && <Badge color="#f0ede8">{p.categoria}</Badge>}
+                        <Badge color="#e6f3ed">{p.completitud}% completitud</Badge>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => proposalAction(p.id, 'aprobar')} disabled={actioning === p.id} style={{
+                        padding: '6px 14px', background: '#1f6f56', color: '#fff', border: 'none', borderRadius: 7,
+                        fontSize: 12, fontWeight: 700, cursor: actioning === p.id ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                        opacity: actioning === p.id ? 0.5 : 1,
+                      }}>✓ Aprobar</button>
+                      <button onClick={() => proposalAction(p.id, 'rechazar')} disabled={actioning === p.id} style={{
+                        padding: '6px 14px', background: '#fde8e8', color: '#b03a3a', border: '1px solid #f5c6c6', borderRadius: 7,
+                        fontSize: 12, fontWeight: 700, cursor: actioning === p.id ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                        opacity: actioning === p.id ? 0.5 : 1,
+                      }}>✕ Rechazar</button>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#4a4844', lineHeight: 1.6, margin: '0 0 6px' }}>{p.contenido.slice(0, 400)}{p.contenido.length > 400 ? '…' : ''}</p>
+                  {p.regla_inferencia && <p style={{ fontSize: 11, color: '#8a8885', margin: 0, fontStyle: 'italic' }}>Regla: {p.regla_inferencia}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters + search */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
