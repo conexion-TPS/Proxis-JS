@@ -41,10 +41,11 @@ export async function POST(req: NextRequest) {
 
   const origin = req.headers.get('origin')
   return NextResponse.json({
-    ok:     true,
+    ok:                    true,
     token,
-    asesor: cred.asesor,
-    email:  cred.email,
-    rol:    cred.rol,
+    asesor:                cred.asesor,
+    email:                 cred.email,
+    rol:                   cred.rol,
+    terminos_aceptados_at: cred.terminos_aceptados_at ?? null,
   }, { headers: corsHeaders(origin) })
 }
