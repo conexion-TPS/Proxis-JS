@@ -25,10 +25,13 @@ const DIMENSIONES = [
   'contexto_situacional',
 ]
 
+type MetaRow = { asesor: string; supervisor: string | null }
+
 export default function SenalesPage() {
   const [signals,    setSignals]    = useState<Signal[]>([])
-  const [asesores,   setAsesores]   = useState<string[]>([])
+  const [metaRows,   setMetaRows]   = useState<MetaRow[]>([])
   const [filterA,    setFilterA]    = useState('')
+  const [filterSup,  setFilterSup]  = useState('')
   const [filterF,    setFilterF]    = useState('')
   const [filterProc, setFilterProc] = useState<'all' | 'pending' | 'done'>('all')
   const [loading,    setLoading]    = useState(true)
@@ -41,21 +44,32 @@ export default function SenalesPage() {
   const [obsSaving,  setObsSaving]  = useState(false)
   const [obsOk,      setObsOk]      = useState(false)
 
+  const asesores     = metaRows.map(r => r.asesor)
+  const supervisores = [...new Set(metaRows.map(r => r.supervisor).filter(Boolean) as string[])].sort()
+  const asesoresDelSup = filterSup
+    ? metaRows.filter(r => r.supervisor === filterSup).map(r => r.asesor)
+    : null
+
   const load = useCallback(async () => {
     setLoading(true)
     let q = supabase.from('behavioral_signals').select('*').order('created_at', { ascending: false }).limit(300)
-    if (filterA) q = q.eq('asesor', filterA)
+    if (filterA) {
+      q = q.eq('asesor', filterA)
+    } else if (asesoresDelSup && asesoresDelSup.length > 0) {
+      q = q.in('asesor', asesoresDelSup)
+    }
     if (filterF) q = q.eq('fuente', filterF)
     if (filterProc === 'pending') q = q.eq('procesada', false)
     if (filterProc === 'done')    q = q.eq('procesada', true)
     const { data } = await q
     setSignals(data ?? [])
     setLoading(false)
-  }, [filterA, filterF, filterProc])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterA, filterSup, filterF, filterProc, metaRows])
 
   useEffect(() => {
-    supabase.from('metas').select('asesor').order('asesor')
-      .then(({ data }) => setAsesores((data ?? []).map(r => r.asesor)))
+    supabase.from('metas').select('asesor,supervisor').order('asesor')
+      .then(({ data }) => setMetaRows(data ?? []))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -201,9 +215,15 @@ export default function SenalesPage() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        {supervisores.length > 0 && (
+          <select value={filterSup} onChange={e => { setFilterSup(e.target.value); setFilterA('') }} style={selStyle}>
+            <option value="">Todos los supervisores</option>
+            {supervisores.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
         <select value={filterA} onChange={e => setFilterA(e.target.value)} style={selStyle}>
           <option value="">Todos los asesores</option>
-          {asesores.map(a => <option key={a} value={a}>{a}</option>)}
+          {(asesoresDelSup ?? asesores).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <select value={filterF} onChange={e => setFilterF(e.target.value)} style={selStyle}>
           <option value="">Todas las fuentes</option>

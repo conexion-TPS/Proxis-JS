@@ -12,13 +12,15 @@ type PushToken = {
   id: string; asesor: string; token: string
   plataforma: 'ios' | 'android' | null; activo: boolean; created_at: string
 }
+type MetaRow = { asesor: string; supervisor: string | null }
 
 export default function SailorPage() {
-  const [mensajes,  setMensajes]  = useState<SailorMsg[]>([])
-  const [tokens,    setTokens]    = useState<PushToken[]>([])
-  const [asesores,  setAsesores]  = useState<string[]>([])
-  const [filterA,   setFilterA]   = useState('')
-  const [tab,       setTab]       = useState<'feed' | 'tokens' | 'stats'>('feed')
+  const [mensajes,     setMensajes]     = useState<SailorMsg[]>([])
+  const [tokens,       setTokens]       = useState<PushToken[]>([])
+  const [metaRows,     setMetaRows]     = useState<MetaRow[]>([])
+  const [filterA,      setFilterA]      = useState('')
+  const [filterSup,    setFilterSup]    = useState('')
+  const [tab,          setTab]          = useState<'feed' | 'tokens' | 'stats'>('feed')
   const [loading,   setLoading]   = useState(true)
   const [sendForm,  setSendForm]  = useState<{ asesor: string; contenido: string } | null>(null)
   const [sending,   setSending]   = useState(false)
@@ -31,19 +33,31 @@ export default function SailorPage() {
     const [mRes, tRes, aRes] = await Promise.all([
       supabase.from('sailor_messages').select('*').order('created_at', { ascending: false }).limit(200),
       supabase.from('push_tokens').select('*').order('created_at', { ascending: false }),
-      supabase.from('metas').select('asesor').order('asesor'),
+      supabase.from('metas').select('asesor,supervisor').order('asesor'),
     ])
     setMensajes(mRes.data ?? [])
     setTokens(tRes.data ?? [])
-    setAsesores((aRes.data ?? []).map(r => r.asesor))
+    setMetaRows(aRes.data ?? [])
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
-  const filteredMsgs = filterA
-    ? mensajes.filter(m => m.asesor === filterA)
-    : mensajes
+  // Derivados del modelo de datos
+  const asesores    = metaRows.map(r => r.asesor)
+  const supervisores = [...new Set(metaRows.map(r => r.supervisor).filter(Boolean) as string[])].sort()
+  const supDeAsesor  = Object.fromEntries(metaRows.map(r => [r.asesor, r.supervisor ?? null]))
+
+  // Asesores del supervisor seleccionado (para filtrar mensajes)
+  const asesoresDelSup = filterSup
+    ? metaRows.filter(r => r.supervisor === filterSup).map(r => r.asesor)
+    : null
+
+  const filteredMsgs = mensajes.filter(m => {
+    if (filterA   && m.asesor !== filterA) return false
+    if (asesoresDelSup && !asesoresDelSup.includes(m.asesor)) return false
+    return true
+  })
 
   // Stats
   const totalMsgs    = mensajes.length
@@ -54,13 +68,15 @@ export default function SailorPage() {
     ? Math.round((mensajes.filter(m => m.origen === 'coach_ia' && m.leido).length / coachMsgs) * 100)
     : 0
 
-  // By-asesor stats
-  const byAsesor = asesores.map(a => ({
-    asesor: a,
-    total:   mensajes.filter(m => m.asesor === a).length,
-    coach:   mensajes.filter(m => m.asesor === a && m.origen === 'coach_ia').length,
-    replies: mensajes.filter(m => m.asesor === a && m.origen === 'asesor').length,
-    token:   tokens.find(t => t.asesor === a && t.activo),
+  // By-asesor stats (respeta filtro supervisor)
+  const asesoresFiltrados = asesoresDelSup ?? asesores
+  const byAsesor = asesoresFiltrados.map(a => ({
+    asesor:    a,
+    supervisor: supDeAsesor[a] ?? null,
+    total:     mensajes.filter(m => m.asesor === a).length,
+    coach:     mensajes.filter(m => m.asesor === a && m.origen === 'coach_ia').length,
+    replies:   mensajes.filter(m => m.asesor === a && m.origen === 'asesor').length,
+    token:     tokens.find(t => t.asesor === a && t.activo),
   })).filter(x => x.total > 0 || x.token)
 
   async function enviarMensaje() {
@@ -154,10 +170,16 @@ export default function SailorPage() {
           {/* FEED */}
           {tab === 'feed' && (
             <>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+                {supervisores.length > 0 && (
+                  <select value={filterSup} onChange={e => { setFilterSup(e.target.value); setFilterA('') }} style={selStyle}>
+                    <option value="">Todos los supervisores</option>
+                    {supervisores.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
                 <select value={filterA} onChange={e => setFilterA(e.target.value)} style={selStyle}>
                   <option value="">Todos los asesores</option>
-                  {asesores.map(a => <option key={a} value={a}>{a}</option>)}
+                  {(asesoresDelSup ?? asesores).map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
 
@@ -261,52 +283,70 @@ export default function SailorPage() {
 
           {/* STATS POR ASESOR */}
           {tab === 'stats' && (
-            byAsesor.length === 0 ? (
-              <EmptyState msg="Sin datos todavía." />
-            ) : (
-              <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#fafaf7', borderBottom: '1px solid #e8e6e3' }}>
-                      {['Asesor','Msgs recibidos','Respuestas','Tasa respuesta','Push token'].map(h => (
-                        <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 700,
-                          letterSpacing: '0.07em', textTransform: 'uppercase', color: '#8a8885' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byAsesor.map(a => {
-                      const rate = a.coach > 0 ? Math.round((a.replies / a.coach) * 100) : 0
-                      return (
-                        <tr key={a.asesor} style={{ borderBottom: '1px solid #f5f3ef' }}>
-                          <td style={{ ...td, fontWeight: 600 }}>{a.asesor.split(' ')[0]}</td>
-                          <td style={td}>{a.coach}</td>
-                          <td style={td}>{a.replies}</td>
-                          <td style={td}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{ width: 60, height: 4, background: '#f5f3ef', borderRadius: 2 }}>
-                                <div style={{ width: `${rate}%`, height: 4, background: rate >= 50 ? '#cbf135' : '#e8c572', borderRadius: 2 }} />
-                              </div>
-                              <span style={{ fontSize: 11 }}>{rate}%</span>
-                            </div>
-                          </td>
-                          <td style={td}>
-                            {a.token ? (
-                              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20,
-                                background: '#e6f3ed', color: '#1f6f56', fontWeight: 600 }}>
-                                ✓ {a.token.plataforma ?? 'activo'}
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: 10, color: '#8a8885' }}>sin token</span>
+            <>
+              {supervisores.length > 0 && (
+                <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                  <select value={filterSup} onChange={e => setFilterSup(e.target.value)} style={selStyle}>
+                    <option value="">Todos los supervisores</option>
+                    {supervisores.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+              {byAsesor.length === 0 ? (
+                <EmptyState msg="Sin datos todavía." />
+              ) : (
+                <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#fafaf7', borderBottom: '1px solid #e8e6e3' }}>
+                        {['Asesor', ...(supervisores.length > 0 ? ['Supervisor'] : []), 'Msgs recibidos','Respuestas','Tasa respuesta','Push token'].map(h => (
+                          <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 10, fontWeight: 700,
+                            letterSpacing: '0.07em', textTransform: 'uppercase', color: '#8a8885' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byAsesor.map(a => {
+                        const rate = a.coach > 0 ? Math.round((a.replies / a.coach) * 100) : 0
+                        return (
+                          <tr key={a.asesor} style={{ borderBottom: '1px solid #f5f3ef' }}>
+                            <td style={{ ...td, fontWeight: 600 }}>{a.asesor.split(' ')[0]}</td>
+                            {supervisores.length > 0 && (
+                              <td style={{ ...td, fontSize: 11 }}>
+                                {a.supervisor
+                                  ? <span style={{ padding: '2px 8px', borderRadius: 20, background: '#e8f0fe', color: '#1a56c4', fontSize: 10, fontWeight: 600 }}>{a.supervisor.split(' ')[0]}</span>
+                                  : <span style={{ fontSize: 11, color: '#c8c6c3' }}>—</span>
+                                }
+                              </td>
                             )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )
+                            <td style={td}>{a.coach}</td>
+                            <td style={td}>{a.replies}</td>
+                            <td style={td}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ width: 60, height: 4, background: '#f5f3ef', borderRadius: 2 }}>
+                                  <div style={{ width: `${rate}%`, height: 4, background: rate >= 50 ? '#cbf135' : '#e8c572', borderRadius: 2 }} />
+                                </div>
+                                <span style={{ fontSize: 11 }}>{rate}%</span>
+                              </div>
+                            </td>
+                            <td style={td}>
+                              {a.token ? (
+                                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20,
+                                  background: '#e6f3ed', color: '#1f6f56', fontWeight: 600 }}>
+                                  ✓ {a.token.plataforma ?? 'activo'}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: 10, color: '#8a8885' }}>sin token</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
