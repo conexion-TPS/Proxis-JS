@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { callGemini } from '@/lib/gemini'
+import { searchKB } from '@/lib/kb'
 
 function getMesActual() {
   const d = new Date()
@@ -88,10 +89,30 @@ export async function POST(req: NextRequest) {
 
     const ctx       = await buildContext(asesor)
     const compilado = compileTemplate(promptBody, ctx)
-    const perfilBlock = ctx.perfil_resumen ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n` : ''
-    const message   = await callGemini(perfilBlock + compilado)
 
-    return NextResponse.json({ message })
+    // RAG: buscar chunks relevantes en la KB conductual
+    const perfil = ctx.perfil_conductual && typeof ctx.perfil_conductual === 'object'
+      ? Object.entries(ctx.perfil_conductual as Record<string, number>).sort((a, b) => b[1] - a[1])[0]?.[0]
+      : null
+    const kbMatches = await searchKB(compilado, 4, perfil).catch(() => [])
+
+    const kbBlock = kbMatches.length
+      ? '[CONOCIMIENTO RELEVANTE]\n' +
+        kbMatches
+          .filter(m => m.similarity > 0.5)
+          .map(m => {
+            const parts = [m.contenido]
+            if (m.regla_inferencia)  parts.push(`Regla: ${m.regla_inferencia}`)
+            if (m.accion_correctiva) parts.push(`Acción: ${m.accion_correctiva}`)
+            return parts.join('\n')
+          })
+          .join('\n---\n') + '\n\n'
+      : ''
+
+    const perfilBlock = ctx.perfil_resumen ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n` : ''
+    const message = await callGemini(perfilBlock + kbBlock + compilado)
+
+    return NextResponse.json({ message, kbChunks: kbMatches.length })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Error desconocido'
     return NextResponse.json({ error: msg }, { status: 500 })

@@ -1,6 +1,19 @@
 const GEMINI_KEY = process.env.GEMINI_KEY ?? ''
 const MODEL      = 'gemini-2.5-flash'
 const API_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
+const EMBED_URL  = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent`
+
+export async function embedText(text: string): Promise<number[]> {
+  if (!GEMINI_KEY) return []
+  const res = await fetch(`${EMBED_URL}?key=${GEMINI_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: { parts: [{ text }] } }),
+  })
+  if (!res.ok) throw new Error(`Gemini embed HTTP ${res.status}`)
+  const data = await res.json()
+  return data.embedding?.values ?? []
+}
 
 export async function callGemini(
   prompt: string,

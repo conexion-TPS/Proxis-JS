@@ -17,6 +17,7 @@ type Entry = {
   id: string; perfil: string | null; categoria: string | null; etapa_ciclo: string | null
   contexto: string | null; contenido: string; regla_inferencia: string | null
   accion_correctiva: string | null; fuente: string | null; completitud: number; created_at: string
+  embedded_at: string | null
 }
 
 const EMPTY_FORM = {
@@ -33,6 +34,7 @@ export default function ConocimientoPage() {
   const [editId,    setEditId]   = useState<string | null>(null)
   const [form,      setForm]     = useState({ ...EMPTY_FORM })
   const [saving,    setSaving]   = useState(false)
+  const [embedding, setEmbedding] = useState(false)
   const [toast,     setToast]    = useState<{ msg: string; err?: boolean } | null>(null)
 
   function showToast(msg: string, err = false) {
@@ -111,6 +113,21 @@ export default function ConocimientoPage() {
     load()
   }
 
+  async function embedAll() {
+    setEmbedding(true)
+    try {
+      const resp = await fetch('/api/admin/knowledge/embed-all', { method: 'POST' })
+      const json = await resp.json()
+      if (json.error) { showToast(json.error, true); return }
+      showToast(`${json.embedded} entrada${json.embedded !== 1 ? 's' : ''} embedeada${json.embedded !== 1 ? 's' : ''} (${json.total} total)`)
+      load()
+    } catch {
+      showToast('Error al embedear', true)
+    } finally {
+      setEmbedding(false)
+    }
+  }
+
   return (
     <div style={{ padding: '32px 36px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -121,11 +138,20 @@ export default function ConocimientoPage() {
           <span style={{ color: '#c8c6c3' }}>/</span>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Conocimiento conductual</h1>
         </div>
-        <button onClick={() => openModal()} style={{
-          padding: '9px 16px', background: '#0b0a09', color: '#fff',
-          border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}>+ Nueva entrada</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={embedAll} disabled={embedding || entries.length === 0} style={{
+            padding: '9px 16px', background: embedding ? '#f5f3ef' : '#1f6f56', color: embedding ? '#8a8885' : '#fff',
+            border: '1px solid #e8e6e3', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            cursor: embedding ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+          }}>
+            {embedding ? 'Embedeando…' : `⚡ Embedear KB (${entries.filter(e => !e.embedded_at).length} pendientes)`}
+          </button>
+          <button onClick={() => openModal()} style={{
+            padding: '9px 16px', background: '#0b0a09', color: '#fff',
+            border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>+ Nueva entrada</button>
+        </div>
       </div>
 
       {/* Completitud por perfil */}
@@ -172,6 +198,9 @@ export default function ConocimientoPage() {
                     {e.perfil    && <Badge color="#f5f3ef">{e.perfil}</Badge>}
                     {e.categoria && <Badge color="#f0ede8">{e.categoria}</Badge>}
                     {e.etapa_ciclo && <Badge color="#e6f3ed">{e.etapa_ciclo}</Badge>}
+                    <span title={e.embedded_at ? `Embedeado ${new Date(e.embedded_at).toLocaleDateString('es-CL')}` : 'Sin embedding'} style={{ fontSize: 11 }}>
+                      {e.embedded_at ? '🔵' : '⚪'}
+                    </span>
                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{ width: 40, height: 3, background: '#f5f3ef', borderRadius: 2 }}>
                         <div style={{ width: `${e.completitud}%`, height: '100%', background: e.completitud >= 70 ? '#1f6f56' : '#a8691a', borderRadius: 2 }} />
