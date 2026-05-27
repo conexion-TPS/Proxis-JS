@@ -88,16 +88,30 @@ export async function POST(req: NextRequest) {
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('[webhook/vercel] unexpected error:', msg)
-    // Always return 200 so Vercel doesn't retry — log the failure
+    const stack = e instanceof Error ? e.stack : ''
+    console.error('[webhook/vercel] unexpected error:', msg, stack)
+    // Fallback: direct REST insert bypassing Supabase JS client
     try {
-      await supabaseAdmin().from('error_log').insert({
-        componente: 'webhook-vercel',
-        severidad:  'error',
-        mensaje:    `Webhook handler exception: ${msg}`,
-        detalles:   { tipo, estado, url, rama, commit_sha, stack: e instanceof Error ? e.stack : '' },
+      const sbUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+      const sbKey  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+      await fetch(`${sbUrl}/rest/v1/error_log`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        sbKey,
+          'Authorization': `Bearer ${sbKey}`,
+          'Prefer':        'return=minimal',
+        },
+        body: JSON.stringify({
+          componente: 'webhook-vercel',
+          severidad:  'error',
+          mensaje:    `Webhook handler exception: ${msg}`,
+          detalles:   { tipo, estado, url, rama, commit_sha, stack },
+        }),
       })
     } catch (_) { /* best-effort */ }
+    // Temporary: return error details so we can diagnose
+    return NextResponse.json({ ok: false, _debug: msg, _stack: stack }, { status: 200 })
   }
 
   return NextResponse.json({ ok: true })
