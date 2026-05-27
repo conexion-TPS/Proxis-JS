@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     meta_contactos_semana: 3,
     meta_prospectos_mes:   15,
     meta_ingresos:         2_000_000,
-  }).catch(() => {})
+  })
 
   const token = jwt.sign(
     { asesor: cred.asesor, email: cred.email, rol: cred.rol, id: cred.id },

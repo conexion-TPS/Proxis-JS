@@ -31,5 +31,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: String(error) }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, to: cred.email })
+  return NextResponse.json({ ok: true, to: credRes.data.email })
 }

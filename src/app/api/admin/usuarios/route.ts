@@ -57,14 +57,12 @@ export async function PATCH(req: NextRequest) {
 
   if (!asesor) return NextResponse.json({ error: 'asesor requerido' }, { status: 400 })
 
-  const sb  = supabaseAdmin()
-  const ops: Promise<unknown>[] = []
+  const sb = supabaseAdmin()
 
   if (activo !== undefined) {
-    ops.push(sb.from('asesor_credentials')
+    await sb.from('asesor_credentials')
       .update({ activo, updated_at: new Date().toISOString() })
       .eq('asesor', asesor)
-      .then(() => {}))
   }
 
   const metaUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -74,9 +72,8 @@ export async function PATCH(req: NextRequest) {
   if (meta_ingresos         !== undefined) metaUpdates.meta_ingresos         = meta_ingresos
 
   if (Object.keys(metaUpdates).length > 1) {
-    ops.push(sb.from('metas').update(metaUpdates).eq('asesor', asesor).then(() => {}))
+    await sb.from('metas').update(metaUpdates).eq('asesor', asesor)
   }
 
-  await Promise.all(ops)
   return NextResponse.json({ ok: true })
 }
