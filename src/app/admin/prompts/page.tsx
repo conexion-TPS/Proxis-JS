@@ -22,7 +22,9 @@ export default function PromptsPage() {
   const [selVersion, setSelVersion] = useState<Version | null>(null)
   const [body,      setBody]      = useState('')
   const [selAsesor, setSelAsesor] = useState('')
+  const [compiled,  setCompiled]  = useState<{ text: string; ctx: Record<string, unknown> } | null>(null)
   const [preview,   setPreview]   = useState('')
+  const [compileLoading,  setCompileLoading]  = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [saving,    setSaving]    = useState(false)
   const [activating, setActivating] = useState(false)
@@ -37,7 +39,7 @@ export default function PromptsPage() {
   useEffect(() => {
     supabase.from('trigger_config').select('trigger_id,descripcion').order('trigger_id')
       .then(({ data }) => setTriggers(data ?? []))
-    supabase.from('metas').select('asesor').order('asesor')
+    supabase.from('asesor_credentials').select('asesor').eq('activo', true).order('asesor')
       .then(({ data }) => setAsesores(data ?? []))
   }, [])
 
@@ -55,6 +57,7 @@ export default function PromptsPage() {
   function onTriggerChange(tid: string) {
     setSelTrigger(tid)
     setPreview('')
+    setCompiled(null)
     loadVersions(tid)
   }
 
@@ -110,9 +113,29 @@ export default function PromptsPage() {
     loadVersions(selTrigger)
   }
 
-  async function previsualizar() {
-    if (!selAsesor)   { showToast('Selecciona un asesor para previsualizar.', true); return }
-    if (!selTrigger)  { showToast('Selecciona un trigger primero.', true); return }
+  async function compilarTemplate() {
+    if (!selAsesor)  { showToast('Selecciona un asesor.', true); return }
+    if (!selTrigger) { showToast('Selecciona un trigger.', true); return }
+    setCompileLoading(true)
+    setCompiled(null)
+    setPreview('')
+    try {
+      const res = await fetch('/api/admin/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asesor: selAsesor, triggerId: selTrigger, bodyOverride: body, dryRun: true }),
+      })
+      const data = await res.json()
+      if (data.error) { showToast(data.error, true); return }
+      setCompiled({ text: data.compiled, ctx: data.ctx })
+    } catch (e: any) {
+      showToast(e.message, true)
+    }
+    setCompileLoading(false)
+  }
+
+  async function generarConGemini() {
+    if (!compiled) { showToast('Primero compila el template.', true); return }
     setPreviewLoading(true)
     setPreview('⏳ Generando con Gemini…')
     try {
@@ -293,11 +316,15 @@ export default function PromptsPage() {
 
             {/* Preview */}
             <div>
-              <label style={labelStyle}>Previsualizar con asesor</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <label style={labelStyle}>Probar con asesor</label>
+              <p style={{ fontSize: 11, color: '#8a8885', marginBottom: 10, marginTop: -4 }}>
+                <strong>Paso 1:</strong> compila las variables con datos reales del asesor (sin IA).
+                <strong> Paso 2:</strong> si el template se ve bien, genera el mensaje con Gemini.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                 <select
                   value={selAsesor}
-                  onChange={e => setSelAsesor(e.target.value)}
+                  onChange={e => { setSelAsesor(e.target.value); setCompiled(null); setPreview('') }}
                   style={{
                     flex: 1, minWidth: 180, padding: '9px 14px',
                     border: '1px solid #e8e6e3', borderRadius: 8,
@@ -305,23 +332,55 @@ export default function PromptsPage() {
                     background: '#fff', outline: 'none',
                   }}
                 >
-                  <option value="">— Selecciona asesor —</option>
+                  <option value="">— Selecciona asesor activo —</option>
                   {asesores.map(a => (
                     <option key={a.asesor} value={a.asesor}>{a.asesor}</option>
                   ))}
                 </select>
-                <Btn onClick={previsualizar} disabled={!selTrigger || !selAsesor || previewLoading} variant="outline">
-                  <EyeIcon /> {previewLoading ? 'Generando…' : 'Previsualizar'}
+                <Btn onClick={compilarTemplate} disabled={!selTrigger || !selAsesor || compileLoading} variant="outline">
+                  <CodeIcon /> {compileLoading ? 'Compilando…' : '1. Compilar variables'}
+                </Btn>
+                <Btn onClick={generarConGemini} disabled={!compiled || previewLoading} variant="teal">
+                  <EyeIcon /> {previewLoading ? 'Generando…' : '2. Generar con Gemini'}
                 </Btn>
               </div>
 
+              {/* Template compilado */}
+              {compiled && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
+                    textTransform: 'uppercase', color: '#8a8885', marginBottom: 6,
+                  }}>Template compilado (prompt que se envía a Gemini)</div>
+                  <div style={{
+                    background: '#f0ede8', border: '1px solid #e8e6e3', borderRadius: 8,
+                    padding: 14, fontSize: 12, lineHeight: 1.65, color: '#0b0a09',
+                    whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono), monospace',
+                    maxHeight: 200, overflowY: 'auto',
+                  }}>
+                    {compiled.text}
+                  </div>
+                  <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
+                    {Object.entries(compiled.ctx)
+                      .filter(([, v]) => v !== null && v !== undefined && typeof v !== 'object')
+                      .map(([k, v]) => (
+                        <span key={k} style={{ fontSize: 11, color: '#8a8885' }}>
+                          <span style={{ color: '#4a4844', fontWeight: 600 }}>{k}</span>: {String(v)}
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Mensaje generado por Gemini */}
               <div style={{
                 background: '#f5f3ef', border: '1px solid #e8e6e3', borderRadius: 8,
-                padding: 16, fontSize: 13, lineHeight: 1.7, color: preview ? '#0b0a09' : '#8a8885',
-                whiteSpace: 'pre-wrap', marginTop: 14, minHeight: 60,
+                padding: 16, fontSize: 13, lineHeight: 1.7,
+                color: preview ? '#0b0a09' : '#8a8885',
+                whiteSpace: 'pre-wrap', minHeight: 60,
                 fontStyle: preview ? 'normal' : 'italic',
               }}>
-                {preview || 'El resultado del mensaje generado por Gemini aparecerá aquí.'}
+                {preview || 'El mensaje final generado por Gemini aparecerá aquí (paso 2).'}
               </div>
             </div>
           </div>
@@ -385,4 +444,7 @@ function CheckIcon() {
 }
 function EyeIcon() {
   return <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 6.5S3 2 6.5 2 12 6.5 12 6.5 10 11 6.5 11 1 6.5 1 6.5z" stroke="currentColor" strokeWidth="1.2"/><circle cx="6.5" cy="6.5" r="1.5" stroke="currentColor" strokeWidth="1.2"/></svg>
+}
+function CodeIcon() {
+  return <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M4 3.5L1 6.5l3 3M9 3.5l3 3-3 3M7.5 2l-2 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
 }

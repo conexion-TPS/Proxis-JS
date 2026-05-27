@@ -76,7 +76,8 @@ async function buildContext(asesor: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { asesor, triggerId, bodyOverride } = await req.json()
+    // dryRun=true → sólo compilar variables, sin llamar a Gemini
+    const { asesor, triggerId, bodyOverride, dryRun } = await req.json()
     if (!asesor || !triggerId) return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 })
 
     let promptBody = bodyOverride as string | undefined
@@ -90,7 +91,12 @@ export async function POST(req: NextRequest) {
     const ctx       = await buildContext(asesor)
     const compilado = compileTemplate(promptBody, ctx)
 
-    // RAG: buscar chunks relevantes en la KB conductual
+    // Modo compilar: devuelve el prompt con variables rellenas, sin Gemini
+    if (dryRun) {
+      return NextResponse.json({ compiled: compilado, ctx })
+    }
+
+    // Modo generar: RAG + Gemini
     const perfil = ctx.perfil_conductual && typeof ctx.perfil_conductual === 'object'
       ? Object.entries(ctx.perfil_conductual as Record<string, number>).sort((a, b) => b[1] - a[1])[0]?.[0]
       : null
