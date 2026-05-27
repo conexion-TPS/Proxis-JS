@@ -13,6 +13,9 @@ type FeedbackRow = { id: string; message_id: string; score: number; correccion: 
 
 const PAGE_SIZE = 20
 
+type OrgNodo  = { id: string; nombre: string }
+type AsesorCred = { asesor: string; org_nodo_id: string | null }
+
 export default function ReviewPage() {
   const [logs,       setLogs]       = useState<LogRow[]>([])
   const [total,      setTotal]      = useState(0)
@@ -22,29 +25,34 @@ export default function ReviewPage() {
   const [correction, setCorrection] = useState('')
   const [saving,     setSaving]     = useState(false)
   const [toast,      setToast]      = useState<{ msg: string; err?: boolean } | null>(null)
+  const [orgNodos,   setOrgNodos]   = useState<OrgNodo[]>([])
+  const [creds,      setCreds]      = useState<AsesorCred[]>([])
+  const [filtroNodo, setFiltroNodo] = useState('')
 
   function showToast(msg: string, err = false) {
     setToast({ msg, err }); setTimeout(() => setToast(null), 3200)
   }
 
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/admin/org').then(r => r.json()),
+      supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true),
+    ]).then(([org, { data }]) => {
+      setOrgNodos(org.nodos ?? [])
+      setCreds((data ?? []) as AsesorCred[])
+    })
+  }, [])
+
   const load = useCallback(async (p: number) => {
     const offset = p * PAGE_SIZE
+    const asesoresEnNodo = filtroNodo
+      ? creds.filter(c => c.org_nodo_id === filtroNodo).map(c => c.asesor)
+      : null
 
-    const countRes = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/message_log?select=id`,
-      { headers: {
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-          Prefer: 'count=exact', Range: '0-0',
-        }
-      }
-    )
-    const range = countRes.headers.get('content-range') || '0/0'
-    setTotal(parseInt(range.split('/')[1]) || 0)
+    let q = supabase.from('message_log').select('*').order('created_at', { ascending: false }).range(offset, offset + PAGE_SIZE - 1)
+    if (asesoresEnNodo && asesoresEnNodo.length > 0) q = q.in('asesor', asesoresEnNodo)
 
-    const { data: rows } = await supabase.from('message_log')
-      .select('*').order('created_at', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1)
+    const { data: rows } = await q
     const logRows = rows ?? []
     setLogs(logRows)
 
@@ -58,7 +66,7 @@ export default function ReviewPage() {
     }
   }, [])
 
-  useEffect(() => { load(page) }, [page, load])
+  useEffect(() => { load(page) }, [page, load, filtroNodo, creds])
 
   function selectLog(log: LogRow) {
     setSelected(log)
@@ -119,6 +127,16 @@ export default function ReviewPage() {
         <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Revisión de mensajes</h1>
       </div>
 
+      {orgNodos.length > 0 && (
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Equipo</span>
+          <select value={filtroNodo} onChange={e => { setFiltroNodo(e.target.value); setPage(0) }}
+            style={{ padding: '7px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, background: '#fff', outline: 'none' }}>
+            <option value="">Todos</option>
+            {orgNodos.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+          </select>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: 20, alignItems: 'start' }}>
         {/* Log list */}
         <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, overflow: 'hidden' }}>

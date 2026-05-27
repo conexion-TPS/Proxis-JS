@@ -45,6 +45,9 @@ const ACCION_COLOR: Record<string, { bg: string; color: string }> = {
   ninguna:            { bg: '#f0ede8', color: '#8a8885' },
 }
 
+type OrgNodo  = { id: string; nombre: string }
+type AsesorCred = { asesor: string; org_nodo_id: string | null }
+
 export default function HipotesisPage() {
   const [tab, setTab]             = useState<Tab>('pendientes')
   const [hipotesis, setHipotesis] = useState<Hipotesis[]>([])
@@ -54,10 +57,17 @@ export default function HipotesisPage() {
   const [editing,   setEditing]   = useState<{ id: string; text: string } | null>(null)
   const [toast,     setToast]     = useState<{ msg: string; err?: boolean } | null>(null)
   const [loading,   setLoading]   = useState(true)
+  const [orgNodos,  setOrgNodos]  = useState<OrgNodo[]>([])
+  const [creds,     setCreds]     = useState<AsesorCred[]>([])
+  const [filtroNodo, setFiltroNodo] = useState('')
 
   function showToast(msg: string, err = false) {
     setToast({ msg, err }); setTimeout(() => setToast(null), 3200)
   }
+
+  const asesoresEnNodo = filtroNodo
+    ? creds.filter(c => c.org_nodo_id === filtroNodo).map(c => c.asesor)
+    : null
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -75,6 +85,16 @@ export default function HipotesisPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/admin/org').then(r => r.json()),
+      supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true),
+    ]).then(([org, { data }]) => {
+      setOrgNodos(org.nodos ?? [])
+      setCreds((data ?? []) as AsesorCred[])
+    })
+  }, [])
 
   async function validar(h: Hipotesis) {
     const texto = editing?.id === h.id ? editing.text : h.hipotesis
@@ -177,13 +197,16 @@ export default function HipotesisPage() {
     load()
   }
 
-  const pending   = hipotesis.filter(h => h.estado === 'pendiente')
-  const historial = hipotesis.filter(h => h.estado !== 'pendiente')
+  const hipFiltradas = asesoresEnNodo ? hipotesis.filter(h => h.asesor && asesoresEnNodo.includes(h.asesor)) : hipotesis
+  const riesFiltrados = asesoresEnNodo ? riesgos.filter(r => r.asesor && asesoresEnNodo.includes(r.asesor)) : riesgos
+
+  const pending   = hipFiltradas.filter(h => h.estado === 'pendiente')
+  const historial = hipFiltradas.filter(h => h.estado !== 'pendiente')
   const propPend  = proposals.filter(p => p.estado === 'pendiente')
   const gapsPend  = gaps.filter(g => g.estado !== 'cubierto')
 
-  const criticos   = riesgos.filter(r => r.nivel_riesgo === 'critico')
-  const enRiesgo   = riesgos.filter(r => r.nivel_riesgo === 'en_riesgo')
+  const criticos   = riesFiltrados.filter(r => r.nivel_riesgo === 'critico')
+  const enRiesgo   = riesFiltrados.filter(r => r.nivel_riesgo === 'en_riesgo')
 
   const TABS: { key: Tab; label: string; count?: number }[] = [
     { key: 'pendientes',  label: 'Hipótesis pendientes', count: pending.length },
@@ -200,6 +223,13 @@ export default function HipotesisPage() {
         </Link>
         <span style={{ color: '#c8c6c3' }}>/</span>
         <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Hipótesis IA</h1>
+        {orgNodos.length > 0 && (
+          <select value={filtroNodo} onChange={e => setFiltroNodo(e.target.value)}
+            style={{ marginLeft: 'auto', padding: '7px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, background: '#fff', outline: 'none' }}>
+            <option value="">Todos los equipos</option>
+            {orgNodos.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+          </select>
+        )}
       </div>
 
       {/* Riesgo summary bar */}
@@ -219,10 +249,10 @@ export default function HipotesisPage() {
               <span style={{ fontSize: 11, color: '#a8691a', opacity: 0.8 }}>{enRiesgo.map(r => r.asesor.split(' ')[0]).join(', ')}</span>
             </div>
           )}
-          {riesgos.filter(r => r.nivel_riesgo === 'activo').length > 0 && (
+          {riesFiltrados.filter(r => r.nivel_riesgo === 'activo').length > 0 && (
             <div style={{ padding: '8px 14px', background: '#e6f3ed', borderRadius: 10, border: '1px solid #b3dfc9' }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#1f6f56' }}>
-                {riesgos.filter(r => r.nivel_riesgo === 'activo').length} activos
+                {riesFiltrados.filter(r => r.nivel_riesgo === 'activo').length} activos
               </span>
             </div>
           )}

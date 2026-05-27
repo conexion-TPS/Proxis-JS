@@ -25,11 +25,14 @@ const DIMENSIONES = [
   'contexto_situacional',
 ]
 
-type MetaRow = { asesor: string; supervisor: string | null }
+type MetaRow   = { asesor: string; supervisor: string | null; org_nodo_id: string | null }
+type OrgNodo   = { id: string; nombre: string }
 
 export default function SenalesPage() {
   const [signals,    setSignals]    = useState<Signal[]>([])
   const [metaRows,   setMetaRows]   = useState<MetaRow[]>([])
+  const [orgNodos,   setOrgNodos]   = useState<OrgNodo[]>([])
+  const [filterNodo, setFilterNodo] = useState('')
   const [filterA,    setFilterA]    = useState('')
   const [filterSup,  setFilterSup]  = useState('')
   const [filterF,    setFilterF]    = useState('')
@@ -46,17 +49,19 @@ export default function SenalesPage() {
 
   const asesores     = metaRows.map(r => r.asesor)
   const supervisores = [...new Set(metaRows.map(r => r.supervisor).filter(Boolean) as string[])].sort()
-  const asesoresDelSup = filterSup
-    ? metaRows.filter(r => r.supervisor === filterSup).map(r => r.asesor)
-    : null
+  const asesoresFiltrados = filterNodo
+    ? metaRows.filter(r => r.org_nodo_id === filterNodo).map(r => r.asesor)
+    : filterSup
+      ? metaRows.filter(r => r.supervisor === filterSup).map(r => r.asesor)
+      : null
 
   const load = useCallback(async () => {
     setLoading(true)
     let q = supabase.from('behavioral_signals').select('*').order('created_at', { ascending: false }).limit(300)
     if (filterA) {
       q = q.eq('asesor', filterA)
-    } else if (asesoresDelSup && asesoresDelSup.length > 0) {
-      q = q.in('asesor', asesoresDelSup)
+    } else if (asesoresFiltrados && asesoresFiltrados.length > 0) {
+      q = q.in('asesor', asesoresFiltrados)
     }
     if (filterF) q = q.eq('fuente', filterF)
     if (filterProc === 'pending') q = q.eq('procesada', false)
@@ -65,11 +70,19 @@ export default function SenalesPage() {
     setSignals(data ?? [])
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterA, filterSup, filterF, filterProc, metaRows])
+  }, [filterA, filterNodo, filterSup, filterF, filterProc, metaRows])
 
   useEffect(() => {
-    supabase.from('metas').select('asesor,supervisor').order('asesor')
-      .then(({ data }) => setMetaRows(data ?? []))
+    Promise.all([
+      supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true).order('asesor'),
+      supabase.from('metas').select('asesor, supervisor').order('asesor'),
+      fetch('/api/admin/org').then(r => r.json()),
+    ]).then(([creds, metas, org]) => {
+      const credMap = Object.fromEntries((creds.data ?? []).map((c: {asesor:string; org_nodo_id:string|null}) => [c.asesor, c.org_nodo_id]))
+      const merged = (metas.data ?? []).map((m: {asesor:string; supervisor:string|null}) => ({ ...m, org_nodo_id: credMap[m.asesor] ?? null }))
+      setMetaRows(merged)
+      setOrgNodos(org.nodos ?? [])
+    })
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -215,7 +228,13 @@ export default function SenalesPage() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        {supervisores.length > 0 && (
+        {orgNodos.length > 0 && (
+          <select value={filterNodo} onChange={e => { setFilterNodo(e.target.value); setFilterSup(''); setFilterA('') }} style={selStyle}>
+            <option value="">Todos los equipos</option>
+            {orgNodos.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+          </select>
+        )}
+        {supervisores.length > 0 && !filterNodo && (
           <select value={filterSup} onChange={e => { setFilterSup(e.target.value); setFilterA('') }} style={selStyle}>
             <option value="">Todos los supervisores</option>
             {supervisores.map(s => <option key={s} value={s}>{s}</option>)}
@@ -223,7 +242,7 @@ export default function SenalesPage() {
         )}
         <select value={filterA} onChange={e => setFilterA(e.target.value)} style={selStyle}>
           <option value="">Todos los asesores</option>
-          {(asesoresDelSup ?? asesores).map(a => <option key={a} value={a}>{a}</option>)}
+          {(asesoresFiltrados ?? asesores).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <select value={filterF} onChange={e => setFilterF(e.target.value)} style={selStyle}>
           <option value="">Todas las fuentes</option>

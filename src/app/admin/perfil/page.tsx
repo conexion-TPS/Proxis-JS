@@ -38,10 +38,36 @@ type HistorialRow = {
 }
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
+type AsesorCred = { asesor: string; org_nodo_id: string | null }
+type OrgNodo    = { id: string; parent_id: string | null; nombre: string; capa_id: string | null; institucion_id: string }
+type OrgCapa    = { id: string; nombre_cargo: string; nivel: number; institucion_id: string }
+type OrgInst    = { id: string; nombre: string }
+
+function buildBreadcrumb(nodoId: string | null, nodos: OrgNodo[], capas: OrgCapa[], insts: OrgInst[]): string[] {
+  if (!nodoId) return []
+  const chain: string[] = []
+  let current: OrgNodo | undefined = nodos.find(n => n.id === nodoId)
+  while (current) {
+    const capa = capas.find(c => c.id === current!.capa_id)
+    chain.unshift(capa ? `${capa.nombre_cargo}: ${current.nombre}` : current.nombre)
+    current = current.parent_id ? nodos.find(n => n.id === current!.parent_id) : undefined
+  }
+  const nodo0 = nodos.find(n => n.id === nodoId)
+  if (nodo0) {
+    const inst = insts.find(i => i.id === nodo0.institucion_id)
+    if (inst) chain.unshift(inst.nombre)
+  }
+  return chain
+}
 
 export default function PerfilPage() {
-  const [asesores,  setAsesores]  = useState<string[]>([])
-  const [selAsesor, setSelAsesor] = useState('')
+  const [asesoresCreds, setAsesoresCreds] = useState<AsesorCred[]>([])
+  const [asesores,      setAsesores]      = useState<string[]>([])
+  const [orgNodos,      setOrgNodos]      = useState<OrgNodo[]>([])
+  const [orgCapas,      setOrgCapas]      = useState<OrgCapa[]>([])
+  const [orgInsts,      setOrgInsts]      = useState<OrgInst[]>([])
+  const [filtroNodo,    setFiltroNodo]    = useState('')
+  const [selAsesor,     setSelAsesor]     = useState('')
   const [perfil,    setPerfil]    = useState<Partial<PerfilRow>>({})
   const [historial, setHistorial] = useState<HistorialRow[]>([])
   const [saving,    setSaving]    = useState(false)
@@ -58,8 +84,17 @@ export default function PerfilPage() {
   }
 
   useEffect(() => {
-    supabase.from('metas').select('asesor').order('asesor')
-      .then(({ data }) => setAsesores((data ?? []).map(r => r.asesor)))
+    Promise.all([
+      supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true).order('asesor'),
+      fetch('/api/admin/org').then(r => r.json()),
+    ]).then(([{ data: creds }, org]) => {
+      const c = (creds ?? []) as AsesorCred[]
+      setAsesoresCreds(c)
+      setAsesores(c.map(r => r.asesor))
+      setOrgNodos(org.nodos  ?? [])
+      setOrgCapas(org.capas  ?? [])
+      setOrgInsts(org.instituciones ?? [])
+    })
   }, [])
 
   async function loadPerfil(asesor: string) {
@@ -179,16 +214,51 @@ export default function PerfilPage() {
         <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Perfiles de asesores</h1>
       </div>
 
-      {/* Asesor selector */}
-      <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: '18px 22px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16 }}>
-        <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8885', whiteSpace: 'nowrap' }}>
-          Asesor
-        </label>
-        <select value={selAsesor} onChange={e => loadPerfil(e.target.value)}
-          style={{ flex: 1, padding: '9px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, color: '#0b0a09', background: '#fff', outline: 'none' }}>
-          <option value="">— Selecciona un asesor —</option>
-          {asesores.map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
+      {/* Asesor selector + filtro por nodo */}
+      <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: '16px 22px', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* Filtro por nodo */}
+          {orgNodos.length > 0 && (
+            <>
+              <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8885', whiteSpace: 'nowrap' }}>
+                Equipo
+              </label>
+              <select value={filtroNodo} onChange={e => { setFiltroNodo(e.target.value); setSelAsesor('') }}
+                style={{ padding: '9px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, color: '#0b0a09', background: '#fff', outline: 'none', minWidth: 180 }}>
+                <option value="">Todos</option>
+                {orgNodos.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+              </select>
+              <span style={{ color: '#ddd' }}>|</span>
+            </>
+          )}
+          <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8885', whiteSpace: 'nowrap' }}>
+            Asesor
+          </label>
+          <select value={selAsesor} onChange={e => loadPerfil(e.target.value)}
+            style={{ flex: 1, padding: '9px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, color: '#0b0a09', background: '#fff', outline: 'none' }}>
+            <option value="">— Selecciona —</option>
+            {asesoresCreds
+              .filter(c => !filtroNodo || c.org_nodo_id === filtroNodo)
+              .map(c => <option key={c.asesor} value={c.asesor}>{c.asesor}</option>)}
+          </select>
+        </div>
+        {/* Breadcrumb jerárquico */}
+        {selAsesor && (() => {
+          const cred  = asesoresCreds.find(c => c.asesor === selAsesor)
+          const crumbs = buildBreadcrumb(cred?.org_nodo_id ?? null, orgNodos, orgCapas, orgInsts)
+          if (!crumbs.length) return null
+          return (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {crumbs.map((c, i) => (
+                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: '#888', background: '#f4f4f0', padding: '3px 10px', borderRadius: 20 }}>{c}</span>
+                  {i < crumbs.length - 1 && <span style={{ color: '#ccc', fontSize: 11 }}>›</span>}
+                </span>
+              ))}
+              <span style={{ fontSize: 11, color: '#aaa' }}>› <strong style={{ color: '#0b0a09' }}>{selAsesor}</strong></span>
+            </div>
+          )
+        })()}
       </div>
 
       {selAsesor && (

@@ -12,11 +12,14 @@ const VARIABLES = [
 
 type Trigger  = { trigger_id: string; descripcion: string | null }
 type Version  = { id: string; trigger_id: string; version: number; body: string; activo: boolean; created_at: string }
-type Asesor   = { asesor: string }
+type Asesor   = { asesor: string; org_nodo_id: string | null }
+type OrgNodo  = { id: string; nombre: string; parent_id: string | null }
 
 export default function PromptsPage() {
   const [triggers,  setTriggers]  = useState<Trigger[]>([])
   const [asesores,  setAsesores]  = useState<Asesor[]>([])
+  const [orgNodos,  setOrgNodos]  = useState<OrgNodo[]>([])
+  const [filtroNodo, setFiltroNodo] = useState('')
   const [versions,  setVersions]  = useState<Version[]>([])
   const [selTrigger, setSelTrigger] = useState('')
   const [selVersion, setSelVersion] = useState<Version | null>(null)
@@ -39,8 +42,9 @@ export default function PromptsPage() {
   useEffect(() => {
     supabase.from('trigger_config').select('trigger_id,descripcion').order('trigger_id')
       .then(({ data }) => setTriggers(data ?? []))
-    supabase.from('asesor_credentials').select('asesor').eq('activo', true).order('asesor')
-      .then(({ data }) => setAsesores(data ?? []))
+    supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true).order('asesor')
+      .then(({ data }) => setAsesores((data ?? []) as Asesor[]))
+    fetch('/api/admin/org').then(r => r.json()).then(d => setOrgNodos(d.nodos ?? []))
   }, [])
 
   const loadVersions = useCallback(async (tid: string) => {
@@ -322,6 +326,16 @@ export default function PromptsPage() {
                 <strong> Paso 2:</strong> si el template se ve bien, genera el mensaje con Gemini.
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                {orgNodos.length > 0 && (
+                  <select
+                    value={filtroNodo}
+                    onChange={e => { setFiltroNodo(e.target.value); setSelAsesor(''); setCompiled(null); setPreview('') }}
+                    style={{ padding: '9px 14px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, color: '#0b0a09', background: '#fff', outline: 'none' }}
+                  >
+                    <option value="">Todos los equipos</option>
+                    {orgNodos.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+                  </select>
+                )}
                 <select
                   value={selAsesor}
                   onChange={e => { setSelAsesor(e.target.value); setCompiled(null); setPreview('') }}
@@ -332,10 +346,12 @@ export default function PromptsPage() {
                     background: '#fff', outline: 'none',
                   }}
                 >
-                  <option value="">— Selecciona asesor activo —</option>
-                  {asesores.map(a => (
-                    <option key={a.asesor} value={a.asesor}>{a.asesor}</option>
-                  ))}
+                  <option value="">— Selecciona asesor —</option>
+                  {asesores
+                    .filter(a => !filtroNodo || a.org_nodo_id === filtroNodo)
+                    .map(a => (
+                      <option key={a.asesor} value={a.asesor}>{a.asesor}</option>
+                    ))}
                 </select>
                 <Btn onClick={compilarTemplate} disabled={!selTrigger || !selAsesor || compileLoading} variant="outline">
                   <CodeIcon /> {compileLoading ? 'Compilando…' : '1. Compilar variables'}

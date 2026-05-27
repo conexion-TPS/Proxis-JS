@@ -33,12 +33,16 @@ type Entry = {
   id: string; perfil: string | null; categoria: string | null; etapa_ciclo: string | null
   contexto: string | null; contenido: string; regla_inferencia: string | null
   accion_correctiva: string | null; fuente: string | null; completitud: number; created_at: string
-  embedded_at: string | null
+  embedded_at: string | null; institucion_id: string | null; org_nodo_id: string | null
 }
+type OrgInst = { id: string; nombre: string }
+type OrgNodo = { id: string; nombre: string; institucion_id: string }
 
 const EMPTY_FORM = {
   perfil: '', categoria: '', etapa_ciclo: '', contexto: '', contenido: '',
   regla_inferencia: '', accion_correctiva: '', fuente: '', completitud: 50,
+  scope: 'global' as 'global' | 'institucion' | 'nodo',
+  institucion_id: '', org_nodo_id: '',
 }
 
 export default function ConocimientoPage() {
@@ -49,6 +53,8 @@ export default function ConocimientoPage() {
   const [showModal, setShowModal] = useState(false)
   const [editId,    setEditId]   = useState<string | null>(null)
   const [form,      setForm]     = useState({ ...EMPTY_FORM })
+  const [orgInsts,  setOrgInsts] = useState<OrgInst[]>([])
+  const [orgNodos,  setOrgNodos] = useState<OrgNodo[]>([])
   const [saving,     setSaving]    = useState(false)
   const [embedding,  setEmbedding] = useState(false)
   const [scanning,      setScanning]      = useState(false)
@@ -93,7 +99,13 @@ export default function ConocimientoPage() {
     setProposals(data ?? [])
   }
 
-  useEffect(() => { load(); loadCoverage(); loadGaps(); loadProposals() }, [])
+  useEffect(() => {
+    load(); loadCoverage(); loadGaps(); loadProposals()
+    fetch('/api/admin/org').then(r => r.json()).then(org => {
+      setOrgInsts(org.instituciones ?? [])
+      setOrgNodos((org.nodos ?? []).map((n: { id: string; nombre: string; institucion_id: string }) => n))
+    })
+  }, [])
 
   const filtered = entries.filter(e => {
     const matchP = !filterP || e.perfil === filterP
@@ -113,12 +125,15 @@ export default function ConocimientoPage() {
   function openModal(e?: Entry) {
     if (e) {
       setEditId(e.id)
+      const scope: 'global' | 'institucion' | 'nodo' =
+        e.org_nodo_id ? 'nodo' : e.institucion_id ? 'institucion' : 'global'
       setForm({
         perfil: e.perfil ?? '', categoria: e.categoria ?? '',
         etapa_ciclo: e.etapa_ciclo ?? '', contexto: e.contexto ?? '',
         contenido: e.contenido, regla_inferencia: e.regla_inferencia ?? '',
         accion_correctiva: e.accion_correctiva ?? '', fuente: e.fuente ?? '',
         completitud: e.completitud,
+        scope, institucion_id: e.institucion_id ?? '', org_nodo_id: e.org_nodo_id ?? '',
       })
     } else {
       setEditId(null)
@@ -140,6 +155,8 @@ export default function ConocimientoPage() {
       accion_correctiva: form.accion_correctiva || null,
       fuente:            form.fuente || null,
       completitud:       form.completitud,
+      institucion_id:    form.scope !== 'global' ? (form.institucion_id || null) : null,
+      org_nodo_id:       form.scope === 'nodo'   ? (form.org_nodo_id   || null) : null,
       updated_at:        new Date().toISOString(),
     }
     if (editId) {
@@ -477,6 +494,12 @@ export default function ConocimientoPage() {
                     {e.perfil    && <Badge color="#f5f3ef">{e.perfil}</Badge>}
                     {e.categoria && <Badge color="#f0ede8">{e.categoria}</Badge>}
                     {e.etapa_ciclo && <Badge color="#e6f3ed">{e.etapa_ciclo}</Badge>}
+                    {e.org_nodo_id
+                      ? <Badge color="#ede9fe">👥 {orgNodos.find(n => n.id === e.org_nodo_id)?.nombre ?? 'Equipo'}</Badge>
+                      : e.institucion_id
+                      ? <Badge color="#dbeafe">🏢 {orgInsts.find(i => i.id === e.institucion_id)?.nombre ?? 'Institución'}</Badge>
+                      : <Badge color="#f5f3ef">🌍 Global</Badge>
+                    }
                     <span title={e.embedded_at ? `Embedeado ${new Date(e.embedded_at).toLocaleDateString('es-CL')}` : 'Sin embedding'} style={{ fontSize: 11 }}>
                       {e.embedded_at ? '🔵' : '⚪'}
                     </span>
@@ -532,6 +555,37 @@ export default function ConocimientoPage() {
                   {ETAPAS.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
               </Field>
+            </div>
+
+            {/* Scope selector */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#8a8885', marginBottom: 5 }}>Alcance</label>
+              <div style={{ display: 'flex', gap: 8, marginBottom: form.scope !== 'global' ? 10 : 0 }}>
+                {(['global', 'institucion', 'nodo'] as const).map(s => (
+                  <button key={s} type="button" onClick={() => setForm(f => ({ ...f, scope: s, institucion_id: '', org_nodo_id: '' }))} style={{
+                    padding: '7px 14px', borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                    border: form.scope === s ? '2px solid #0b0a09' : '1px solid #e8e6e3',
+                    background: form.scope === s ? '#0b0a09' : '#fff',
+                    color: form.scope === s ? '#fff' : '#4a4844',
+                  }}>
+                    {s === 'global' ? '🌍 Global' : s === 'institucion' ? '🏢 Institución' : '👥 Equipo'}
+                  </button>
+                ))}
+              </div>
+              {form.scope !== 'global' && (
+                <div style={{ display: 'grid', gridTemplateColumns: form.scope === 'nodo' ? '1fr 1fr' : '1fr', gap: 10 }}>
+                  <select value={form.institucion_id} onChange={e => setForm(f => ({ ...f, institucion_id: e.target.value, org_nodo_id: '' }))} style={inputStyle}>
+                    <option value="">— Seleccionar institución —</option>
+                    {orgInsts.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+                  </select>
+                  {form.scope === 'nodo' && (
+                    <select value={form.org_nodo_id} onChange={e => setForm(f => ({ ...f, org_nodo_id: e.target.value }))} style={inputStyle} disabled={!form.institucion_id}>
+                      <option value="">— Seleccionar equipo —</option>
+                      {orgNodos.filter(n => n.institucion_id === form.institucion_id).map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
             </div>
 
             <Field label="Contenido *">
