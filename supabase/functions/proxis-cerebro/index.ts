@@ -498,6 +498,215 @@ async function checkDeploymentLog(): Promise<Alerta[]> {
   return alertas
 }
 
+/* ── Auto-reparaciones ──────────────────────────────────────── */
+
+interface Reparacion {
+  tipo_alerta: string
+  accion:      string
+  exito:       boolean
+  detalle:     string
+}
+
+// Guarda el intento y retorna si ya se intentó demasiadas veces hoy
+async function puedeReparar(tipo: string, maxIntentos = 3): Promise<boolean> {
+  const since24h = new Date(Date.now() - 86_400_000).toISOString()
+  const { count } = await sb
+    .from('repair_log')
+    .select('*', { count: 'exact', head: true })
+    .eq('tipo_alerta', tipo)
+    .gte('created_at', since24h)
+  return (count ?? 0) < maxIntentos
+}
+
+async function logReparacion(rep: Reparacion): Promise<void> {
+  await sb.from('repair_log').insert({
+    tipo_alerta: rep.tipo_alerta,
+    accion:      rep.accion,
+    exito:       rep.exito,
+    detalle:     rep.detalle,
+  }).catch(e => console.error('[repair_log]', e))
+}
+
+// Reparación 1: crear tps_perfiles vacío para asesores sin perfil
+async function repararAsesoresSinPerfil(): Promise<Reparacion> {
+  const { data: activos } = await sb
+    .from('asesor_credentials').select('asesor').eq('activo', true)
+  const nombres: string[] = (activos ?? []).map((a: any) => a.asesor)
+  const { data: conPerfil } = await sb
+    .from('tps_perfiles').select('asesor').in('asesor', nombres)
+  const sinPerfil = nombres.filter(n => !(conPerfil ?? []).some((p: any) => p.asesor === n))
+
+  if (!sinPerfil.length)
+    return { tipo_alerta: 'asesores_sin_perfil', accion: 'crear_perfil_default', exito: true, detalle: 'Sin acción necesaria' }
+
+  const { error } = await sb.from('tps_perfiles').insert(
+    sinPerfil.map(asesor => ({ asesor, confianza: 0 }))
+  )
+  return {
+    tipo_alerta: 'asesores_sin_perfil',
+    accion:      `crear_perfil_default: ${sinPerfil.join(', ')}`,
+    exito:       !error,
+    detalle:     error ? error.message : `Creados ${sinPerfil.length} perfiles vacíos — el sistema puede ahora generar prompts`,
+  }
+}
+
+// Reparación 2: crear metas por defecto para asesores sin metas
+async function repararAsesoresSinMetas(): Promise<Reparacion> {
+  const { data: activos } = await sb
+    .from('asesor_credentials').select('asesor').eq('activo', true)
+  const nombres: string[] = (activos ?? []).map((a: any) => a.asesor)
+  const { data: conMetas } = await sb
+    .from('metas').select('asesor').in('asesor', nombres)
+  const sinMetas = nombres.filter(n => !(conMetas ?? []).some((m: any) => m.asesor === n))
+
+  if (!sinMetas.length)
+    return { tipo_alerta: 'asesores_sin_metas', accion: 'crear_metas_default', exito: true, detalle: 'Sin acción necesaria' }
+
+  const { error } = await sb.from('metas').insert(
+    sinMetas.map(asesor => ({
+      asesor,
+      meta_contactos_semana: 3,
+      meta_prospectos_mes:   15,
+      meta_ingresos:         2_000_000,
+    }))
+  )
+  return {
+    tipo_alerta: 'asesores_sin_metas',
+    accion:      `crear_metas_default: ${sinMetas.join(', ')}`,
+    exito:       !error,
+    detalle:     error ? error.message : `Creadas metas por defecto para ${sinMetas.length} asesor(es)`,
+  }
+}
+
+// Reparación 3: marcar procesadas las señales de asesores eliminados/inactivos
+async function repararSenalesHuerfanas(): Promise<Reparacion> {
+  // Obtener todos los asesores activos
+  const { data: activos } = await sb
+    .from('asesor_credentials').select('asesor').eq('activo', true)
+  const nombresActivos: string[] = (activos ?? []).map((a: any) => a.asesor)
+
+  // Obtener los asesores únicos que tienen señales pendientes
+  const { data: conSenales } = await sb
+    .from('behavioral_signals')
+    .select('asesor')
+    .eq('procesada', false)
+  const asesoresConSenales = [...new Set((conSenales ?? []).map((s: any) => s.asesor as string))]
+
+  // Los huérfanos son los que tienen señales pero no están en activos
+  const huerfanos = asesoresConSenales.filter(n => !nombresActivos.includes(n))
+  if (!huerfanos.length)
+    return { tipo_alerta: 'senales_huerfanas', accion: 'marcar_procesadas', exito: true, detalle: 'Sin señales huérfanas' }
+
+  let total = 0
+  for (const asesor of huerfanos) {
+    const { count } = await sb
+      .from('behavioral_signals')
+      .update({ procesada: true })
+      .eq('asesor', asesor)
+      .eq('procesada', false)
+      .select('*', { count: 'exact', head: true } as any)
+    total += count ?? 0
+  }
+
+  return {
+    tipo_alerta: 'senales_huerfanas',
+    accion:      `marcar_procesadas para: ${huerfanos.join(', ')}`,
+    exito:       true,
+    detalle:     `${total} señales huérfanas marcadas como procesadas — ${huerfanos.length} asesor(es) limpiados`,
+  }
+}
+
+// Reparación 4: invocar proxis-analyzer manualmente (para pipeline_stall y cron_vacio)
+async function repararInvocarAnalyzer(tipoAlerta: string): Promise<Reparacion> {
+  try {
+    const r = await fetch(`${SB_URL}/functions/v1/proxis-analyzer`, {
+      method:  'POST',
+      headers: { Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ triggered_by: 'proxis-cerebro-auto-repair' }),
+    })
+    const data: any = await r.json().catch(() => ({}))
+    return {
+      tipo_alerta: tipoAlerta,
+      accion:      'invocar_proxis_analyzer',
+      exito:       r.ok,
+      detalle:     r.ok
+        ? `Analyzer ejecutado: ${data.asesores ?? 0} asesores, ${data.totalSenales ?? 0} señales procesadas`
+        : `HTTP ${r.status}: ${data.error ?? 'Error desconocido'}`,
+    }
+  } catch (e: any) {
+    return { tipo_alerta: tipoAlerta, accion: 'invocar_proxis_analyzer', exito: false, detalle: e.message }
+  }
+}
+
+// Reparación 5: resetear gaps atascados en 'en_investigacion' > 14 días
+async function repararGapsAtascados(): Promise<Reparacion> {
+  const limite = new Date(Date.now() - 14 * 86_400_000).toISOString()
+  const { data: gaps } = await sb
+    .from('knowledge_gaps')
+    .select('id')
+    .eq('estado', 'en_investigacion')
+    .lt('updated_at', limite)
+
+  if (!gaps?.length)
+    return { tipo_alerta: 'gaps_atascados', accion: 'resetear_gaps', exito: true, detalle: 'Sin gaps atascados' }
+
+  const ids = gaps.map((g: any) => g.id)
+  const { error } = await sb
+    .from('knowledge_gaps')
+    .update({ estado: 'detectado' })
+    .in('id', ids)
+
+  return {
+    tipo_alerta: 'gaps_atascados',
+    accion:      'resetear_gaps_en_investigacion',
+    exito:       !error,
+    detalle:     error ? error.message : `${ids.length} gap(s) reseteados a 'detectado' — volverán a cola de investigación`,
+  }
+}
+
+// Orquestador: ejecuta todas las reparaciones pertinentes
+async function executeRepairs(alertas: Alerta[]): Promise<Reparacion[]> {
+  const tipos = new Set(alertas.map(a => a.tipo))
+  const realizadas: Reparacion[] = []
+
+  const REGISTRY: Array<{ tipo: string; fn: () => Promise<Reparacion> }> = [
+    { tipo: 'asesores_sin_perfil',   fn: repararAsesoresSinPerfil },
+    { tipo: 'asesores_sin_metas',    fn: repararAsesoresSinMetas },
+    { tipo: 'senales_huerfanas',     fn: repararSenalesHuerfanas },
+    { tipo: 'pipeline_stall',        fn: () => repararInvocarAnalyzer('pipeline_stall') },
+    { tipo: 'cron_vacio',            fn: () => repararInvocarAnalyzer('cron_vacio') },
+    // gaps_atascados: siempre corre como mantenimiento preventivo diario
+    { tipo: '_mantenimiento',        fn: repararGapsAtascados },
+  ]
+
+  for (const entry of REGISTRY) {
+    // _mantenimiento siempre corre; el resto solo si hay alerta del tipo
+    if (entry.tipo !== '_mantenimiento' && !tipos.has(entry.tipo)) continue
+
+    const puede = await puedeReparar(entry.tipo)
+    if (!puede) {
+      console.log(`[cerebro] repair ${entry.tipo}: ya intentado 3 veces hoy, escalar a humano`)
+      continue
+    }
+
+    try {
+      const rep = await entry.fn()
+      await logReparacion(rep)
+      realizadas.push(rep)
+      console.log(`[cerebro] repair ${entry.tipo}: exito=${rep.exito} — ${rep.detalle}`)
+    } catch (e: any) {
+      const rep: Reparacion = {
+        tipo_alerta: entry.tipo, accion: 'error_en_repair',
+        exito: false, detalle: e.message,
+      }
+      await logReparacion(rep)
+      realizadas.push(rep)
+    }
+  }
+
+  return realizadas
+}
+
 /* ── Email de alerta ────────────────────────────────────────── */
 
 async function enviarAlertaEmail(alertas: Alerta[], resumen: string): Promise<void> {
@@ -570,6 +779,10 @@ Deno.serve(async (_req: Request) => {
   const warnings     = todasAlertas.filter(a => a.severidad === 'warning').length
   const estadoGlobal = criticas > 0 ? 'critico' : warnings > 0 ? 'degradado' : 'saludable'
 
+  // ── Auto-reparaciones (ejecutar antes de guardar el log) ─────────────────
+  const reparaciones = await executeRepairs(todasAlertas)
+  const reparacionesExitosas = reparaciones.filter(r => r.exito && r.detalle !== 'Sin acción necesaria')
+
   // Contar métricas de contexto
   const { count: totalSenales } = await sb
     .from('behavioral_signals').select('*', { count: 'exact', head: true })
@@ -605,7 +818,10 @@ Deno.serve(async (_req: Request) => {
     `Hipótesis pendientes de validar: ${metricas.hipotesis_pendientes}`,
     `Knowledge gaps abiertos: ${metricas.gaps_abiertos}`,
     `Mensajes enviados últimos 7d: ${metricas.mensajes_7d}`,
-  ].join(' | ')
+    reparacionesExitosas.length
+      ? `\nREPARACIONES AUTOMÁTICAS (${reparacionesExitosas.length}): ${reparacionesExitosas.map(r => r.detalle).join(' | ')}`
+      : '',
+  ].filter(Boolean).join(' | ')
 
   // Guardar en system_health_log
   await sb.from('system_health_log' as never).insert({
@@ -623,12 +839,13 @@ Deno.serve(async (_req: Request) => {
   }
 
   const resultado = {
-    ok:            true,
-    checked_at:    now,
-    estado_global: estadoGlobal,
-    alertas_count: { criticas, warnings, total: todasAlertas.length },
+    ok:             true,
+    checked_at:     now,
+    estado_global:  estadoGlobal,
+    alertas_count:  { criticas, warnings, total: todasAlertas.length },
     metricas,
-    alertas:       todasAlertas,
+    alertas:        todasAlertas,
+    reparaciones:   reparaciones.filter(r => r.detalle !== 'Sin acción necesaria'),
   }
 
   console.log(JSON.stringify(resultado))
