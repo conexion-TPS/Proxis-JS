@@ -14,7 +14,7 @@ export async function OPTIONS(req: Request) { return handleOptions(req) }
      A (Búho)     = baja assertividad + baja sociabilidad
 */
 function calcularPerfil(a: number, s: number): 'E' | 'S' | 'R' | 'A' {
-  const midA = 5, midS = 5
+  const midA = 2.5, midS = 2.5  // escala_4: valores 1-4, punto de corte en 2.5
   if (a >= midA && s <  midS) return 'E'
   if (a >= midA && s >= midS) return 'S'
   if (a <  midA && s >= midS) return 'R'
