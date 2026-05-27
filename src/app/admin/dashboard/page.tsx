@@ -27,6 +27,9 @@ interface SystemStatus {
   triggers: { active: number; paused: number }
   messages: { last24h: number; last7d: number }
   cuestionarios: { tps_preguntas: number }
+  cerebro: { checked_at: string; estado_global: string; alertas: number; metricas: Record<string, number> } | null
+  deployments: Array<{ estado: string; url: string | null; rama: string | null; commit_sha: string | null; mensaje: string | null; created_at: string }>
+  errores: { recientes: Array<{ componente: string; severidad: string; mensaje: string; created_at: string }>; total_7d: number }
 }
 
 export default function AdminDashboard() {
@@ -158,6 +161,47 @@ export default function AdminDashboard() {
             sub={sys?.cuestionarios.tps_preguntas === 57 ? 'Completo' : 'Revisar seed'}
           />
 
+          {/* Último deploy */}
+          {(() => {
+            const last = sys?.deployments?.[0]
+            const depStatus: HealthStatus = sys === null ? 'loading' : !last ? 'warn' : last.estado === 'succeeded' ? 'ok' : last.estado === 'error' ? 'error' : 'warn'
+            return (
+              <HealthCard
+                label="Último deploy"
+                status={depStatus}
+                value={sys === null ? '…' : !last ? 'Sin datos (webhook pendiente)' : last.estado === 'succeeded' ? 'Exitoso' : last.estado === 'error' ? 'Falló' : last.estado}
+                sub={last ? `${last.rama ?? 'main'} — ${new Date(last.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Configura webhook Vercel'}
+              />
+            )
+          })()}
+
+          {/* Errores runtime */}
+          {(() => {
+            const total = sys?.errores?.total_7d ?? 0
+            return (
+              <HealthCard
+                label="Errores runtime (7d)"
+                status={sys === null ? 'loading' : total === 0 ? 'ok' : total <= 3 ? 'warn' : 'error'}
+                value={sys === null ? '…' : total === 0 ? 'Sin errores' : `${total} error${total > 1 ? 'es' : ''}`}
+                sub={sys?.errores?.recientes?.[0]?.componente ?? (total === 0 ? 'Edge functions OK' : '')}
+              />
+            )
+          })()}
+
+          {/* Cerebro */}
+          {(() => {
+            const cb = sys?.cerebro
+            const cbStatus: HealthStatus = sys === null ? 'loading' : !cb ? 'warn' : cb.estado_global === 'saludable' ? 'ok' : cb.estado_global === 'degradado' ? 'warn' : 'error'
+            return (
+              <HealthCard
+                label="Cerebro IA"
+                status={cbStatus}
+                value={sys === null ? '…' : !cb ? 'Sin reporte' : cb.estado_global.charAt(0).toUpperCase() + cb.estado_global.slice(1)}
+                sub={cb ? `${cb.alertas} alerta${cb.alertas !== 1 ? 's' : ''} — ${new Date(cb.checked_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Corre diario a las 6am'}
+              />
+            )
+          })()}
+
         </div>
 
         {/* Cron jobs */}
@@ -197,6 +241,73 @@ export default function AdminDashboard() {
                 </span>
                 <span style={{ color: '#8a8885' }}>manual (desde Hipótesis)</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Deployments recientes */}
+        {sys && (
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid #f0ede8' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8885', marginBottom: 10 }}>
+              Deployments Vercel (últimos 5)
+            </div>
+            {!sys.deployments?.length ? (
+              <div style={{ fontSize: 12, color: '#c8c6c3', fontStyle: 'italic' }}>
+                Sin datos — el webhook Vercel registrará builds a partir de ahora
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {sys.deployments.map((dep, i) => {
+                  const ok = dep.estado === 'succeeded'
+                  const err = dep.estado === 'error'
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                      <Dot status={ok ? 'ok' : err ? 'error' : 'warn'} />
+                      <span style={{ fontWeight: 600, minWidth: 80, color: ok ? '#1a9e4a' : err ? '#b03a3a' : '#a8691a' }}>
+                        {dep.estado}
+                      </span>
+                      <span style={{ color: '#4a4844' }}>{dep.rama ?? 'main'}</span>
+                      {dep.commit_sha && (
+                        <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 10, color: '#8a8885' }}>
+                          {dep.commit_sha.slice(0, 7)}
+                        </span>
+                      )}
+                      <span style={{ marginLeft: 'auto', color: '#8a8885', fontSize: 11 }}>
+                        {new Date(dep.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Errores recientes */}
+        {sys && sys.errores?.recientes?.length > 0 && (
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid #f0ede8' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#b03a3a', marginBottom: 10 }}>
+              Errores de runtime (últimos 7 días)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {sys.errores.recientes.map((err, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 12, padding: '8px 10px', background: '#fbe9e9', borderRadius: 6, border: '1px solid #f0b8b8' }}>
+                  <Dot status="error" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 }}>
+                      <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 10, fontWeight: 700, color: '#b03a3a' }}>
+                        {err.componente}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#8a8885' }}>
+                        {new Date(err.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div style={{ color: '#4a4844', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {err.mensaje}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
