@@ -206,6 +206,236 @@ async function checkMensajesSinEnviar(): Promise<Alerta[]> {
   return alertas
 }
 
+// ── Check 6: integridad de asesores activos ──────────────────────────────────
+async function checkIntegridadAsesores(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+
+  const { data: activos } = await sb
+    .from('asesor_credentials')
+    .select('asesor')
+    .eq('activo', true)
+
+  if (!activos?.length) return alertas
+  const nombres = activos.map((a: any) => a.asesor)
+
+  const { data: conPerfil } = await sb
+    .from('tps_perfiles').select('asesor').in('asesor', nombres)
+  const sinPerfil = nombres.filter((n: string) => !(conPerfil ?? []).some((p: any) => p.asesor === n))
+  if (sinPerfil.length) {
+    alertas.push({
+      tipo: 'asesores_sin_perfil',
+      severidad: sinPerfil.length > 2 ? 'critical' : 'warning',
+      mensaje: `${sinPerfil.length} asesor(es) activo(s) sin tps_perfiles — proxis-monitor generará prompts incompletos: ${sinPerfil.slice(0,3).join(', ')}`,
+      valor: sinPerfil.length,
+    })
+  }
+
+  const { data: conMetas } = await sb
+    .from('metas').select('asesor').in('asesor', nombres)
+  const sinMetas = nombres.filter((n: string) => !(conMetas ?? []).some((m: any) => m.asesor === n))
+  if (sinMetas.length) {
+    alertas.push({
+      tipo: 'asesores_sin_metas',
+      severidad: 'warning',
+      mensaje: `${sinMetas.length} asesor(es) activo(s) sin metas configuradas: ${sinMetas.slice(0,3).join(', ')}`,
+      valor: sinMetas.length,
+    })
+  }
+
+  return alertas
+}
+
+// ── Check 7: triggers activos sin prompt ─────────────────────────────────────
+async function checkTriggersSinPrompt(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+
+  const { data: triggers } = await sb
+    .from('trigger_config').select('id, nombre').eq('activo', true)
+  if (!triggers?.length) return alertas
+
+  const ids = triggers.map((t: any) => t.id)
+  const { data: conPrompt } = await sb
+    .from('prompts').select('trigger_id').in('trigger_id', ids).eq('activo', true)
+
+  const sinPrompt = triggers.filter((t: any) =>
+    !(conPrompt ?? []).some((p: any) => p.trigger_id === t.id)
+  )
+  if (sinPrompt.length) {
+    alertas.push({
+      tipo: 'triggers_sin_prompt',
+      severidad: 'critical',
+      mensaje: `${sinPrompt.length} trigger(s) activo(s) sin prompt — nunca enviarán mensajes: ${sinPrompt.map((t: any) => t.nombre ?? t.id).slice(0,3).join(', ')}`,
+      valor: sinPrompt.length,
+    })
+  }
+  return alertas
+}
+
+// ── Check 8: señales huérfanas (asesor no existe) ────────────────────────────
+async function checkSenalesHuerfanas(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+
+  const { data: activos } = await sb
+    .from('asesor_credentials').select('asesor').eq('activo', true)
+  if (!activos?.length) return alertas
+  const nombres = activos.map((a: any) => a.asesor)
+
+  const { count } = await sb
+    .from('behavioral_signals')
+    .select('*', { count: 'exact', head: true })
+    .eq('procesada', false)
+    .not('asesor', 'in', `(${nombres.map((n: string) => `"${n}"`).join(',')})`)
+
+  if ((count ?? 0) > 0) {
+    alertas.push({
+      tipo: 'senales_huerfanas',
+      severidad: 'warning',
+      mensaje: `${count} señal(es) pendientes de asesores inactivos o eliminados — nunca serán procesadas`,
+      valor: count ?? 0,
+    })
+  }
+  return alertas
+}
+
+// ── Check 9: flujo de reportes (pipeline de entrada) ─────────────────────────
+async function checkFlujoReportes(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+
+  const { data: ultimo } = await sb
+    .from('reportes')
+    .select('created_at')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle() as { data: any }
+
+  const { count: asesoresActivos } = await sb
+    .from('asesor_credentials')
+    .select('*', { count: 'exact', head: true })
+    .eq('activo', true)
+
+  if (!asesoresActivos) return alertas   // sin asesores, sin expectativa de reportes
+
+  if (!ultimo) {
+    alertas.push({ tipo: 'sin_reportes', severidad: 'warning', mensaje: 'No hay ningún reporte ingresado en el sistema' })
+    return alertas
+  }
+
+  const horasDesde = (Date.now() - new Date(ultimo.created_at).getTime()) / 3_600_000
+  if (horasDesde > 120) {  // 5 días
+    alertas.push({
+      tipo: 'reportes_atrasados',
+      severidad: 'critical',
+      mensaje: `Último reporte ingresado hace ${Math.round(horasDesde / 24)} días — el pipeline de entrada puede estar roto`,
+      valor: Math.round(horasDesde),
+    })
+  } else if (horasDesde > 72) {  // 3 días
+    alertas.push({
+      tipo: 'reportes_atrasados',
+      severidad: 'warning',
+      mensaje: `Último reporte hace ${Math.round(horasDesde / 24)} días — verificar carga de datos`,
+      valor: Math.round(horasDesde),
+    })
+  }
+  return alertas
+}
+
+// ── Check 10: reacciones silenciosas ─────────────────────────────────────────
+async function checkReaccionesSilenciosas(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const since14d = new Date(Date.now() - 14 * 86_400_000).toISOString()
+
+  const [{ count: mensajes14d }, { count: reacciones14d }] = await Promise.all([
+    sb.from('message_log').select('*', { count: 'exact', head: true }).gte('created_at', since14d),
+    sb.from('behavioral_signals').select('*', { count: 'exact', head: true })
+      .in('tipo', ['reaccion_positiva', 'reaccion_negativa'])
+      .gte('created_at', since14d),
+  ])
+
+  // Solo alerta si hay mensajes enviados pero cero reacciones — indica tracking roto
+  if ((mensajes14d ?? 0) >= 5 && (reacciones14d ?? 0) === 0) {
+    alertas.push({
+      tipo: 'reacciones_silenciosas',
+      severidad: 'warning',
+      mensaje: `${mensajes14d} mensajes enviados en 14 días pero 0 reacciones registradas — el tracking de Sailor puede estar roto`,
+      valor: mensajes14d ?? 0,
+    })
+  }
+  return alertas
+}
+
+// ── Check 11: mensajes Sailor sin leer > 7 días ───────────────────────────────
+async function checkSailorMensajesViejos(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const limite = new Date(Date.now() - 7 * 86_400_000).toISOString()
+
+  const { count } = await sb
+    .from('sailor_messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('leido', false)
+    .eq('origen', 'coach_ia')
+    .lt('created_at', limite)
+
+  if ((count ?? 0) > 0) {
+    alertas.push({
+      tipo: 'mensajes_sailor_sin_leer',
+      severidad: (count ?? 0) > 10 ? 'critical' : 'warning',
+      mensaje: `${count} mensaje(s) del coach IA sin leer hace más de 7 días — los asesores no están abriendo la app`,
+      valor: count ?? 0,
+    })
+  }
+  return alertas
+}
+
+// ── Check 12: Gemini quota / rate limit ───────────────────────────────────────
+async function checkGeminiQuota(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const since24h = new Date(Date.now() - 86_400_000).toISOString()
+
+  const { data: errs } = await sb
+    .from('error_log')
+    .select('mensaje, created_at')
+    .gte('created_at', since24h)
+    .or('mensaje.ilike.%429%,mensaje.ilike.%quota%,mensaje.ilike.%RESOURCE_EXHAUSTED%')
+    .limit(5)
+
+  if (errs?.length) {
+    alertas.push({
+      tipo: 'gemini_quota',
+      severidad: 'critical',
+      mensaje: `Gemini está retornando errores de cuota/rate-limit (${errs.length} ocurrencia(s) en 24h) — los mensajes del coach no se están generando`,
+      valor: errs.length,
+    })
+  }
+  return alertas
+}
+
+// ── Check 13: cron vacío (corrió pero procesó 0) ──────────────────────────────
+async function checkCronVacio(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+
+  // Toma los últimos 2 registros de system_health_log y compara senales_pendientes
+  const { data: logs } = await sb
+    .from('system_health_log')
+    .select('checked_at, metricas')
+    .order('checked_at', { ascending: false })
+    .limit(3)
+
+  if (!logs || logs.length < 2) return alertas
+
+  const pendings = logs.map((l: any) => (l.metricas as any)?.senales_pendientes ?? null)
+  // Si los últimos 3 checks muestran el mismo valor alto → analyzer no está reduciendo
+  const allSame = pendings.every((v: any) => v !== null && v === pendings[0])
+  if (allSame && (pendings[0] ?? 0) > 30) {
+    alertas.push({
+      tipo: 'cron_vacio',
+      severidad: 'warning',
+      mensaje: `proxis-analyzer corrió pero las señales pendientes llevan ${logs.length} checks consecutivos sin reducir (${pendings[0]} señales) — posible ejecución vacía`,
+      valor: pendings[0],
+    })
+  }
+  return alertas
+}
+
 async function checkErrorLog(): Promise<Alerta[]> {
   const alertas: Alerta[] = []
   const since24h = new Date(Date.now() - 86_400_000).toISOString()
@@ -310,7 +540,10 @@ Deno.serve(async (_req: Request) => {
   try {
   const now = new Date().toISOString()
 
-  const [stall, cron, efect, criticos, sinMensajes, errores, deploys] = await Promise.all([
+  const [
+    stall, cron, efect, criticos, sinMensajes, errores, deploys,
+    integridad, sinPrompt, huerfanas, reportes, reacciones, sailorViejos, geminiQuota, cronVacio,
+  ] = await Promise.all([
     checkPipelineStall(),
     checkCronSalud(),
     checkEfectividad(),
@@ -318,9 +551,21 @@ Deno.serve(async (_req: Request) => {
     checkMensajesSinEnviar(),
     checkErrorLog(),
     checkDeploymentLog(),
+    checkIntegridadAsesores(),
+    checkTriggersSinPrompt(),
+    checkSenalesHuerfanas(),
+    checkFlujoReportes(),
+    checkReaccionesSilenciosas(),
+    checkSailorMensajesViejos(),
+    checkGeminiQuota(),
+    checkCronVacio(),
   ])
 
-  const todasAlertas = [...stall, ...cron, ...efect, ...criticos, ...sinMensajes, ...errores, ...deploys]
+  const todasAlertas = [
+    ...stall, ...cron, ...efect, ...criticos, ...sinMensajes, ...errores, ...deploys,
+    ...integridad, ...sinPrompt, ...huerfanas, ...reportes, ...reacciones,
+    ...sailorViejos, ...geminiQuota, ...cronVacio,
+  ]
   const criticas     = todasAlertas.filter(a => a.severidad === 'critical').length
   const warnings     = todasAlertas.filter(a => a.severidad === 'warning').length
   const estadoGlobal = criticas > 0 ? 'critico' : warnings > 0 ? 'degradado' : 'saludable'
@@ -340,13 +585,18 @@ Deno.serve(async (_req: Request) => {
     .gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
 
   const metricas = {
-    total_senales:        totalSenales ?? 0,
-    senales_pendientes:   pendingSenales ?? 0,
-    hipotesis_pendientes: hipotesisPendientes ?? 0,
-    gaps_abiertos:        gapsAbiertos ?? 0,
-    mensajes_7d:          mensajes7d ?? 0,
-    errores_runtime_24h:  errores.length,
-    deploy_fallas_7d:     deploys.filter(a => a.tipo === 'deploy_fallido').length,
+    total_senales:              totalSenales ?? 0,
+    senales_pendientes:         pendingSenales ?? 0,
+    hipotesis_pendientes:       hipotesisPendientes ?? 0,
+    gaps_abiertos:              gapsAbiertos ?? 0,
+    mensajes_7d:                mensajes7d ?? 0,
+    errores_runtime_24h:        errores.length,
+    deploy_fallas_7d:           deploys.filter(a => a.tipo === 'deploy_fallido').length,
+    asesores_sin_perfil:        integridad.filter(a => a.tipo === 'asesores_sin_perfil').reduce((s, a) => s + (Number(a.valor) || 0), 0),
+    triggers_sin_prompt:        sinPrompt.reduce((s, a) => s + (Number(a.valor) || 0), 0),
+    senales_huerfanas:          huerfanas.reduce((s, a) => s + (Number(a.valor) || 0), 0),
+    mensajes_sailor_sin_leer:   sailorViejos.reduce((s, a) => s + (Number(a.valor) || 0), 0),
+    gemini_quota_errores_24h:   geminiQuota.length,
   }
 
   const resumenTexto = [
