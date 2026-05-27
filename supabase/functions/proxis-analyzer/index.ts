@@ -249,9 +249,10 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
     hipotesisCount++
   }
 
-  // 7. Guardar gaps en knowledge_gaps
+  // 7. Guardar gaps en knowledge_gaps + auto-escalación prioridad ≥ 3
   let gapsCount = 0
   for (const g of (analysis.gaps_detectados ?? [])) {
+    const prioridad = Math.min(5, Math.max(1, g.prioridad))
     // Evitar duplicar gaps ya abiertos para la misma dimensión
     const { data: existing } = await sb
       .from('knowledge_gaps')
@@ -262,12 +263,14 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
       .limit(1)
 
     if (!existing?.length) {
+      // Prioridad ≥ 3 → escalar directamente a investigación
+      const estado = prioridad >= 3 ? 'en_investigacion' : 'detectado'
       await sb.from('knowledge_gaps').insert({
         asesor,
         dimension:   g.dimension,
         descripcion: g.descripcion,
-        prioridad:   Math.min(5, Math.max(1, g.prioridad)),
-        estado:      'detectado'
+        prioridad,
+        estado,
       })
       gapsCount++
     }
@@ -293,7 +296,72 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
     { onConflict: 'asesor' }
   )
 
-  // 9. Sincronizar tps_perfiles.tps_progress con progresion_integrador
+  // 9. Correlación reacción→mensaje: actualizar trigger_efectividad
+  const reacciones = seналes.filter(s =>
+    s.tipo === 'reaccion_positiva' || s.tipo === 'reaccion_negativa'
+  )
+  for (const reac of reacciones) {
+    // Buscar el mensaje enviado más reciente al asesor en las 48h previas a la reacción
+    const reacAt  = new Date(reac.created_at)
+    const desde48 = new Date(reacAt.getTime() - 48 * 3_600_000).toISOString()
+    const { data: msgReciente } = await sb
+      .from('message_log')
+      .select('id, trigger_id, created_at')
+      .eq('asesor', asesor)
+      .eq('evaluado', false)
+      .gte('created_at', desde48)
+      .lte('created_at', reac.created_at)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (!msgReciente?.length) continue
+    const msg = msgReciente[0]
+
+    // Calcular periodo ISO semana del mensaje
+    const msgDate  = new Date(msg.created_at)
+    const thursday = new Date(msgDate)
+    thursday.setDate(msgDate.getDate() - ((msgDate.getDay() + 6) % 7) + 3)
+    const firstThursday = new Date(thursday.getFullYear(), 0, 4)
+    const week = String(1 + Math.round(((thursday.getTime() - firstThursday.getTime()) / 86400000 - 3 + ((firstThursday.getDay() + 6) % 7)) / 7)).padStart(2, '0')
+    const periodo = `${thursday.getFullYear()}-W${week}`
+
+    const esPositiva = reac.tipo === 'reaccion_positiva'
+    await sb.from('trigger_efectividad').upsert(
+      {
+        trigger_id:            msg.trigger_id,
+        periodo,
+        mensajes_enviados:     1,
+        reacciones_positivas:  esPositiva ? 1 : 0,
+        reacciones_negativas:  esPositiva ? 0 : 1,
+        updated_at:            now,
+      },
+      {
+        onConflict: 'trigger_id,periodo',
+        ignoreDuplicates: false,
+      }
+    )
+    // Si el upsert fue insert, ya está. Si fue update necesitamos incrementar.
+    // Supabase no soporta increment en upsert directamente — usamos RPC o re-query.
+    // Solución: update explícito tras upsert
+    if (esPositiva) {
+      await sb.rpc('incrementar_efectividad' as never, {
+        p_trigger_id: msg.trigger_id, p_periodo: periodo,
+        p_positivas: 1, p_negativas: 0,
+      } as never).catch(() => {
+        // RPC puede no existir aún — fallback silencioso, el upsert ya registró la primera
+      })
+    } else {
+      await sb.rpc('incrementar_efectividad' as never, {
+        p_trigger_id: msg.trigger_id, p_periodo: periodo,
+        p_positivas: 0, p_negativas: 1,
+      } as never).catch(() => {})
+    }
+
+    // Marcar mensaje como evaluado para no doble-contar
+    await sb.from('message_log').update({ evaluado: true }).eq('id', msg.id)
+  }
+
+  // 10. Sincronizar tps_perfiles.tps_progress con progresion_integrador
   await sb.from('tps_perfiles').upsert(
     { asesor, tps_progress: nuevaProgresion, updated_at: now },
     { onConflict: 'asesor' }

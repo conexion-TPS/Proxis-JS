@@ -1,0 +1,8 @@
+[functions.proxis-monitor]
+verify_jwt = false
+
+[functions.proxis-analyzer]
+verify_jwt = false
+
+[functions.proxis-researcher]
+verify_jwt = false

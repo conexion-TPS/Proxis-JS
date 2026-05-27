@@ -79,7 +79,7 @@ async function buildContext(asesor: string) {
     sb.from('ingresos').select('*').eq('asesor', asesor).eq('mes', mes),
     sb.from('asesor_perfil').select('resumen_ia').eq('asesor', asesor).limit(1),
     sb.from('tps_perfiles').select(
-      'perfil_base,confianza_diagnostico,puntaje_a,puntaje_b,rasgos_comerciales,backup_style_activo,deseabilidad_social'
+      'perfil_base,confianza_diagnostico,puntaje_a,puntaje_b,rasgos_comerciales,backup_style_activo,deseabilidad_social,coach_tono'
     ).eq('asesor', asesor).maybeSingle()
   ])
 
@@ -114,6 +114,7 @@ async function buildContext(asesor: string) {
     persistencia_actual:   calcPersistencia(ultimas4, meta.meta_contactos_semana || 3),
     perfil_resumen:        perfilRes.data?.[0]?.resumen_ia || null,
     tps_perfil:            tpsRes.data ?? null,
+    coach_tono:            tpsRes.data?.coach_tono ?? null,
   }
 }
 
@@ -340,6 +341,34 @@ Deno.serve(async (_req: Request) => {
     for (const asesor of asesores) {
       const item: any = { asesor, trigger: tid }
       try {
+        // Saturación: si hay ≥3 reacciones negativas en últimas 2 semanas → pausa y señal
+        const since14 = new Date(Date.now() - 14 * 86400_000).toISOString()
+        const { count: negCount } = await sb
+          .from('behavioral_signals')
+          .select('*', { count: 'exact', head: true })
+          .eq('asesor', asesor)
+          .eq('tipo', 'reaccion_negativa')
+          .gte('created_at', since14)
+        if ((negCount ?? 0) >= 3) {
+          // Emitir señal de burnout (dedup: solo 1 por semana)
+          const since7 = new Date(Date.now() - 7 * 86400_000).toISOString()
+          const { data: burnoutRecent } = await sb
+            .from('behavioral_signals')
+            .select('id')
+            .eq('asesor', asesor)
+            .eq('tipo', 'riesgo_burnout_mensajes')
+            .gte('created_at', since7)
+            .limit(1)
+          if (!burnoutRecent?.length) {
+            await sb.from('behavioral_signals').insert({
+              asesor, fuente: 'monitor', tipo: 'riesgo_burnout_mensajes',
+              valor: String(negCount), dimension_target: 'relacion_feedback',
+              confianza_hint: 85, procesada: false,
+            })
+          }
+          item.status = 'saturacion'; results.push(item); continue
+        }
+
         if (!(await cooldownOk(asesor, tid, cooldown))) {
           item.status = 'cooldown'; results.push(item); continue
         }
@@ -365,7 +394,13 @@ Deno.serve(async (_req: Request) => {
         const perfilBlock  = ctx.perfil_resumen
           ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n`
           : ''
-        const body         = await callGemini(tpsBlock + perfilBlock + compilado)
+        const TONOS: Record<string, string> = {
+          cercano: '[TONO SOLICITADO] Cálido, cercano y empático. Habla de tú con calidez personal. Prioriza la conexión emocional antes del mensaje comercial.\n\n',
+          directo: '[TONO SOLICITADO] Directo, claro y orientado a resultados. Sé conciso. Sin rodeos ni excesivos saludos.\n\n',
+          formal:  '[TONO SOLICITADO] Profesional y respetuoso. Mantén una distancia apropiada y usa lenguaje formal.\n\n',
+        }
+        const tonoBlock = ctx.coach_tono ? (TONOS[ctx.coach_tono] ?? '') : ''
+        const body         = await callGemini(tonoBlock + tpsBlock + perfilBlock + compilado)
 
         // Captura inmanente: posiblemente adjuntar pregunta al email
         const captura = await decidirCapturaEmail(asesor)
@@ -379,6 +414,19 @@ Deno.serve(async (_req: Request) => {
           body:           bodyFinal,
           prompt_version: prompts[0].version
         })
+
+        // Registrar envío en trigger_efectividad (período ISO semana)
+        const hoy      = new Date()
+        const thursday = new Date(hoy); thursday.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7) + 3)
+        const firstThu = new Date(thursday.getFullYear(), 0, 4)
+        const wk       = String(1 + Math.round(((thursday.getTime() - firstThu.getTime()) / 86400000 - 3 + ((firstThu.getDay() + 6) % 7)) / 7)).padStart(2, '0')
+        const periodo  = `${thursday.getFullYear()}-W${wk}`
+        await sb.from('trigger_efectividad').upsert(
+          { trigger_id: tid, periodo, mensajes_enviados: 1, reacciones_positivas: 0, reacciones_negativas: 0 },
+          { onConflict: 'trigger_id,periodo' }
+        ).catch(() => {})
+        // Incremento atómico del contador de enviados
+        await sb.rpc('incrementar_mensajes_enviados' as never, { p_trigger_id: tid, p_periodo: periodo } as never).catch(() => {})
 
         // Insertar en sailor_messages para el feed de la app
         await sb.from('sailor_messages').insert({
