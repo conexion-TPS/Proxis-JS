@@ -559,7 +559,13 @@ async function repararAsesoresSinPerfil(): Promise<Reparacion> {
     return { tipo_alerta: 'asesores_sin_perfil', accion: 'crear_perfil_default', exito: true, detalle: 'Sin acción necesaria' }
 
   const { error } = await sb.from('tps_perfiles').insert(
-    sinPerfil.map(asesor => ({ asesor }))
+    sinPerfil.map(asesor => ({
+      asesor,
+      perfil_base:           'pendiente',
+      confianza_diagnostico: 'sin_evaluar',
+      puntaje_a:             0,
+      puntaje_b:             0,
+    }))
   )
   return {
     tipo_alerta: 'asesores_sin_perfil',
