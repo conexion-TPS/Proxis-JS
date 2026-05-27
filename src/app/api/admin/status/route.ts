@@ -199,6 +199,18 @@ export async function GET() {
     results.efectividad = []
   }
 
+  // ── Reparaciones automáticas recientes ──────────────────────────────────
+  try {
+    const { data: repairs } = await sb
+      .from('repair_log')
+      .select('tipo_alerta, accion, exito, detalle, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10)
+    results.reparaciones = repairs ?? []
+  } catch {
+    results.reparaciones = []
+  }
+
   // ── Últimos deployments (Vercel webhook) ─────────────────────────────────
   try {
     const { data: deps } = await sb

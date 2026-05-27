@@ -39,6 +39,9 @@ interface SystemStatus {
     ultimo_reporte_hace_horas: number | null
     reacciones_14d: number; mensajes_14d: number; sailor_sin_leer_viejos: number
   } | null
+  reparaciones: Array<{
+    tipo_alerta: string; accion: string; exito: boolean; detalle: string; created_at: string
+  }>
 }
 
 export default function AdminDashboard() {
@@ -358,6 +361,38 @@ export default function AdminDashboard() {
                   <span style={{ color: '#4a4844' }}>{sys.integridad.sin_metas} asesor(es)</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Auto-reparaciones recientes */}
+        {sys && sys.reparaciones?.length > 0 && (
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid #f0ede8' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1a9e4a', marginBottom: 10 }}>
+              Auto-reparaciones del sistema
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {sys.reparaciones.map((rep, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 12,
+                  padding: '8px 10px', borderRadius: 6, border: '1px solid',
+                  background: rep.exito ? '#f0faf4' : '#fbe9e9',
+                  borderColor: rep.exito ? '#c3e8d0' : '#f0b8b8',
+                }}>
+                  <Dot status={rep.exito ? 'ok' : 'error'} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 2 }}>
+                      <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 10, fontWeight: 700, color: rep.exito ? '#1f6f56' : '#b03a3a' }}>
+                        {rep.tipo_alerta}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#8a8885' }}>
+                        {new Date(rep.created_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div style={{ color: '#4a4844', fontSize: 11 }}>{rep.detalle}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
