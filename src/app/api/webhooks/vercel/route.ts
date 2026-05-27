@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 // Vercel firma los webhooks con HMAC-SHA1 usando el webhook secret configurado
 function verifySignature(secret: string, rawBody: string, signature: string): boolean {
-  const expected = 'sha1=' + createHmac('sha1', secret).update(rawBody).digest('hex')
+  const expected = createHmac('sha1', secret).update(rawBody).digest('hex')
   return expected === signature
 }
 
