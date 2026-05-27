@@ -278,20 +278,35 @@ async function checkSenalesHuerfanas(): Promise<Alerta[]> {
   const { data: activos } = await sb
     .from('asesor_credentials').select('asesor').eq('activo', true)
   if (!activos?.length) return alertas
-  const nombres = activos.map((a: any) => a.asesor)
+  const nombresActivos = new Set(activos.map((a: any) => a.asesor as string))
 
-  const { count } = await sb
+  // Fetch pending asesores and compare in-memory to avoid PostgREST filter
+  // parsing failures when names contain spaces or special characters
+  const { data: senalesPendientes } = await sb
     .from('behavioral_signals')
-    .select('*', { count: 'exact', head: true })
+    .select('asesor')
     .eq('procesada', false)
-    .not('asesor', 'in', `(${nombres.map((n: string) => `"${n}"`).join(',')})`)
 
-  if ((count ?? 0) > 0) {
+  const asesoresConSenales = [...new Set((senalesPendientes ?? []).map((s: any) => s.asesor as string))]
+  const huerfanos = asesoresConSenales.filter(n => !nombresActivos.has(n))
+  if (!huerfanos.length) return alertas
+
+  let totalCount = 0
+  for (const asesor of huerfanos) {
+    const { count } = await sb
+      .from('behavioral_signals')
+      .select('*', { count: 'exact', head: true })
+      .eq('asesor', asesor)
+      .eq('procesada', false)
+    totalCount += count ?? 0
+  }
+
+  if (totalCount > 0) {
     alertas.push({
       tipo: 'senales_huerfanas',
       severidad: 'warning',
-      mensaje: `${count} señal(es) pendientes de asesores inactivos o eliminados — nunca serán procesadas`,
-      valor: count ?? 0,
+      mensaje: `${totalCount} señal(es) pendientes de asesores inactivos o eliminados — nunca serán procesadas`,
+      valor: totalCount,
     })
   }
   return alertas
@@ -597,22 +612,19 @@ async function repararSenalesHuerfanas(): Promise<Reparacion> {
   if (!huerfanos.length)
     return { tipo_alerta: 'senales_huerfanas', accion: 'marcar_procesadas', exito: true, detalle: 'Sin señales huérfanas' }
 
-  let total = 0
   for (const asesor of huerfanos) {
-    const { count } = await sb
+    await sb
       .from('behavioral_signals')
       .update({ procesada: true })
       .eq('asesor', asesor)
       .eq('procesada', false)
-      .select('*', { count: 'exact', head: true } as any)
-    total += count ?? 0
   }
 
   return {
     tipo_alerta: 'senales_huerfanas',
     accion:      `marcar_procesadas para: ${huerfanos.join(', ')}`,
     exito:       true,
-    detalle:     `${total} señales huérfanas marcadas como procesadas — ${huerfanos.length} asesor(es) limpiados`,
+    detalle:     `Señales de ${huerfanos.length} asesor(es) sin cuenta activa marcadas como procesadas`,
   }
 }
 
@@ -645,7 +657,7 @@ async function repararGapsAtascados(): Promise<Reparacion> {
     .from('knowledge_gaps')
     .select('id')
     .eq('estado', 'en_investigacion')
-    .lt('updated_at', limite)
+    .lt('created_at', limite)
 
   if (!gaps?.length)
     return { tipo_alerta: 'gaps_atascados', accion: 'resetear_gaps', exito: true, detalle: 'Sin gaps atascados' }
@@ -749,25 +761,28 @@ Deno.serve(async (_req: Request) => {
   try {
   const now = new Date().toISOString()
 
+  const safe = (fn: () => Promise<Alerta[]>): Promise<Alerta[]> =>
+    fn().catch((e: any) => { console.error('[cerebro] check error:', e?.message); return [] })
+
   const [
     stall, cron, efect, criticos, sinMensajes, errores, deploys,
     integridad, sinPrompt, huerfanas, reportes, reacciones, sailorViejos, geminiQuota, cronVacio,
   ] = await Promise.all([
-    checkPipelineStall(),
-    checkCronSalud(),
-    checkEfectividad(),
-    checkAsesoresCriticos(),
-    checkMensajesSinEnviar(),
-    checkErrorLog(),
-    checkDeploymentLog(),
-    checkIntegridadAsesores(),
-    checkTriggersSinPrompt(),
-    checkSenalesHuerfanas(),
-    checkFlujoReportes(),
-    checkReaccionesSilenciosas(),
-    checkSailorMensajesViejos(),
-    checkGeminiQuota(),
-    checkCronVacio(),
+    safe(checkPipelineStall),
+    safe(checkCronSalud),
+    safe(checkEfectividad),
+    safe(checkAsesoresCriticos),
+    safe(checkMensajesSinEnviar),
+    safe(checkErrorLog),
+    safe(checkDeploymentLog),
+    safe(checkIntegridadAsesores),
+    safe(checkTriggersSinPrompt),
+    safe(checkSenalesHuerfanas),
+    safe(checkFlujoReportes),
+    safe(checkReaccionesSilenciosas),
+    safe(checkSailorMensajesViejos),
+    safe(checkGeminiQuota),
+    safe(checkCronVacio),
   ])
 
   const todasAlertas = [
