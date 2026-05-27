@@ -63,7 +63,8 @@ export async function PATCH(req: NextRequest) {
   if (activo !== undefined) {
     ops.push(sb.from('asesor_credentials')
       .update({ activo, updated_at: new Date().toISOString() })
-      .eq('asesor', asesor))
+      .eq('asesor', asesor)
+      .then(() => {}))
   }
 
   const metaUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -73,7 +74,7 @@ export async function PATCH(req: NextRequest) {
   if (meta_ingresos         !== undefined) metaUpdates.meta_ingresos         = meta_ingresos
 
   if (Object.keys(metaUpdates).length > 1) {
-    ops.push(sb.from('metas').update(metaUpdates).eq('asesor', asesor))
+    ops.push(sb.from('metas').update(metaUpdates).eq('asesor', asesor).then(() => {}))
   }
 
   await Promise.all(ops)
