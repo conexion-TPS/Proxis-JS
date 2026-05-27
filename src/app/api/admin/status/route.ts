@@ -33,7 +33,7 @@ export async function GET() {
     const { data: jobs } = await sb
       .from('cron.job' as never)
       .select('jobname, schedule, active')
-      .in('jobname', ['proxis-monitor', 'proxis-analyzer-semanal'])
+      .in('jobname', ['proxis-monitor', 'proxis-analyzer-weekly', 'proxis-cerebro-diario'])
 
     const { data: runs } = await sb
       .from('cron.job_run_details' as never)
@@ -111,6 +111,38 @@ export async function GET() {
     }
   } catch {
     results.cuestionarios = { tps_preguntas: 0 }
+  }
+
+  // ── Último estado del cerebro ────────────────────────────────────────────
+  try {
+    const { data: healthLog } = await sb
+      .from('system_health_log')
+      .select('checked_at, estado_global, alertas_count:alertas, metricas')
+      .order('checked_at', { ascending: false })
+      .limit(1)
+      .maybeSingle() as { data: any }
+    results.cerebro = healthLog
+      ? {
+          checked_at:    healthLog.checked_at,
+          estado_global: healthLog.estado_global,
+          alertas:       Array.isArray(healthLog.alertas_count) ? healthLog.alertas_count.length : 0,
+          metricas:      healthLog.metricas,
+        }
+      : null
+  } catch {
+    results.cerebro = null
+  }
+
+  // ── Efectividad de triggers (últimas 4 semanas) ───────────────────────────
+  try {
+    const { data: ef } = await sb
+      .from('trigger_efectividad')
+      .select('trigger_id, reacciones_positivas, reacciones_negativas, tasa_positiva')
+      .order('periodo', { ascending: false })
+      .limit(20)
+    results.efectividad = ef ?? []
+  } catch {
+    results.efectividad = []
   }
 
   return NextResponse.json(results)
