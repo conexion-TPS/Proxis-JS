@@ -133,6 +133,60 @@ export async function GET() {
     results.cerebro = null
   }
 
+  // ── Integridad de datos: asesores sin perfil/metas, triggers sin prompt ─────
+  try {
+    const { data: activos } = await sb
+      .from('asesor_credentials').select('asesor').eq('activo', true)
+    const nombres = (activos ?? []).map((a: Record<string,string>) => a.asesor)
+
+    const [{ data: conPerfil }, { data: conMetas }, { data: triggers }, { data: conPrompt }] = await Promise.all([
+      sb.from('tps_perfiles').select('asesor').in('asesor', nombres),
+      sb.from('metas').select('asesor').in('asesor', nombres),
+      sb.from('trigger_config').select('id, nombre').eq('activo', true),
+      sb.from('prompts').select('trigger_id').eq('activo', true),
+    ])
+
+    const sinPerfil = nombres.filter(n => !(conPerfil ?? []).some((p: Record<string,string>) => p.asesor === n))
+    const sinMetas  = nombres.filter(n => !(conMetas  ?? []).some((m: Record<string,string>) => m.asesor === n))
+    const sinPrompt = (triggers ?? []).filter((t: Record<string,string>) =>
+      !(conPrompt ?? []).some((p: Record<string,string>) => p.trigger_id === t.id)
+    )
+
+    results.integridad = {
+      asesores_activos:  nombres.length,
+      sin_perfil:        sinPerfil.length,
+      sin_metas:         sinMetas.length,
+      triggers_activos:  (triggers ?? []).length,
+      triggers_sin_prompt: sinPrompt.length,
+      detalle_sin_perfil:  sinPerfil.slice(0, 5),
+      detalle_sin_prompt:  sinPrompt.slice(0, 5).map((t: Record<string,string>) => t.nombre ?? t.id),
+    }
+  } catch {
+    results.integridad = null
+  }
+
+  // ── Pipeline de entrada: último reporte + reacciones ─────────────────────
+  try {
+    const since14d = new Date(Date.now() - 14 * 86_400_000).toISOString()
+    const [ultimoReporte, reacciones14d, mensajes14d, sailorSinLeer] = await Promise.all([
+      sb.from('reportes').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      sb.from('behavioral_signals').select('*', { count: 'exact', head: true }).in('tipo', ['reaccion_positiva', 'reaccion_negativa']).gte('created_at', since14d),
+      sb.from('message_log').select('*', { count: 'exact', head: true }).gte('created_at', since14d),
+      sb.from('sailor_messages').select('*', { count: 'exact', head: true }).eq('leido', false).eq('origen', 'coach_ia').lt('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString()),
+    ])
+    const horasDesdeReporte = ultimoReporte.data
+      ? (Date.now() - new Date(ultimoReporte.data.created_at).getTime()) / 3_600_000
+      : null
+    results.pipeline = {
+      ultimo_reporte_hace_horas: horasDesdeReporte !== null ? Math.round(horasDesdeReporte) : null,
+      reacciones_14d:            reacciones14d.count ?? 0,
+      mensajes_14d:              mensajes14d.count ?? 0,
+      sailor_sin_leer_viejos:    sailorSinLeer.count ?? 0,
+    }
+  } catch {
+    results.pipeline = null
+  }
+
   // ── Efectividad de triggers (últimas 4 semanas) ───────────────────────────
   try {
     const { data: ef } = await sb

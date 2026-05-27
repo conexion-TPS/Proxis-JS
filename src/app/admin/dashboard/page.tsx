@@ -30,6 +30,15 @@ interface SystemStatus {
   cerebro: { checked_at: string; estado_global: string; alertas: number; metricas: Record<string, number> } | null
   deployments: Array<{ estado: string; url: string | null; rama: string | null; commit_sha: string | null; mensaje: string | null; created_at: string }>
   errores: { recientes: Array<{ componente: string; severidad: string; mensaje: string; created_at: string }>; total_7d: number }
+  integridad: {
+    asesores_activos: number; sin_perfil: number; sin_metas: number
+    triggers_activos: number; triggers_sin_prompt: number
+    detalle_sin_perfil: string[]; detalle_sin_prompt: string[]
+  } | null
+  pipeline: {
+    ultimo_reporte_hace_horas: number | null
+    reacciones_14d: number; mensajes_14d: number; sailor_sin_leer_viejos: number
+  } | null
 }
 
 export default function AdminDashboard() {
@@ -161,6 +170,44 @@ export default function AdminDashboard() {
             sub={sys?.cuestionarios.tps_preguntas === 57 ? 'Completo' : 'Revisar seed'}
           />
 
+          {/* Integridad: asesores sin perfil */}
+          {(() => {
+            const ig = sys?.integridad
+            const sinPerfil = ig?.sin_perfil ?? 0
+            const sinPrompt = ig?.triggers_sin_prompt ?? 0
+            const total = sinPerfil + sinPrompt
+            return (
+              <HealthCard
+                label="Integridad de datos"
+                status={sys === null ? 'loading' : total === 0 ? 'ok' : sinPrompt > 0 ? 'error' : 'warn'}
+                value={sys === null ? '…' : total === 0 ? 'Todo consistente' : `${total} inconsistencia${total > 1 ? 's' : ''}`}
+                sub={total === 0 ? `${ig?.asesores_activos ?? 0} asesores · ${ig?.triggers_activos ?? 0} triggers` : [sinPerfil ? `${sinPerfil} sin perfil` : '', sinPrompt ? `${sinPrompt} trigger sin prompt` : ''].filter(Boolean).join(' · ')}
+              />
+            )
+          })()}
+
+          {/* Pipeline de entrada */}
+          {(() => {
+            const pl = sys?.pipeline
+            const horas: number | null = pl?.ultimo_reporte_hace_horas ?? null
+            const pipStatus: HealthStatus = sys === null ? 'loading'
+              : horas === null ? 'warn'
+              : horas > 120 ? 'error'
+              : horas > 72 ? 'warn'
+              : 'ok'
+            const label = horas === null ? 'Sin reportes'
+              : horas > 24 ? `Último: hace ${Math.round(horas / 24)}d`
+              : `Último: hace ${Math.round(horas)}h`
+            return (
+              <HealthCard
+                label="Pipeline de entrada"
+                status={pipStatus}
+                value={sys === null ? '…' : label}
+                sub={pl ? `${pl.reacciones_14d} reacciones · ${pl.sailor_sin_leer_viejos} sin leer >7d` : ''}
+              />
+            )
+          })()}
+
           {/* Último deploy */}
           {(() => {
             const last = sys?.deployments?.[0]
@@ -280,6 +327,38 @@ export default function AdminDashboard() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Inconsistencias de datos */}
+        {sys?.integridad && (sys.integridad.sin_perfil > 0 || sys.integridad.triggers_sin_prompt > 0 || sys.integridad.sin_metas > 0) && (
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid #f0ede8' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#a8691a', marginBottom: 10 }}>
+              Inconsistencias de datos
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {sys.integridad.triggers_sin_prompt > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '7px 10px', background: '#fbe9e9', borderRadius: 6, border: '1px solid #f0b8b8' }}>
+                  <Dot status="error" />
+                  <span style={{ color: '#b03a3a', fontWeight: 600 }}>Triggers sin prompt:</span>
+                  <span style={{ color: '#4a4844' }}>{sys.integridad.detalle_sin_prompt.join(', ')}</span>
+                </div>
+              )}
+              {sys.integridad.sin_perfil > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '7px 10px', background: '#fdf4e6', borderRadius: 6, border: '1px solid #f5d9a0' }}>
+                  <Dot status="warn" />
+                  <span style={{ color: '#a8691a', fontWeight: 600 }}>Sin tps_perfiles:</span>
+                  <span style={{ color: '#4a4844' }}>{sys.integridad.detalle_sin_perfil.join(', ')}</span>
+                </div>
+              )}
+              {sys.integridad.sin_metas > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '7px 10px', background: '#fdf4e6', borderRadius: 6, border: '1px solid #f5d9a0' }}>
+                  <Dot status="warn" />
+                  <span style={{ color: '#a8691a', fontWeight: 600 }}>Sin metas:</span>
+                  <span style={{ color: '#4a4844' }}>{sys.integridad.sin_metas} asesor(es)</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
