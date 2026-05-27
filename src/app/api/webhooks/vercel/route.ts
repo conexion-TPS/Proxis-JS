@@ -48,30 +48,56 @@ export async function POST(req: NextRequest) {
   const commit_sha = String(meta['githubCommitSha'] ?? '')
   const mensaje    = String(depObj.readyState ?? depObj.errorMessage ?? tipo)
 
-  const sb = supabaseAdmin()
-  await sb.from('deployment_log').insert({
-    plataforma: 'vercel',
-    estado,
-    url:         url        || null,
-    rama:        rama       || null,
-    commit_sha:  commit_sha || null,
-    mensaje:     mensaje    || null,
-    detalles:    payload,
-  })
-
-  // Si el deploy falló, también registrar en error_log para que cerebro lo detecte
-  if (estado === 'error') {
-    const buildError = String(
-      (dep.build as Record<string, unknown> | undefined)?.err
-      ?? depObj.errorMessage
-      ?? 'Build failure'
-    )
-    await sb.from('error_log').insert({
-      componente: 'vercel',
-      severidad:  'error',
-      mensaje:    `Deploy fallido: ${mensaje}`,
-      detalles:   { tipo, url, rama, commit_sha, buildError },
+  try {
+    const sb = supabaseAdmin()
+    const { error: insErr } = await sb.from('deployment_log').insert({
+      plataforma: 'vercel',
+      estado,
+      url:         url        || null,
+      rama:        rama       || null,
+      commit_sha:  commit_sha || null,
+      mensaje:     mensaje    || null,
+      detalles:    payload,
     })
+
+    if (insErr) {
+      console.error('[webhook/vercel] deployment_log insert error:', insErr)
+      try {
+        await sb.from('error_log').insert({
+          componente: 'webhook-vercel',
+          severidad:  'error',
+          mensaje:    `deployment_log insert failed: ${insErr.message}`,
+          detalles:   { tipo, url, rama, commit_sha, pgError: insErr },
+        })
+      } catch (_) { /* best-effort */ }
+    }
+
+    // Si el deploy falló, también registrar en error_log para que cerebro lo detecte
+    if (estado === 'error') {
+      const buildError = String(
+        (dep.build as Record<string, unknown> | undefined)?.err
+        ?? depObj.errorMessage
+        ?? 'Build failure'
+      )
+      await sb.from('error_log').insert({
+        componente: 'vercel',
+        severidad:  'error',
+        mensaje:    `Deploy fallido: ${mensaje}`,
+        detalles:   { tipo, url, rama, commit_sha, buildError },
+      })
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[webhook/vercel] unexpected error:', msg)
+    // Always return 200 so Vercel doesn't retry — log the failure
+    try {
+      await supabaseAdmin().from('error_log').insert({
+        componente: 'webhook-vercel',
+        severidad:  'error',
+        mensaje:    `Webhook handler exception: ${msg}`,
+        detalles:   { tipo, estado, url, rama, commit_sha, stack: e instanceof Error ? e.stack : '' },
+      })
+    } catch (_) { /* best-effort */ }
   }
 
   return NextResponse.json({ ok: true })
