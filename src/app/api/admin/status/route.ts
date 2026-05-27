@@ -2,23 +2,21 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
-  const sb = supabaseAdmin()
+  let sb: ReturnType<typeof supabaseAdmin>
+  try {
+    sb = supabaseAdmin()
+  } catch {
+    return NextResponse.json({ error: 'Supabase no configurado' }, { status: 503 })
+  }
   const results: Record<string, unknown> = {}
 
-  // ── Gemini — llamada real con prompt mínimo ──────────────────────────────
+  // ── Gemini — verificar clave con list-models (GET, 0 tokens, no consume cuota) ──
   try {
     const key = process.env.GEMINI_KEY
     if (!key) throw new Error('no key')
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Responde solo: OK' }] }],
-          generationConfig: { maxOutputTokens: 5 },
-        }),
-      }
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${key}`,
+      { method: 'GET' }
     )
     results.gemini = r.ok
   } catch {
