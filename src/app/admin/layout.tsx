@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { href: string; icon: string; label: string; group: string | null; external?: boolean }[] = [
   { href: '/admin/dashboard',    icon: '⊞',  label: 'Dashboard',   group: null },
   { href: '/admin/prompts',         icon: '✍️', label: 'Prompts',          group: 'Mensajes' },
   { href: '/admin/email-templates', icon: '✉️', label: 'Email templates', group: 'Mensajes' },
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: '/admin/jerarquia',    icon: '🌲', label: 'Jerarquía',   group: 'Organización' },
   { href: '/admin/supervisores', icon: '🏢', label: 'Supervisores', group: 'Organización' },
   { href: '/admin/usuarios',     icon: '👥', label: 'Usuarios',     group: 'Organización' },
+  { href: '/equipo',             icon: '🪟', label: 'Portal equipo ↗', group: 'Organización', external: true },
   { href: '/admin/analytics',    icon: '📊', label: 'Analytics',    group: null },
 ]
 
@@ -112,13 +113,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)',
                     }}>{item.group}</div>
                   )}
-                  <Link href={item.href} style={{
+                  <Link href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noopener noreferrer' : undefined} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '8px 20px',
-                    color: active ? '#cbf135' : 'rgba(255,255,255,0.55)',
-                    background: active ? 'rgba(203,241,53,0.08)' : 'transparent',
-                    borderLeft: `2px solid ${active ? '#cbf135' : 'transparent'}`,
-                    fontWeight: active ? 600 : 400,
+                    color: item.external ? 'rgba(255,255,255,0.35)' : active ? '#cbf135' : 'rgba(255,255,255,0.55)',
+                    background: active && !item.external ? 'rgba(203,241,53,0.08)' : 'transparent',
+                    borderLeft: `2px solid ${active && !item.external ? '#cbf135' : 'transparent'}`,
+                    fontWeight: active && !item.external ? 600 : 400,
                     fontSize: 13, textDecoration: 'none',
                     transition: 'all 0.15s',
                   }}>
