@@ -455,6 +455,7 @@ Usa lenguaje preciso, en tercera persona, enfocado en comportamientos observable
 /* ── Handler principal ──────────────────────────────────────── */
 
 Deno.serve(async (_req: Request) => {
+  try {
   const results: any[] = []
   let totalHipotesis   = 0
   let totalGaps        = 0
@@ -507,4 +508,16 @@ Deno.serve(async (_req: Request) => {
   return new Response(JSON.stringify(summary), {
     headers: { 'Content-Type': 'application/json' }
   })
+  } catch (e: any) {
+    console.error('[proxis-analyzer] FATAL:', e)
+    await sb.from('error_log').insert({
+      componente: 'proxis-analyzer',
+      severidad:  'error',
+      mensaje:    e?.message ?? String(e),
+      detalles:   { stack: e?.stack ?? '', timestamp: new Date().toISOString() },
+    }).catch(() => {})
+    return new Response(JSON.stringify({ ok: false, error: e?.message ?? 'Error interno' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    })
+  }
 })

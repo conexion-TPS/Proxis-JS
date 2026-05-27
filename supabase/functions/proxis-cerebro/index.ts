@@ -206,6 +206,68 @@ async function checkMensajesSinEnviar(): Promise<Alerta[]> {
   return alertas
 }
 
+async function checkErrorLog(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const since24h = new Date(Date.now() - 86_400_000).toISOString()
+  const { data: errs, count } = await sb
+    .from('error_log')
+    .select('componente, severidad, mensaje, created_at', { count: 'exact' })
+    .gte('created_at', since24h)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if ((count ?? 0) > 0) {
+    const criticos = (errs ?? []).filter((e: any) => e.severidad === 'error')
+    if (criticos.length) {
+      const resumen = [...new Set(criticos.map((e: any) => e.componente))].join(', ')
+      alertas.push({
+        tipo:      'errores_runtime',
+        severidad: 'critical',
+        mensaje:   `${criticos.length} error(es) de runtime en las últimas 24h — componentes: ${resumen}`,
+        valor:     criticos.length,
+      })
+    }
+  }
+  return alertas
+}
+
+async function checkDeploymentLog(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const since7d = new Date(Date.now() - 7 * 86_400_000).toISOString()
+  const { data: deps } = await sb
+    .from('deployment_log')
+    .select('estado, rama, mensaje, created_at')
+    .eq('estado', 'error')
+    .gte('created_at', since7d)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  if (deps?.length) {
+    alertas.push({
+      tipo:      'deploy_fallido',
+      severidad: 'critical',
+      mensaje:   `${deps.length} deploy(s) fallido(s) en los últimos 7 días — última rama: ${deps[0].rama ?? 'desconocida'}`,
+      valor:     deps.length,
+    })
+  }
+
+  // Si no hay NINGÚN deployment en los últimos 14 días, es sospechoso
+  const since14d = new Date(Date.now() - 14 * 86_400_000).toISOString()
+  const { count } = await sb
+    .from('deployment_log')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', since14d)
+
+  if ((count ?? 0) === 0) {
+    alertas.push({
+      tipo:      'sin_deployments',
+      severidad: 'warning',
+      mensaje:   'No se registran deployments en 14 días — verificar webhook de Vercel',
+    })
+  }
+  return alertas
+}
+
 /* ── Email de alerta ────────────────────────────────────────── */
 
 async function enviarAlertaEmail(alertas: Alerta[], resumen: string): Promise<void> {
@@ -245,17 +307,20 @@ async function enviarAlertaEmail(alertas: Alerta[], resumen: string): Promise<vo
 /* ── Handler principal ──────────────────────────────────────── */
 
 Deno.serve(async (_req: Request) => {
+  try {
   const now = new Date().toISOString()
 
-  const [stall, cron, efect, criticos, sinMensajes] = await Promise.all([
+  const [stall, cron, efect, criticos, sinMensajes, errores, deploys] = await Promise.all([
     checkPipelineStall(),
     checkCronSalud(),
     checkEfectividad(),
     checkAsesoresCriticos(),
     checkMensajesSinEnviar(),
+    checkErrorLog(),
+    checkDeploymentLog(),
   ])
 
-  const todasAlertas = [...stall, ...cron, ...efect, ...criticos, ...sinMensajes]
+  const todasAlertas = [...stall, ...cron, ...efect, ...criticos, ...sinMensajes, ...errores, ...deploys]
   const criticas     = todasAlertas.filter(a => a.severidad === 'critical').length
   const warnings     = todasAlertas.filter(a => a.severidad === 'warning').length
   const estadoGlobal = criticas > 0 ? 'critico' : warnings > 0 ? 'degradado' : 'saludable'
@@ -280,6 +345,8 @@ Deno.serve(async (_req: Request) => {
     hipotesis_pendientes: hipotesisPendientes ?? 0,
     gaps_abiertos:        gapsAbiertos ?? 0,
     mensajes_7d:          mensajes7d ?? 0,
+    errores_runtime_24h:  errores.length,
+    deploy_fallas_7d:     deploys.filter(a => a.tipo === 'deploy_fallido').length,
   }
 
   const resumenTexto = [
@@ -318,4 +385,16 @@ Deno.serve(async (_req: Request) => {
   return new Response(JSON.stringify(resultado), {
     headers: { 'Content-Type': 'application/json' },
   })
+  } catch (e: any) {
+    console.error('[proxis-cerebro] FATAL:', e)
+    await sb.from('error_log').insert({
+      componente: 'proxis-cerebro',
+      severidad:  'error',
+      mensaje:    e?.message ?? String(e),
+      detalles:   { stack: e?.stack ?? '', timestamp: new Date().toISOString() },
+    }).catch(() => {})
+    return new Response(JSON.stringify({ ok: false, error: e?.message ?? 'Error interno' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    })
+  }
 })

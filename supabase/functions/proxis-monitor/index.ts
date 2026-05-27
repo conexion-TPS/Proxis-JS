@@ -317,6 +317,7 @@ async function cooldownOk(asesor: string, triggerId: string, days: number): Prom
 /* ── Handler principal ──────────────────────────────────────── */
 
 Deno.serve(async (_req: Request) => {
+  try {
   const results: any[] = []
 
   // 1. Triggers activos
@@ -476,4 +477,16 @@ Deno.serve(async (_req: Request) => {
   return new Response(JSON.stringify({ ok: true, results }), {
     headers: { 'Content-Type': 'application/json' }
   })
+  } catch (e: any) {
+    console.error('[proxis-monitor] FATAL:', e)
+    await sb.from('error_log').insert({
+      componente: 'proxis-monitor',
+      severidad:  'error',
+      mensaje:    e?.message ?? String(e),
+      detalles:   { stack: e?.stack ?? '', timestamp: new Date().toISOString() },
+    }).catch(() => {})
+    return new Response(JSON.stringify({ ok: false, error: e?.message ?? 'Error interno' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    })
+  }
 })

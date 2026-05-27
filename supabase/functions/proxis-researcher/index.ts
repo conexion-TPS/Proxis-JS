@@ -167,6 +167,7 @@ Responde ÚNICAMENTE con JSON válido:
 /* ── Handler principal ──────────────────────────────────────── */
 
 Deno.serve(async (req: Request) => {
+  try {
   // Acepta ?gap_id=uuid para investigar un gap específico,
   // o sin parámetros para procesar todos los 'en_investigacion'
   const url   = new URL(req.url)
@@ -214,4 +215,16 @@ Deno.serve(async (req: Request) => {
   return new Response(JSON.stringify(summary), {
     headers: { 'Content-Type': 'application/json' }
   })
+  } catch (e: any) {
+    console.error('[proxis-researcher] FATAL:', e)
+    await sb.from('error_log').insert({
+      componente: 'proxis-researcher',
+      severidad:  'error',
+      mensaje:    e?.message ?? String(e),
+      detalles:   { stack: e?.stack ?? '', timestamp: new Date().toISOString() },
+    }).catch(() => {})
+    return new Response(JSON.stringify({ ok: false, error: e?.message ?? 'Error interno' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' }
+    })
+  }
 })
