@@ -226,7 +226,7 @@ async function sendEmail(asesor: string, asunto: string, cuerpo: string, remiten
 const PROB_CAPTURA_EMAIL = 0.25  // 25% de los mensajes llevan pregunta
 
 async function decidirCapturaEmail(asesor: string): Promise<{
-  capturar: boolean; pregunta?: string; preguntaId?: string; dimension?: string
+  capturar: boolean; pregunta?: string; preguntaTexto?: string; preguntaId?: string; dimension?: string
 }> {
   if (Math.random() > PROB_CAPTURA_EMAIL) return { capturar: false }
 
@@ -297,7 +297,7 @@ async function decidirCapturaEmail(asesor: string): Promise<{
   }
   pregTexto += '\n\n(Esta es una pregunta opcional — puedes ignorarla si lo prefieres.)'
 
-  return { capturar: true, pregunta: pregTexto, preguntaId: preg.id, dimension: targetDim }
+  return { capturar: true, pregunta: pregTexto, preguntaTexto: preg.texto, preguntaId: preg.id, dimension: targetDim }
 }
 
 /* ── Cooldown ───────────────────────────────────────────────── */
@@ -379,6 +379,26 @@ Deno.serve(async (_req: Request) => {
           body:           bodyFinal,
           prompt_version: prompts[0].version
         })
+
+        // Insertar en sailor_messages para el feed de la app
+        await sb.from('sailor_messages').insert({
+          asesor,
+          origen:    'coach_ia',
+          tipo:      'mensaje',
+          contenido: body,
+          leido:     false,
+        })
+
+        // Si hay captura, también insertar la pregunta como mensaje separado en Sailor
+        if (captura.capturar && captura.preguntaTexto) {
+          await sb.from('sailor_messages').insert({
+            asesor,
+            origen:    'coach_ia',
+            tipo:      'pregunta',
+            contenido: captura.preguntaTexto,
+            leido:     false,
+          })
+        }
 
         // Registrar señal pendiente de respuesta si se envió pregunta
         if (captura.capturar && captura.preguntaId) {
