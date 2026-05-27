@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHmac } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 
-// Vercel firma los webhooks con HMAC-SHA1 usando el webhook secret configurado
+// Vercel signs webhooks with HMAC-SHA1; signature is raw hex (no sha1= prefix)
 function verifySignature(secret: string, rawBody: string, signature: string): boolean {
   const expected = createHmac('sha1', secret).update(rawBody).digest('hex')
   return expected === signature
