@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase'
 type Cuestionario = { id: string; nombre: string; tipo: string | null; descripcion: string | null; activo: boolean; created_at: string }
 type Pregunta      = { id: string; cuestionario_id: string; orden: number; texto: string; tipo_respuesta: string | null; dimension_target: string | null; perfil_hint: string | null }
 type Respuesta     = { id: string; asesor: string; cuestionario_id: string; pregunta_id: string; respuesta: string | null; created_at: string }
+type OrgNodo      = { id: string; nombre: string }
+type AsesorCred   = { asesor: string; org_nodo_id: string | null }
 type TpsPerfil     = {
   id: string; asesor: string; perfil_base: string; confianza_diagnostico: string
   puntaje_a: number; puntaje_b: number; rasgos_comerciales: Record<string, number>
@@ -47,6 +49,9 @@ export default function CuestionariosPage() {
   const [saving,       setSaving]      = useState(false)
   const [generando,    setGenerando]   = useState(false)
   const [toast,        setToast]       = useState<{ msg: string; err?: boolean } | null>(null)
+  const [orgNodos,     setOrgNodos]    = useState<OrgNodo[]>([])
+  const [creds,        setCreds]       = useState<AsesorCred[]>([])
+  const [filtroNodo,   setFiltroNodo]  = useState('')
 
   function showToast(msg: string, err = false) { setToast({ msg, err }); setTimeout(() => setToast(null), 3200) }
 
@@ -67,7 +72,18 @@ export default function CuestionariosPage() {
 
   useEffect(() => { loadCuests() }, [loadCuests])
 
-  useEffect(() => { if (tab === 'perfiles') loadPerfiles() }, [tab, loadPerfiles])
+  useEffect(() => {
+    if (tab === 'perfiles') {
+      loadPerfiles()
+      Promise.all([
+        fetch('/api/admin/org').then(r => r.json()),
+        supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true),
+      ]).then(([org, { data }]) => {
+        setOrgNodos(org.nodos ?? [])
+        setCreds((data ?? []) as AsesorCred[])
+      })
+    }
+  }, [tab, loadPerfiles])
 
   useEffect(() => { if (tab === 'preguntas') loadAllPreguntas() }, [tab, loadAllPreguntas])
 
@@ -494,16 +510,64 @@ export default function CuestionariosPage() {
 
       {tab === 'perfiles' && (
         <div>
-          <div style={{ marginBottom: 16, fontSize: 13, color: '#4a4844' }}>
-            Perfiles TPS calculados — <strong>{perfiles.length}</strong> asesores evaluados
+          {/* Nodo filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            {orgNodos.length > 0 && (
+              <select value={filtroNodo} onChange={e => setFiltroNodo(e.target.value)}
+                style={{ padding: '7px 12px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, background: '#fff', outline: 'none' }}>
+                <option value="">Todos los equipos</option>
+                {orgNodos.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+              </select>
+            )}
+            <span style={{ fontSize: 13, color: '#4a4844', marginLeft: 'auto' }}>
+              {(() => {
+                const visible = filtroNodo
+                  ? perfiles.filter(p => creds.find(c => c.asesor === p.asesor)?.org_nodo_id === filtroNodo)
+                  : perfiles
+                return <><strong>{visible.length}</strong> asesor{visible.length !== 1 ? 'es' : ''} evaluado{visible.length !== 1 ? 's' : ''}</>
+              })()}
+            </span>
           </div>
-          {perfiles.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885' }}>
-              Ningún asesor ha completado la evaluación TPS aún.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {perfiles.map(p => {
+
+          {/* Distribución de perfiles del equipo */}
+          {(() => {
+            const visible = filtroNodo
+              ? perfiles.filter(p => creds.find(c => c.asesor === p.asesor)?.org_nodo_id === filtroNodo)
+              : perfiles
+            if (visible.length === 0) return (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885' }}>
+                {filtroNodo ? 'Ningún asesor de este equipo tiene perfil TPS calculado.' : 'Ningún asesor ha completado la evaluación TPS aún.'}
+              </div>
+            )
+            const dist: Record<string, number> = {}
+            for (const p of visible) dist[p.perfil_base] = (dist[p.perfil_base] ?? 0) + 1
+            const total = visible.length
+            return (
+              <>
+                <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: '18px 20px', marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8885', marginBottom: 14 }}>
+                    Distribución del equipo
+                  </div>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    {Object.entries(PERFIL_LABELS).map(([key, info]) => {
+                      const n = dist[key] ?? 0
+                      const pct = total ? Math.round((n / total) * 100) : 0
+                      return (
+                        <div key={key} style={{ flex: 1, textAlign: 'center' }}>
+                          <div style={{ fontSize: 20, marginBottom: 4 }}>{info.icon}</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: n > 0 ? info.color : '#c8c6c3' }}>{n}</div>
+                          <div style={{ fontSize: 10, color: '#8a8885', marginBottom: 6 }}>{info.nombre}</div>
+                          <div style={{ height: 4, background: '#f5f3ef', borderRadius: 2 }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: info.color, borderRadius: 2 }} />
+                          </div>
+                          <div style={{ fontSize: 10, color: '#8a8885', marginTop: 3 }}>{pct}%</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {visible.map(p => {
                 const info = PERFIL_LABELS[p.perfil_base] ?? PERFIL_LABELS['AMB']
                 const conf = p.confianza_diagnostico
                 const confColor = conf === 'Alta' ? '#1f6f56' : conf === 'Media' ? '#a8691a' : '#8a8885'
@@ -548,8 +612,10 @@ export default function CuestionariosPage() {
                   </div>
                 )
               })}
-            </div>
-          )}
+                </div>
+              </>
+            )
+          })()}
         </div>
       )}
 

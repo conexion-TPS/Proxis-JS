@@ -1,85 +1,95 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-type KPI = { total: number; month: number; avgScore: number | null; scoreCount: number; activeTriggers: number; totalTriggers: number }
-type TriggerStat = { id: string; count: number; descripcion: string | null }
-type AsesorStat  = { asesor: string; total: number; pos: number; neg: number; lastSent: string | null }
-type LogRow      = { id: string; asesor: string; trigger_id: string | null; created_at: string }
+type RawLog     = { id: string; asesor: string; trigger_id: string | null; created_at: string; fbScore: number | undefined }
+type TriggerCfg = { trigger_id: string; descripcion: string | null; activo: boolean }
+type OrgNodo    = { id: string; nombre: string }
+type AsesorCred = { asesor: string; org_nodo_id: string | null }
 
 export default function AnalyticsPage() {
-  const [kpi,       setKpi]       = useState<KPI | null>(null)
-  const [byTrigger, setByTrigger] = useState<TriggerStat[]>([])
-  const [byAsesor,  setByAsesor]  = useState<AsesorStat[]>([])
-  const [recentLog, setRecentLog] = useState<LogRow[]>([])
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState('')
+  const [allLogs,    setAllLogs]    = useState<RawLog[]>([])
+  const [triggers,   setTriggers]   = useState<TriggerCfg[]>([])
+  const [orgNodos,   setOrgNodos]   = useState<OrgNodo[]>([])
+  const [creds,      setCreds]      = useState<AsesorCred[]>([])
+  const [filtroNodo, setFiltroNodo] = useState('')
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState('')
 
-  function getMes() {
+  const getMes = () => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   }
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     setLoading(true); setError('')
     try {
-      const mes = getMes()
-      const [logsRes, logsMonthRes, fbRes, triggersRes] = await Promise.all([
+      const [logsRes, fbRes, triggersRes, orgRes, credsRes] = await Promise.all([
         supabase.from('message_log').select('id,asesor,trigger_id,created_at').order('created_at', { ascending: false }).limit(500),
-        supabase.from('message_log').select('id').gte('created_at', `${mes}-01`),
         supabase.from('feedback').select('message_id,score'),
         supabase.from('trigger_config').select('trigger_id,descripcion,activo'),
+        fetch('/api/admin/org').then(r => r.json()),
+        supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true),
       ])
-      const logs     = logsRes.data     ?? []
-      const logsMonth = logsMonthRes.data ?? []
-      const fb       = fbRes.data       ?? []
-      const triggers = triggersRes.data ?? []
-
-      const scores    = fb.map(f => f.score).filter(s => s !== null) as number[]
-      const avgScore  = scores.length ? parseFloat((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)) : null
       const fbMap: Record<string, number> = {}
-      for (const f of fb) fbMap[f.message_id] = f.score
+      for (const f of fbRes.data ?? []) fbMap[f.message_id] = f.score
 
-      setKpi({
-        total: logs.length,
-        month: logsMonth.length,
-        avgScore,
-        scoreCount: scores.length,
-        activeTriggers: triggers.filter(t => t.activo).length,
-        totalTriggers: triggers.length,
-      })
-
-      // By trigger
-      const byT: Record<string, TriggerStat> = {}
-      for (const l of logs) {
-        const tid = l.trigger_id ?? '(sin trigger)'
-        if (!byT[tid]) byT[tid] = { id: tid, count: 0, descripcion: triggers.find(t => t.trigger_id === tid)?.descripcion ?? null }
-        byT[tid].count++
-      }
-      setByTrigger(Object.values(byT).sort((a, b) => b.count - a.count))
-
-      // By asesor
-      const byA: Record<string, AsesorStat> = {}
-      for (const l of logs) {
-        if (!byA[l.asesor]) byA[l.asesor] = { asesor: l.asesor, total: 0, pos: 0, neg: 0, lastSent: null }
-        byA[l.asesor].total++
-        if (!byA[l.asesor].lastSent) byA[l.asesor].lastSent = l.created_at
-        const s = fbMap[l.id]
-        if (s === 1)  byA[l.asesor].pos++
-        if (s === -1) byA[l.asesor].neg++
-      }
-      setByAsesor(Object.values(byA).sort((a, b) => b.total - a.total))
-
-      setRecentLog(logs.slice(0, 10))
+      setAllLogs((logsRes.data ?? []).map(l => ({ ...l, fbScore: fbMap[l.id] as number | undefined })))
+      setTriggers(triggersRes.data ?? [])
+      setOrgNodos(orgRes.nodos ?? [])
+      setCreds((credsRes.data ?? []) as AsesorCred[])
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
     }
     setLoading(false)
+  }, [])
+
+  useEffect(() => { loadAll() }, [loadAll])
+
+  // Filtered logs based on selected nodo
+  const asesoresEnNodo = filtroNodo
+    ? new Set(creds.filter(c => c.org_nodo_id === filtroNodo).map(c => c.asesor))
+    : null
+  const logs = asesoresEnNodo ? allLogs.filter(l => asesoresEnNodo.has(l.asesor)) : allLogs
+
+  const mes = getMes()
+  const mesStart = `${mes}-01`
+  const scores = logs.map(l => l.fbScore).filter(s => s !== undefined) as number[]
+
+  const kpi = {
+    total: logs.length,
+    month: logs.filter(l => l.created_at >= mesStart).length,
+    avgScore: scores.length ? parseFloat((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)) : null,
+    scoreCount: scores.length,
+    activeTriggers: triggers.filter(t => t.activo).length,
+    totalTriggers:  triggers.length,
   }
 
-  useEffect(() => { loadAll() }, [])
+  const byTrigger = (() => {
+    const map: Record<string, { id: string; count: number; descripcion: string | null }> = {}
+    for (const l of logs) {
+      const tid = l.trigger_id ?? '(sin trigger)'
+      if (!map[tid]) map[tid] = { id: tid, count: 0, descripcion: triggers.find(t => t.trigger_id === tid)?.descripcion ?? null }
+      map[tid].count++
+    }
+    return Object.values(map).sort((a, b) => b.count - a.count)
+  })()
+
+  const byAsesor = (() => {
+    const map: Record<string, { asesor: string; total: number; pos: number; neg: number; lastSent: string | null }> = {}
+    for (const l of logs) {
+      if (!map[l.asesor]) map[l.asesor] = { asesor: l.asesor, total: 0, pos: 0, neg: 0, lastSent: null }
+      map[l.asesor].total++
+      if (!map[l.asesor].lastSent) map[l.asesor].lastSent = l.created_at
+      if (l.fbScore === 1)  map[l.asesor].pos++
+      if (l.fbScore === -1) map[l.asesor].neg++
+    }
+    return Object.values(map).sort((a, b) => b.total - a.total)
+  })()
+
+  const recentLog = logs.slice(0, 10)
 
   return (
     <div style={{ padding: '32px 36px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
@@ -92,14 +102,22 @@ export default function AnalyticsPage() {
           <span style={{ color: '#c8c6c3' }}>/</span>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Analytics</h1>
         </div>
-        <button onClick={loadAll} disabled={loading} style={{
-          padding: '7px 14px', border: '1px solid #e8e6e3', borderRadius: 8,
-          fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', background: '#fff',
-          display: 'flex', alignItems: 'center', gap: 6,
-          opacity: loading ? 0.5 : 1,
-        }}>
-          ↻ Actualizar
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {orgNodos.length > 0 && (
+            <select value={filtroNodo} onChange={e => setFiltroNodo(e.target.value)}
+              style={{ padding: '7px 12px', border: '1px solid #e8e6e3', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, background: '#fff', outline: 'none' }}>
+              <option value="">Todos los equipos</option>
+              {orgNodos.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
+            </select>
+          )}
+          <button onClick={loadAll} disabled={loading} style={{
+            padding: '7px 14px', border: '1px solid #e8e6e3', borderRadius: 8,
+            fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', background: '#fff',
+            opacity: loading ? 0.5 : 1,
+          }}>
+            ↻ Actualizar
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -108,21 +126,33 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {loading && !kpi ? (
+      {loading && !allLogs.length ? (
         <div style={{ textAlign: 'center', padding: 60, color: '#8a8885' }}>Cargando métricas…</div>
-      ) : kpi ? (
+      ) : (
         <>
+          {filtroNodo && (
+            <div style={{ marginBottom: 16, fontSize: 12, color: '#8a8885', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#ede9fe', color: '#6b45c8' }}>
+                👥 {orgNodos.find(n => n.id === filtroNodo)?.nombre}
+              </span>
+              <span>— mostrando sólo asesores de este equipo</span>
+              <button onClick={() => setFiltroNodo('')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 11, color: '#8a8885', textDecoration: 'underline', fontFamily: 'inherit' }}>
+                ver todos
+              </button>
+            </div>
+          )}
+
           {/* KPIs */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
-            <KpiCard label="Total mensajes"  value={kpi.total}           sub="desde el inicio"                 color="#cbf135" />
-            <KpiCard label="Este mes"        value={kpi.month}           sub={getMes()}                        color="#0b0a09" />
-            <KpiCard label="Feedback prom."  value={kpi.avgScore ?? '—'} sub={`${kpi.scoreCount} valoraciones`} color={kpi.avgScore === null ? '#8a8885' : kpi.avgScore > 0 ? '#1a9e4a' : '#b03a3a'} />
-            <KpiCard label="Triggers activos" value={kpi.activeTriggers} sub={`de ${kpi.totalTriggers} configurados`} color="#1f6f56" />
+            <KpiCard label="Total mensajes"   value={kpi.total}           sub={filtroNodo ? 'equipo seleccionado' : 'últimos 500'}       color="#cbf135" />
+            <KpiCard label="Este mes"         value={kpi.month}           sub={mes}                                                      color="#0b0a09" />
+            <KpiCard label="Feedback prom."   value={kpi.avgScore ?? '—'} sub={`${kpi.scoreCount} valoraciones`}                        color={kpi.avgScore === null ? '#8a8885' : kpi.avgScore > 0 ? '#1a9e4a' : '#b03a3a'} />
+            <KpiCard label="Triggers activos" value={kpi.activeTriggers}  sub={`de ${kpi.totalTriggers} configurados`}                  color="#1f6f56" />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
             {/* By trigger */}
-            <Panel title="Mensajes por trigger" sub="acumulado">
+            <Panel title="Mensajes por trigger" sub={filtroNodo ? 'equipo' : 'acumulado'}>
               {byTrigger.length === 0 ? <Empty /> : (
                 <div>
                   {byTrigger.map(t => (
@@ -132,11 +162,7 @@ export default function AnalyticsPage() {
                         <span style={{ fontSize: 12, fontWeight: 700, color: '#0b0a09' }}>{t.count}</span>
                       </div>
                       <div style={{ height: 4, background: '#f5f3ef', borderRadius: 2 }}>
-                        <div style={{
-                          height: '100%', borderRadius: 2,
-                          background: '#cbf135',
-                          width: `${Math.round((t.count / byTrigger[0].count) * 100)}%`,
-                        }} />
+                        <div style={{ height: '100%', borderRadius: 2, background: '#cbf135', width: `${Math.round((t.count / byTrigger[0].count) * 100)}%` }} />
                       </div>
                     </div>
                   ))}
@@ -195,7 +221,7 @@ export default function AnalyticsPage() {
             )}
           </Panel>
         </>
-      ) : null}
+      )}
     </div>
   )
 }
