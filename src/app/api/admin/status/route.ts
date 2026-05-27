@@ -145,5 +145,31 @@ export async function GET() {
     results.efectividad = []
   }
 
+  // ── Últimos deployments (Vercel webhook) ─────────────────────────────────
+  try {
+    const { data: deps } = await sb
+      .from('deployment_log')
+      .select('estado, url, rama, commit_sha, mensaje, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5)
+    results.deployments = deps ?? []
+  } catch {
+    results.deployments = []
+  }
+
+  // ── Errores recientes de edge functions y API routes ──────────────────────
+  try {
+    const since7d = new Date(Date.now() - 7 * 86_400_000).toISOString()
+    const { data: errs, count } = await sb
+      .from('error_log')
+      .select('componente, severidad, mensaje, created_at', { count: 'exact' })
+      .gte('created_at', since7d)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    results.errores = { recientes: errs ?? [], total_7d: count ?? 0 }
+  } catch {
+    results.errores = { recientes: [], total_7d: 0 }
+  }
+
   return NextResponse.json(results)
 }
