@@ -293,12 +293,18 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
     { onConflict: 'asesor' }
   )
 
-  // 9. Marcar señales como procesadas
+  // 9. Sincronizar tps_perfiles.tps_progress con progresion_integrador
+  await sb.from('tps_perfiles').upsert(
+    { asesor, tps_progress: nuevaProgresion, updated_at: now },
+    { onConflict: 'asesor' }
+  )
+
+  // 10. Marcar señales como procesadas
   await sb.from('behavioral_signals')
     .update({ procesada: true })
     .in('id', sigIds)
 
-  // 10. Guardar snapshot en asesor_perfil_historial
+  // 11. Guardar snapshot en asesor_perfil_historial
   const { data: perfilFull } = await sb
     .from('asesor_perfil')
     .select('*')
@@ -323,7 +329,7 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
     resumen_ia:             pf.resumen_ia              ?? null,
   })
 
-  // 11. Relato de evolución (solo si hay ≥3 snapshots y el último tiene >7d de antigüedad)
+  // 12. Relato de evolución (solo si hay ≥3 snapshots y el último tiene >7d de antigüedad)
   const { count: snapCount } = await sb
     .from('asesor_perfil_historial')
     .select('id', { count: 'exact', head: true })
