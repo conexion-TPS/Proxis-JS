@@ -534,12 +534,16 @@ async function puedeReparar(tipo: string, maxIntentos = 3): Promise<boolean> {
 }
 
 async function logReparacion(rep: Reparacion): Promise<void> {
-  await sb.from('repair_log').insert({
-    tipo_alerta: rep.tipo_alerta,
-    accion:      rep.accion,
-    exito:       rep.exito,
-    detalle:     rep.detalle,
-  }).catch(e => console.error('[repair_log]', e))
+  try {
+    await sb.from('repair_log').insert({
+      tipo_alerta: rep.tipo_alerta,
+      accion:      rep.accion,
+      exito:       rep.exito,
+      detalle:     rep.detalle,
+    })
+  } catch (e) {
+    console.error('[repair_log]', e)
+  }
 }
 
 // Reparación 1: crear tps_perfiles vacío para asesores sin perfil
@@ -869,12 +873,14 @@ Deno.serve(async (_req: Request) => {
   })
   } catch (e: any) {
     console.error('[proxis-cerebro] FATAL:', e)
-    await sb.from('error_log').insert({
-      componente: 'proxis-cerebro',
-      severidad:  'error',
-      mensaje:    e?.message ?? String(e),
-      detalles:   { stack: e?.stack ?? '', timestamp: new Date().toISOString() },
-    }).catch(() => {})
+    try {
+      await sb.from('error_log').insert({
+        componente: 'proxis-cerebro',
+        severidad:  'error',
+        mensaje:    e?.message ?? String(e),
+        detalles:   { stack: e?.stack ?? '', timestamp: new Date().toISOString() },
+      })
+    } catch (_) { /* best-effort */ }
     return new Response(JSON.stringify({ ok: false, error: e?.message ?? 'Error interno' }), {
       status: 500, headers: { 'Content-Type': 'application/json' }
     })
