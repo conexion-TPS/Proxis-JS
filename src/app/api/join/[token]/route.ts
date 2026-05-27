@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
-  const { nombre, titulo_cargo, password } = await req.json().catch(() => ({}))
+  const { nombre, email: emailBody, titulo_cargo, password } = await req.json().catch(() => ({}))
 
   if (!nombre?.trim() || !password)
     return NextResponse.json({ error: 'nombre y password requeridos' }, { status: 400 })
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 
   if (nodoErr || !nodo) return NextResponse.json({ error: 'Error al crear nodo' }, { status: 500 })
 
-  // Create org_usuario — email is optional (invite may not have one)
-  const email = inv.email_destino ?? `nodo-${nodo.id}@proxis.internal`
+  // Email: prefer admin-set, then user-provided, then auto-generated
+  const email = inv.email_destino ?? emailBody?.toLowerCase?.() ?? `nodo-${nodo.id}@proxis.internal`
   const password_hash = await bcrypt.hash(password, 12)
 
   const { error: userErr } = await sb.from('org_usuarios').insert({

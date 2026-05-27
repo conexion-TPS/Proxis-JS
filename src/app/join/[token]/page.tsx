@@ -15,6 +15,7 @@ export default function JoinPage() {
   const [checking,  setChecking]  = useState(true)
 
   const [nombre,       setNombre]       = useState('')
+  const [email,        setEmail]        = useState('')
   const [tituloCargo,  setTituloCargo]  = useState('')
   const [password,     setPassword]     = useState('')
   const [password2,    setPassword2]    = useState('')
@@ -37,6 +38,7 @@ export default function JoinPage() {
     e.preventDefault()
     setFormError('')
     if (!nombre.trim())               return setFormError('El nombre es obligatorio.')
+    if (!email.trim() || !email.includes('@')) return setFormError('Ingresa un correo válido.')
     if (password.length < 8)          return setFormError('La contraseña debe tener al menos 8 caracteres.')
     if (password !== password2)       return setFormError('Las contraseñas no coinciden.')
 
@@ -45,7 +47,7 @@ export default function JoinPage() {
       const res = await fetch(`/api/join/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre: nombre.trim(), titulo_cargo: tituloCargo.trim(), password }),
+        body: JSON.stringify({ nombre: nombre.trim(), email: email.trim().toLowerCase(), titulo_cargo: tituloCargo.trim(), password }),
       })
       const json = await res.json()
       if (!res.ok || !json.ok) { setFormError(json.error ?? 'Error al registrar'); }
@@ -110,6 +112,10 @@ export default function JoinPage() {
               <label style={labelStyle}>Tu nombre completo</label>
               <input value={nombre} onChange={e => setNombre(e.target.value)}
                 placeholder="Nombre Apellido" required style={{ ...inputStyle, marginBottom: 14 }} />
+
+              <label style={labelStyle}>Tu correo electrónico</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="tu@correo.com" required style={{ ...inputStyle, marginBottom: 14 }} />
 
               <label style={labelStyle}>Tu cargo o rol <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 10 }}>(opcional)</span></label>
               <input value={tituloCargo} onChange={e => setTituloCargo(e.target.value)}
