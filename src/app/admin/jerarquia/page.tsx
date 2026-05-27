@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 
 /* ── tipos ── */
 type Institucion = { id: string; nombre: string; tipo: string; activo: boolean }
@@ -9,6 +10,7 @@ type Nodo        = { id: string; parent_id: string | null; institucion_id: strin
 type OrgUsuario  = { id: string; nombre: string; email: string; org_nodo_id: string | null; activo: boolean; ultimo_login: string | null }
 type Invitacion  = { id: string; token: string; institucion_id: string; parent_nodo_id: string | null; nivel_sugerido: number | null; email_destino: string | null; expira_at: string }
 
+type AsesorCred = { asesor: string; org_nodo_id: string | null }
 type Data = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[]; usuarios: OrgUsuario[]; invitaciones: Invitacion[] }
 
 const BASE = typeof window !== 'undefined' ? window.location.origin : ''
@@ -105,11 +107,17 @@ export default function JerarquiaPage() {
   const [invNivel, setInvNivel] = useState('')
   const [invEmail, setInvEmail] = useState('')
   const [createdToken, setCreatedToken] = useState('')
+  const [creds,        setCreds]        = useState<AsesorCred[]>([])
+  const [selAsesor,    setSelAsesor]    = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
-    const r = await fetch('/api/admin/org')
-    if (r.ok) setData(await r.json())
+    const [orgRes, credsRes] = await Promise.all([
+      fetch('/api/admin/org').then(r => r.json()),
+      supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true).order('asesor'),
+    ])
+    setData(orgRes)
+    setCreds((credsRes.data ?? []) as AsesorCred[])
     setLoading(false)
   }, [])
 
@@ -270,20 +278,71 @@ export default function JerarquiaPage() {
             </details>
 
             {/* Nodo seleccionado */}
-            {selected && (
-              <div style={{ ...panelStyle, borderColor: 'rgba(203,241,53,0.4)', background: 'rgba(203,241,53,0.04)' }}>
-                <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Nodo seleccionado</div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: '#0b0a09' }}>{selected.nombre}</div>
-                {selected.titulo_propio && <div style={{ fontSize: 12, color: '#666' }}>{selected.titulo_propio}</div>}
-                <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>ID: {selected.id.slice(0, 8)}…</div>
-                <button
-                  onClick={() => { setNewNodoInst(selected.institucion_id); setNewNodoParent(selected.id) }}
-                  style={{ ...btnStyle, width: '100%', marginTop: 12, background: 'transparent', border: '1px solid #cbf135', color: '#4a5c00' }}
-                >
-                  Crear hijo de este nodo →
-                </button>
-              </div>
-            )}
+            {selected && (() => {
+              const asesoresEnNodo = creds.filter(c => c.org_nodo_id === selected.id)
+              const asesoresSinAsignar = creds.filter(c => !c.org_nodo_id)
+              return (
+                <div style={{ ...panelStyle, borderColor: 'rgba(203,241,53,0.4)', background: 'rgba(203,241,53,0.04)' }}>
+                  <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Nodo seleccionado</div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#0b0a09' }}>{selected.nombre}</div>
+                  {selected.titulo_propio && <div style={{ fontSize: 12, color: '#666' }}>{selected.titulo_propio}</div>}
+                  <div style={{ fontSize: 11, color: '#aaa', marginTop: 4, marginBottom: 12 }}>ID: {selected.id.slice(0, 8)}…</div>
+
+                  {/* Asesores asignados */}
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                    Asesores ({asesoresEnNodo.length})
+                  </div>
+                  {asesoresEnNodo.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#bbb', marginBottom: 10 }}>Ninguno asignado</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                      {asesoresEnNodo.map(c => (
+                        <div key={c.asesor} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f9f9f7', borderRadius: 7, padding: '5px 10px' }}>
+                          <span style={{ fontSize: 12, color: '#0b0a09' }}>{c.asesor}</span>
+                          <button
+                            onClick={async () => { await api({ accion: 'asignar_asesor', asesor: c.asesor, org_nodo_id: null }); setCreds(prev => prev.map(x => x.asesor === c.asesor ? { ...x, org_nodo_id: null } : x)) }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#b03a3a', fontFamily: 'inherit', padding: '2px 6px' }}
+                          >
+                            quitar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Picker para asignar */}
+                  {asesoresSinAsignar.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                      <select value={selAsesor} onChange={e => setSelAsesor(e.target.value)} style={{ ...inputStyle, flex: 1, marginBottom: 0 }}>
+                        <option value=''>Asignar asesor…</option>
+                        {asesoresSinAsignar.map(c => <option key={c.asesor} value={c.asesor}>{c.asesor}</option>)}
+                      </select>
+                      <button
+                        disabled={!selAsesor || saving}
+                        onClick={async () => {
+                          await api({ accion: 'asignar_asesor', asesor: selAsesor, org_nodo_id: selected.id })
+                          setCreds(prev => prev.map(x => x.asesor === selAsesor ? { ...x, org_nodo_id: selected.id } : x))
+                          setSelAsesor('')
+                        }}
+                        style={{ ...btnStyle, padding: '7px 14px', opacity: !selAsesor || saving ? 0.5 : 1 }}
+                      >
+                        Asignar
+                      </button>
+                    </div>
+                  )}
+                  {asesoresSinAsignar.length === 0 && creds.length > 0 && (
+                    <div style={{ fontSize: 11, color: '#bbb', marginBottom: 12 }}>Todos los asesores ya están asignados</div>
+                  )}
+
+                  <button
+                    onClick={() => { setNewNodoInst(selected.institucion_id); setNewNodoParent(selected.id) }}
+                    style={{ ...btnStyle, width: '100%', background: 'transparent', border: '1px solid #cbf135', color: '#4a5c00' }}
+                  >
+                    Crear hijo de este nodo →
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
