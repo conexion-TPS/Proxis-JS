@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export async function GET() {
+  const token = process.env.HUGGINGFACE_TOKEN
+  return NextResponse.json({ configured: !!token, hint: token ? `${token.slice(0,6)}...` : 'EMPTY' })
+}
+
 export async function POST(req: NextRequest) {
   const { text } = await req.json()
   if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 })
