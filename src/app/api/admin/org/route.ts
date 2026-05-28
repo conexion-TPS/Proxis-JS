@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+
+function genToken() {
+  return randomBytes(24).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
 
 export async function GET() {
   const sb = supabaseAdmin()
@@ -62,8 +67,10 @@ export async function POST(req: NextRequest) {
     const { institucion_id, parent_nodo_id, nivel_sugerido, email_destino } = body
     if (!institucion_id)
       return NextResponse.json({ error: 'institucion_id requerido' }, { status: 400 })
+    const token = genToken()
     const { data, error } = await sb.from('org_invitaciones')
       .insert({
+        token,
         institucion_id,
         parent_nodo_id: parent_nodo_id || null,
         nivel_sugerido: nivel_sugerido || null,
