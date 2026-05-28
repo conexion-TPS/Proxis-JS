@@ -18,6 +18,7 @@ const NAV_ITEMS: { href: string; icon: string; label: string; group: string | nu
   { href: '/admin/knowledge',    icon: '🧠', label: 'Base KB',     group: 'IA' },
   { href: '/admin/sailor',       icon: '⛵', label: 'Sailor',      group: 'IA' },
   { href: '/admin/jerarquia',    icon: '🌲', label: 'Jerarquía',   group: 'Organización' },
+  { href: '/admin/legal',        icon: '📄', label: 'Legal',        group: 'Organización' },
   { href: '/admin/supervisores', icon: '🏢', label: 'Supervisores', group: 'Organización' },
   { href: '/admin/usuarios',     icon: '👥', label: 'Usuarios',     group: 'Organización' },
   { href: '/equipo',             icon: '🪟', label: 'Portal equipo ↗', group: 'Organización', external: true },

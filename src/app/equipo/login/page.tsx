@@ -25,7 +25,7 @@ export default function EquipoLogin() {
         setError(json.error ?? 'Credenciales incorrectas')
         setShake(true); setTimeout(() => setShake(false), 400)
       } else {
-        localStorage.setItem('equipo_session', JSON.stringify({ token: json.token, nombre: json.nombre, org_nodo_id: json.org_nodo_id }))
+        localStorage.setItem('equipo_session', JSON.stringify({ token: json.token, nombre: json.nombre, org_nodo_id: json.org_nodo_id, usuario_id: json.usuario_id, email: json.email }))
         router.push('/equipo')
       }
     } catch {

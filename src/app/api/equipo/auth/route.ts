@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     { expiresIn: EXPIRES }
   )
 
-  return NextResponse.json({ ok: true, token, nombre: usuario.nombre, org_nodo_id: usuario.org_nodo_id })
+  return NextResponse.json({ ok: true, token, nombre: usuario.nombre, org_nodo_id: usuario.org_nodo_id, usuario_id: usuario.id, email: usuario.email })
 }
 
 export function verifyEquipoToken(req: NextRequest): { usuario_id: string; org_nodo_id: string | null; email: string; nombre: string } | null {

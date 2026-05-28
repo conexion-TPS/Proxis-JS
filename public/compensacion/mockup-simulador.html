@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proxis · Simulador de Metas — Mockup UI</title>
+<style>
+:root{
+  --teal:#1f6f56;--teal-lt:#e6f3ed;
+  --amber:#a8691a;--amber-lt:#f8ecd6;
+  --red:#b03a3a;--red-lt:#fbe9e9;
+  --lime:#cbf135;--lime-dk:#a8cc1a;
+  --g50:#fafaf7;--g100:#f5f3ef;--g200:#ecebe5;--g300:#dddbd3;--g400:#9d9b93;--g600:#5d5b54;--g700:#3a3934;--g900:#161614;
+  --blue:#0b0a09;--blue-lt:#f2efe9;
+  --font:'Segoe UI',ui-sans-serif,system-ui,sans-serif;--mono:'Courier New',monospace;
+  --r:10px;--rl:14px;
+  --shadow-1:0 1px 2px rgba(20,18,12,0.06);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--g100);color:var(--g900);font-size:13.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+
+/* ── HEADER ── */
+.header{background:#0b0a09;color:white;padding:11px 24px;display:flex;align-items:center;gap:14px;border-bottom:2px solid var(--lime-dk)}
+.logo{font-size:19px;font-weight:800;letter-spacing:-0.04em}
+.logo span{color:var(--lime)}
+.huf{font-size:11px;opacity:.7;margin-left:8px}
+.uf-pill{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:3px 10px;margin-left:4px;color:white}
+.hml{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(255,255,255,.6)}
+.hbtn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:white;padding:5px 14px;border-radius:20px;font-size:12px}
+
+/* ── LAYOUT ── */
+.two-col{display:grid;grid-template-columns:370px 1fr;min-height:calc(100vh - 50px)}
+.left{background:#fafaf7;border-right:1px solid var(--g200);padding:20px 18px;overflow-y:auto}
+.right{padding:22px 26px;max-width:900px}
+
+/* ── LEFT PANEL ── */
+.stitle{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--g600);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--g200);margin-top:20px}
+.stitle:first-child{margin-top:0}
+.fg{margin-bottom:11px}
+.flbl{font-size:12px;font-weight:500;color:var(--g700);display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.fval{font-family:var(--mono);font-size:11.5px;background:white;padding:3px 8px;border-radius:6px;border:1px solid var(--g200);color:#0b0a09}
+.ftrack{width:100%;height:4px;background:var(--g200);border-radius:2px;margin-top:2px;position:relative}
+.ftrack-fill{height:4px;background:#0b0a09;border-radius:2px}
+.ftrack-thumb{width:14px;height:14px;background:#0b0a09;border:2px solid white;border-radius:50%;box-shadow:0 0 0 1px var(--g300);position:absolute;top:-5px;margin-left:-7px}
+select.fsel{width:100%;padding:8px 10px;border:1px solid var(--g200);border-radius:var(--r);font-family:var(--font);font-size:13px;color:var(--g900);background:white}
+.ib{padding:9px 12px;border-radius:var(--r);font-size:11.5px;line-height:1.5;margin-bottom:10px;border:1px solid transparent}
+.ib.am{background:var(--amber-lt);color:#7a4d0a;border-color:rgba(168,105,26,0.18)}
+.ib.bl{background:var(--blue-lt);color:#0b0a09;border-color:rgba(11,10,9,0.08)}
+.ib strong{font-weight:600}
+
+/* Toggle */
+.toggle-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;padding:5px 0}
+.toggle-lbl{font-size:12px;color:var(--g700);flex:1;line-height:1.4}
+.toggle-lbl strong{font-weight:600;color:#0b0a09}
+.toggle{width:38px;height:22px;background:#0b0a09;border-radius:11px;position:relative;flex-shrink:0}
+.toggle::before{content:'';position:absolute;width:16px;height:16px;background:white;border-radius:50%;top:3px;right:3px;box-shadow:0 1px 3px rgba(0,0,0,0.2)}
+.toggle.off{background:var(--g300)}
+.toggle.off::before{right:auto;left:3px}
+
+/* Mix grid */
+.mix-row{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;background:white;border-radius:var(--r);padding:8px 11px;border:1px solid var(--g200);margin-bottom:4px}
+.mix-row.active{border-color:var(--g700);background:var(--g50)}
+.mix-name{font-size:12px;font-weight:600;color:var(--g900)}
+.mix-sub{font-size:10.5px;color:var(--g400);margin-top:1px}
+.mix-qty{display:flex;align-items:center;gap:3px;justify-content:flex-end;background:var(--g100);padding:2px;border-radius:7px;border:1px solid var(--g200)}
+.mix-qty-btn{width:22px;height:22px;border-radius:5px;border:none;background:transparent;font-size:13px;color:var(--g700);display:flex;align-items:center;justify-content:center;font-weight:600;cursor:default}
+.mix-qty-n{font-family:var(--mono);font-size:13px;font-weight:700;color:#0b0a09;min-width:22px;text-align:center}
+.pill{display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+.pill-gn{background:var(--teal-lt);color:var(--teal)}
+.pill-am{background:var(--amber-lt);color:var(--amber)}
+
+/* Prima input */
+.prima-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.prima-input{width:85px;padding:5px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center;color:var(--g900);background:white}
+.prima-sub{font-size:11px;color:var(--g400)}
+.prima-ppa{font-size:11px;color:#185FA5;font-family:var(--mono);font-weight:500}
+
+/* Number input for aportes */
+.inp-uf{width:100px;padding:5px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center;background:white}
+.inp-hint{font-size:11px;color:var(--amber);font-family:var(--mono)}
+
+/* KPI / T5 boxes */
+.kpi-box{background:white;border:1.5px solid #BA7517;border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
+.kpi-inner{font-size:11px;color:#633806;margin-bottom:8px;line-height:1.4}
+.kpi-item{display:flex;align-items:center;gap:7px;font-size:11px;margin-bottom:5px;padding:5px;border-radius:6px;background:var(--g50)}
+.kpi-item input[type=checkbox]{width:14px;height:14px;accent-color:#BA7517}
+.kpi-item-label{font-size:11px;font-weight:500}
+.kpi-item-sub{font-size:10px;color:var(--g400)}
+
+.t5-box{background:white;border:1.5px solid #5B36AB;border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
+.t5-ttl{font-size:11px;font-weight:600;color:#5B36AB;margin-bottom:6px}
+.t5-item{display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:4px}
+.t5-item input[type=checkbox]{accent-color:#5B36AB;width:13px;height:13px}
+
+/* Bonos */
+.bono-card{background:white;border:1px solid var(--g200);border-radius:var(--r);padding:8px 10px;margin-bottom:5px}
+.bono-row{display:flex;justify-content:space-between;align-items:center}
+.bono-name{font-size:12px;font-weight:500}
+.bono-sub{font-size:10px;color:var(--g400)}
+
+/* Métodos / nodos */
+.metodo-group-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--teal);display:flex;align-items:center;gap:8px;margin:16px 0 7px}
+.metodo-group-lbl::before,.metodo-group-lbl::after{content:'';flex:1;border-top:1px solid var(--g200)}
+.metodo-group-sin{color:var(--amber)}
+.metodo-row{border:1px solid var(--g200);border-radius:var(--r);margin-bottom:5px;background:white;overflow:hidden}
+.metodo-row.active{border-color:var(--lime-dk);background:#fcffe0;box-shadow:0 0 0 2px rgba(203,241,53,0.2)}
+.metodo-top{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 11px 7px;gap:8px}
+.metodo-name{font-size:12px;font-weight:600;color:var(--g900)}
+.metodo-sub{font-size:10.5px;color:var(--g400);margin-top:2px;line-height:1.35}
+.mpct-wrap{display:flex;align-items:center;gap:2px;background:var(--g100);padding:2px;border-radius:7px;border:1px solid var(--g200);flex-shrink:0}
+.mpct-btn{width:21px;height:21px;border-radius:5px;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--g700);display:flex;align-items:center;justify-content:center;cursor:default}
+.mpct-n{font-family:var(--mono);font-size:13px;font-weight:700;min-width:34px;text-align:center;color:#0b0a09}
+.cadena-wrap{background:var(--g50);border-top:1px solid var(--g200);padding:8px 11px;overflow-x:auto}
+.cadena-row{display:flex;align-items:stretch;gap:4px}
+.step-box{background:white;border:1px solid var(--g200);border-radius:6px;padding:5px 7px;text-align:center;min-width:46px;flex-shrink:0;box-shadow:var(--shadow-1)}
+.step-n{font-size:13px;font-weight:700;color:var(--g900);line-height:1.1}
+.step-l{font-size:8px;color:var(--g400);line-height:1.3;margin-top:2px}
+.step-hi{border-color:var(--lime-dk)!important;background:#fbffd9!important}
+.step-hi .step-n{color:#4a6600!important}.step-hi .step-l{color:#5a7800!important}
+.step-arr{color:var(--g300);font-size:12px;align-self:center;padding:0 1px}
+
+/* ── RIGHT PANEL ── */
+.alert-ok{background:var(--teal-lt);border:1.5px solid var(--teal);border-radius:var(--rl);padding:12px 16px;margin-bottom:12px;color:var(--teal);font-size:13px;line-height:1.5}
+.alert-ok strong{font-weight:700;font-size:14px}
+.save-btn{display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:white;border:none;padding:8px 14px;border-radius:var(--r);font-size:12px;font-weight:600;margin-top:10px;cursor:default}
+
+/* Metric cards */
+.mcrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.smc{background:white;border:1px solid var(--g200);border-radius:var(--rl);padding:14px 16px;box-shadow:var(--shadow-1)}
+.smc.ok{background:linear-gradient(180deg,#edf6f1 0%,#e3f1ea 100%);border:1.5px solid var(--teal)}
+.smc-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--g400);margin-bottom:6px}
+.smc.ok .smc-lbl{color:var(--teal)}
+.smc-val{font-size:20px;font-weight:600;color:var(--g900);letter-spacing:-.022em;line-height:1.15}
+.smc.ok .smc-val{color:var(--teal);font-size:24px}
+.smc-sub{font-size:11px;color:var(--g600);margin-top:3px}
+.smc.ok .smc-sub{color:var(--teal);opacity:.85}
+
+/* Ref notice */
+.ref-notice{font-size:11px;color:#185FA5;line-height:1.6;padding:9px 12px;background:#E6F1FB;border-left:3px solid #185FA5;border-radius:0 6px 6px 0;margin-bottom:12px}
+
+/* Contactos card */
+.contactos-card{background:#fcffe0;border:1.5px solid var(--lime-dk);border-radius:var(--rl);padding:14px 18px;margin:14px 0;display:inline-flex;flex-direction:column;min-width:320px;box-shadow:0 0 0 3px rgba(203,241,53,0.22)}
+.contactos-title{font-size:10.5px;font-weight:700;color:#4a6600;letter-spacing:.09em;text-transform:uppercase;margin-bottom:12px}
+.contactos-nums{display:flex;gap:10px}
+.cnum-box{background:white;border:2px solid var(--lime-dk);border-radius:var(--r);padding:8px 14px;text-align:center;min-width:110px}
+.cnum-big{font-family:var(--mono);font-size:42px;font-weight:800;color:#3a4f00;line-height:1;letter-spacing:-0.03em}
+.cnum-sub{font-size:10px;color:var(--g600);margin-top:4px;font-weight:500}
+.cnum-box2{background:white;border:1.5px solid var(--lime-dk);border-radius:var(--r);padding:8px 14px;text-align:center;min-width:110px}
+.cnum-mid{font-family:var(--mono);font-size:30px;font-weight:600;color:var(--g900);line-height:1}
+
+/* Cards */
+.card{background:white;border:1px solid var(--g200);border-radius:var(--rl);padding:18px 20px;margin-bottom:12px;box-shadow:var(--shadow-1)}
+.card-title{font-size:13px;font-weight:600;color:var(--g900);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.card-title::before{content:'';display:block;width:3px;height:14px;background:var(--lime-dk);border-radius:2px;flex-shrink:0}
+.card-title .coll-arrow{margin-left:auto;font-size:11px;color:var(--g400);font-weight:400}
+
+/* Funnel */
+.fstep{display:grid;grid-template-columns:140px 1fr 52px 130px;align-items:center;gap:10px;margin-bottom:9px}
+.fstep-lbl{font-size:12px;font-weight:500;color:var(--g700)}
+.fbar-wrap{height:32px;background:var(--g100);border-radius:8px;overflow:hidden;border:1px solid var(--g200)}
+.fbar{height:100%;border-radius:7px;display:flex;align-items:center;padding-left:10px;font-size:12px;font-weight:600;white-space:nowrap}
+.fnum{font-size:19px;font-weight:600;color:var(--g900);text-align:right;font-feature-settings:"tnum"}
+.feq{font-size:11px;color:var(--g400);text-align:right;line-height:1.3}
+.bar-c{background:#cfe2f6;color:#0C447C}
+.bar-p{background:#b8e5d2;color:#085041}
+.fsep{display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--teal)}
+.fsep::before,.fsep::after{content:'';flex:1;border-top:0.5px solid #5DCAA5}
+.fsep.cold{color:var(--g400)}.fsep.cold::before,.fsep.cold::after{border-color:var(--g200)}
+
+/* Tables */
+.dt{width:100%;border-collapse:collapse;font-size:12px}
+.dt th{text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--g400);padding:7px 9px;border-bottom:1px solid var(--g200)}
+.dt td{padding:8px 9px;border-bottom:1px solid var(--g100);color:var(--g700)}
+.dt tfoot td{font-weight:600;color:var(--g900);border-top:1px solid var(--g300);background:var(--g50);padding-top:9px}
+.consol-highlight{background:var(--teal-lt);color:var(--teal)!important;font-size:14px!important;font-weight:700!important}
+
+/* Disclaimer */
+.disclaimer{font-size:11px;color:var(--g400);border-top:1px solid var(--g200);padding-top:10px;margin-top:4px;line-height:1.6}
+.disclaimer strong{color:var(--g600)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">Pro<span>xis</span></div>
+  <div style="width:1px;height:20px;background:rgba(255,255,255,.15);margin:0 2px"></div>
+  <div style="font-size:11px;font-weight:600;color:white;line-height:1.3">Prospección<span style="display:block;font-size:10px;font-weight:400;opacity:.6;letter-spacing:.07em;text-transform:uppercase">en práctica</span></div>
+  <span class="huf">UF: <span class="uf-pill">$39.841</span></span>
+  <div class="hml">
+    <span>Supervisor: Marta Espinoza</span>
+    <button class="hbtn">Salir</button>
+  </div>
+</header>
+
+<div class="two-col">
+
+  <!-- ══════════════ LEFT PANEL ══════════════ -->
+  <div class="left">
+
+    <!-- Asesor -->
+    <div class="stitle">Selección de asesor</div>
+    <div class="fg">
+      <div class="flbl">Asesor a simular</div>
+      <select class="fsel"><option>Nazaret Johannesen Rojas</option><option>Carlos Muñoz López</option><option>Ana Torres Vidal</option></select>
+    </div>
+
+    <!-- Antigüedad / Meta / Persistencia -->
+    <div class="fg">
+      <div class="flbl">Antigüedad del asesor <span class="fval">24 meses</span></div>
+      <div class="ftrack"><div class="ftrack-fill" style="width:20%"></div><div class="ftrack-thumb" style="left:20%"></div></div>
+    </div>
+    <div class="fg">
+      <div class="flbl">Meta de ingreso mensual <span class="fval">$2.000.000</span></div>
+      <div class="ftrack"><div class="ftrack-fill" style="width:40%"></div><div class="ftrack-thumb" style="left:40%"></div></div>
+    </div>
+    <div class="fg">
+      <div class="flbl">Persistencia estimada <span class="fval">90%</span></div>
+      <div class="ftrack"><div class="ftrack-fill" style="width:75%"></div><div class="ftrack-thumb" style="left:75%"></div></div>
+    </div>
+    <div class="ib bl">Mínima exigida (mes 24): <strong>82%</strong> · Cumplimiento: <strong>110%</strong> → <strong>120% del bono</strong></div>
+
+    <!-- Campaña -->
+    <div class="stitle">Modo de contrato</div>
+    <div class="toggle-row">
+      <div class="toggle-lbl"><strong>Activar campaña 2026</strong><br><span style="font-size:11px;color:var(--g400)">APV 100% AE · topes ampliados</span></div>
+      <div class="toggle"></div>
+    </div>
+    <div class="ib bl">Campaña 2026: APV al <strong>100%</strong>. Tope T5: <strong>sin tope</strong>. GI: tope liberado.</div>
+
+    <!-- Mix productos -->
+    <div class="stitle">Mix de productos mensual</div>
+    <div class="ib am"><strong>Número de pólizas por tipo en un mes típico.</strong></div>
+
+    <div class="mix-row active">
+      <div><div class="mix-name">Vida Empresarial <span class="pill pill-gn" style="font-size:9px">campaña 100%</span></div><div class="mix-sub">Factor AE: 200%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">2</div><div class="mix-qty-btn">+</div></div>
+    </div>
+    <div class="mix-row">
+      <div><div class="mix-name">Vida Mujer</div><div class="mix-sub">Factor AE: 200%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">0</div><div class="mix-qty-btn">+</div></div>
+    </div>
+    <div class="mix-row">
+      <div><div class="mix-name">Seguro Temporal</div><div class="mix-sub">Factor AE: 100%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">1</div><div class="mix-qty-btn">+</div></div>
+    </div>
+    <div class="mix-row">
+      <div><div class="mix-name">El Futuro es Hoy AE</div><div class="mix-sub">Factor AE: 100%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">0</div><div class="mix-qty-btn">+</div></div>
+    </div>
+    <div class="mix-row">
+      <div><div class="mix-name">Acc. Personales</div><div class="mix-sub">Factor AE: 100%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">1</div><div class="mix-qty-btn">+</div></div>
+    </div>
+    <div class="mix-row active">
+      <div><div class="mix-name">APV <span class="pill pill-gn" style="font-size:9px">campaña 100%</span></div><div class="mix-sub">Factor AE: 50%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">1</div><div class="mix-qty-btn">+</div></div>
+    </div>
+    <div class="mix-row">
+      <div><div class="mix-name">Salud</div><div class="mix-sub">Factor AE: 50%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">0</div><div class="mix-qty-btn">+</div></div>
+    </div>
+    <div class="mix-row">
+      <div><div class="mix-name">Vida Empresarial Flexible</div><div class="mix-sub">Factor AE: 50%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">0</div><div class="mix-qty-btn">+</div></div>
+    </div>
+
+    <!-- Prima mensual -->
+    <div class="stitle">Prima mensual promedio por producto (Vida)</div>
+    <div class="fg">
+      <div class="flbl">Vida Empresarial <span style="font-size:10px;color:var(--g400)">PPA = prima × 12</span></div>
+      <div class="prima-row">
+        <div class="prima-input" style="display:flex;align-items:center;justify-content:center">5,08</div>
+        <span class="prima-sub">UF/mes</span>
+        <span class="prima-ppa">PPA: 60,9 UF</span>
+      </div>
+    </div>
+    <div class="fg">
+      <div class="flbl">Seguro Temporal <span style="font-size:10px;color:var(--g400)">PPA = prima × 12</span></div>
+      <div class="prima-row">
+        <div class="prima-input" style="display:flex;align-items:center;justify-content:center">2,03</div>
+        <span class="prima-sub">UF/mes</span>
+        <span class="prima-ppa">PPA: 24,3 UF</span>
+      </div>
+    </div>
+    <div class="fg">
+      <div class="flbl">Acc. Personales <span style="font-size:10px;color:var(--g400)">PPA = prima × 12</span></div>
+      <div class="prima-row">
+        <div class="prima-input" style="display:flex;align-items:center;justify-content:center">0,76</div>
+        <span class="prima-sub">UF/mes</span>
+        <span class="prima-ppa">PPA: 9,1 UF</span>
+      </div>
+    </div>
+    <div class="fg">
+      <div class="flbl">APV <span style="font-size:10px;color:var(--g400)">PPA = prima × 12</span></div>
+      <div class="prima-row">
+        <div class="prima-input" style="display:flex;align-items:center;justify-content:center">3,01</div>
+        <span class="prima-sub">UF/mes</span>
+        <span class="prima-ppa">PPA: 36,1 UF</span>
+      </div>
+    </div>
+
+    <!-- GI -->
+    <div class="stitle">Mix Generales (GI)</div>
+    <div style="font-size:11px;color:var(--g400);margin-bottom:7px">Auto: 50% AE · Hogar: 100% AE. Se suman con tope del 25% del AE Vida.</div>
+    <div class="mix-row">
+      <div><div class="mix-name">Auto</div><div class="mix-sub">AE: 50%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">0</div><div class="mix-qty-btn">+</div></div>
+    </div>
+    <div class="mix-row">
+      <div><div class="mix-name">Hogar</div><div class="mix-sub">AE: 100%</div></div>
+      <div class="mix-qty"><div class="mix-qty-btn">−</div><div class="mix-qty-n">0</div><div class="mix-qty-btn">+</div></div>
+    </div>
+
+    <!-- Aportes -->
+    <div class="stitle">Aportes y traspasos (AE cartera)</div>
+    <div class="fg">
+      <div class="flbl">APV — Aporte extraordinario (UF) <span style="font-size:10px;color:var(--g400)">PPA: 10% · AE: 50%</span></div>
+      <div class="prima-row">
+        <div class="inp-uf" style="display:flex;align-items:center;justify-content:center">0</div>
+        <span class="prima-sub">UF ·</span>
+        <span class="inp-hint">PPA: 0 UF · 0 AE</span>
+      </div>
+    </div>
+    <div class="fg">
+      <div class="flbl">APV AE Flexible — Traspaso cartera (UF) <span style="font-size:10px;color:var(--g400)">PPA: 10% · AE: 25%</span></div>
+      <div class="prima-row">
+        <div class="inp-uf" style="display:flex;align-items:center;justify-content:center">0</div>
+        <span class="prima-sub">UF ·</span>
+        <span class="inp-hint">PPA: 0 UF · 0 AE</span>
+      </div>
+    </div>
+    <div class="fg">
+      <div class="flbl">Futura Renta — Aporte extraordinario (UF) <span style="font-size:10px;color:var(--g400)">AE: 5% del monto</span></div>
+      <div class="prima-row">
+        <div class="inp-uf" style="display:flex;align-items:center;justify-content:center">0</div>
+        <span class="prima-sub">UF ·</span>
+        <span class="inp-hint">0 AE</span>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="stitle" style="color:#BA7517">KPI Campaña APV 100% <span style="font-size:10px;font-weight:400;color:var(--g400)">— requiere los 3</span></div>
+    <div class="kpi-box">
+      <div class="kpi-inner">Para pago al <strong>100%</strong>: debe cumplir <strong>los 3 KPI</strong>. Si falla uno → APV se paga al <strong>50%</strong>.</div>
+      <div class="kpi-item"><input type="checkbox" checked disabled><div><div class="kpi-item-label">Póliza Vida</div><div class="kpi-item-sub">Vida Empresarial, Vida Mujer u otro producto Vida</div></div></div>
+      <div class="kpi-item"><input type="checkbox" disabled><div><div class="kpi-item-label">Póliza Generales</div><div class="kpi-item-sub">Auto, Hogar u otro producto GI</div></div></div>
+      <div class="kpi-item"><input type="checkbox" disabled><div><div class="kpi-item-label">Póliza Salud XS</div><div class="kpi-item-sub">Protección Light / Oncológico</div></div></div>
+    </div>
+    <div class="ib am" style="font-size:11px">⚠ <strong>APV al 50%</strong> por incumplimiento KPI: falta <strong>Generales, Salud XS</strong>.</div>
+
+    <!-- T5 -->
+    <div class="stitle" style="color:#5B36AB">Tramo 5 — Requisitos (AE &gt; 200)</div>
+    <div class="t5-box">
+      <div class="t5-ttl">Cumple al menos 1 de 5 + persistencia ≥ 85%</div>
+      <div class="t5-item"><input type="checkbox" disabled> Prima Básica ≥ UF 55</div>
+      <div class="t5-item"><input type="checkbox" checked disabled> Capital fallecimiento ≥ UF 6.000</div>
+      <div class="t5-item"><input type="checkbox" checked disabled> APE emitido ≥ UF 300</div>
+      <div class="t5-item"><input type="checkbox" disabled> 4 pólizas vida (o 3)</div>
+      <div class="t5-item"><input type="checkbox" disabled> 3 pólizas vida + 3 generales</div>
+    </div>
+
+    <!-- Bonos adicionales -->
+    <div class="stitle">Bonos adicionales</div>
+    <div class="bono-card">
+      <div class="bono-row"><div><div class="bono-name">🏅 Bono Top 20 APE</div><div class="bono-sub">Premio UF 1-23 según ranking</div></div><input type="checkbox" disabled></div>
+    </div>
+    <div class="bono-card">
+      <div class="bono-row"><div><div class="bono-name">📈 Bono Top 20 Crecim.</div><div class="bono-sub">Premio UF 1-11 según ranking</div></div><input type="checkbox" disabled></div>
+    </div>
+    <div class="bono-card">
+      <div class="bono-row"><div><div class="bono-name">💼 Gratificación legal</div><div class="bono-sub">Art. 50 CT · 25% IMM mensual</div></div><input type="checkbox" checked disabled></div>
+    </div>
+
+    <!-- Nodos / prospectos -->
+    <div class="stitle">Prospectos Referidos por Contactos / Nodos Referidores</div>
+    <div class="ib am"><strong>Define el % de prospectos por método</strong> (pasos de 5%). Meta: ≥80% Contactos/Nodos.</div>
+
+    <div class="metodo-group-lbl">Con contacto / nodo activo</div>
+
+    <div class="metodo-row active">
+      <div class="metodo-top">
+        <div><div class="metodo-name">Contacto/Nodo — nombre dado <span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--teal-lt);color:var(--teal);font-weight:600">25-30%</span></div><div class="metodo-sub">El contacto da un nombre y teléfono. El asesor llega con referencia pero sin presentación activa.</div></div>
+        <div class="mpct-wrap"><div class="mpct-btn">−</div><div class="mpct-n">40%</div><div class="mpct-btn">+</div></div>
+      </div>
+      <div class="cadena-wrap"><div class="cadena-row">
+        <div class="step-box"><div class="step-n">1</div><div class="step-l">contacto/nodo</div></div>
+        <div class="step-arr">→</div>
+        <div class="step-box"><div class="step-n">5</div><div class="step-l">nombres dados</div></div>
+        <div class="step-arr">→</div>
+        <div class="step-box"><div class="step-n">2</div><div class="step-l">con reunión</div></div>
+        <div class="step-arr">→</div>
+        <div class="step-box step-hi"><div class="step-n">1</div><div class="step-l">cierre est.</div></div>
+      </div></div>
+    </div>
+
+    <div class="metodo-row">
+      <div class="metodo-top">
+        <div><div class="metodo-name">Contacto/Nodo — patrocinio activo <span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--teal-lt);color:var(--teal);font-weight:600">40-50%</span></div><div class="metodo-sub">El nodo hace una introducción activa.</div></div>
+        <div class="mpct-wrap"><div class="mpct-btn">−</div><div class="mpct-n">40%</div><div class="mpct-btn">+</div></div>
+      </div>
+    </div>
+
+    <div class="metodo-row">
+      <div class="metodo-top">
+        <div><div class="metodo-name">Transferencia en vivo <span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--teal-lt);color:var(--teal);font-weight:600">55-70%</span></div><div class="metodo-sub">El nodo presenta en persona o videollamada en ese momento.</div></div>
+        <div class="mpct-wrap"><div class="mpct-btn">−</div><div class="mpct-n">0%</div><div class="mpct-btn">+</div></div>
+      </div>
+    </div>
+
+    <div class="metodo-row">
+      <div class="metodo-top">
+        <div><div class="metodo-name">Referidos tras cierre <span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--teal-lt);color:var(--teal);font-weight:600">20-25%</span></div><div class="metodo-sub">Clientes actuales tras el cierre, transferidos en vivo.</div></div>
+        <div class="mpct-wrap"><div class="mpct-btn">−</div><div class="mpct-n">0%</div><div class="mpct-btn">+</div></div>
+      </div>
+    </div>
+
+    <div class="metodo-group-lbl metodo-group-sin">Sin contacto / nodo</div>
+
+    <div class="metodo-row">
+      <div class="metodo-top">
+        <div><div class="metodo-name">Leads digitales <span style="font-size:10px;padding:2px 7px;border-radius:20px;background:#E6F1FB;color:#0C447C;font-weight:600">10-15%</span></div><div class="metodo-sub">Leads online. Ya mostraron interés previo.</div></div>
+        <div class="mpct-wrap"><div class="mpct-btn">−</div><div class="mpct-n">10%</div><div class="mpct-btn">+</div></div>
+      </div>
+    </div>
+
+    <div class="metodo-row">
+      <div class="metodo-top">
+        <div><div class="metodo-name">Prospección en frío <span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--amber-lt);color:var(--amber);font-weight:600">2-4%</span></div><div class="metodo-sub">Contacto masivo sin pre-calificación.</div></div>
+        <div class="mpct-wrap"><div class="mpct-btn">−</div><div class="mpct-n">10%</div><div class="mpct-btn">+</div></div>
+      </div>
+    </div>
+
+  </div><!-- /left -->
+
+  <!-- ══════════════ RIGHT PANEL ══════════════ -->
+  <div class="right">
+
+    <!-- Alert -->
+    <div class="alert-ok">
+      <strong>Meta alcanzable.</strong> Ingreso estimado: <strong>$2.418.000</strong> · Excedente: <strong>$418.000</strong>
+      <br><div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="save-btn">💾 Guardar metas de Nazaret Johannesen en Tracker</button>
+        <span style="font-size:11px;color:var(--teal);opacity:.85">Contactos/sem: <strong>9</strong> · Prospectos/mes: <strong>41</strong> · Ventas/mes: <strong>5</strong></span>
+      </div>
+    </div>
+
+    <!-- Metric cards -->
+    <div class="mcrow">
+      <div class="smc">
+        <div class="smc-lbl">Sueldo base</div>
+        <div class="smc-val">$539.000</div>
+        <div class="smc-sub">Mín. legal $539.000</div>
+      </div>
+      <div class="smc">
+        <div class="smc-lbl">Bono producción AE</div>
+        <div class="smc-val">$1.497.000</div>
+        <div class="smc-sub">130,1 AE → 31,2 UF × 120%</div>
+      </div>
+      <div class="smc ok">
+        <div class="smc-lbl">* Ingreso Bruto Aprox. Total</div>
+        <div class="smc-val">$2.418.000</div>
+        <div class="smc-sub">UF: $39.841 · AE VI+GI: 130,1</div>
+      </div>
+    </div>
+
+    <!-- Referencia notice -->
+    <div class="ref-notice">ⓘ * Cifra referencial. Valores aproximados. Es posible que haya diferencias con los valores reales. El objetivo del "Ingreso Bruto Aproximado Total" es servir solo de referencia general para el cálculo de las metas de prospección.</div>
+
+    <!-- Contactos necesarios -->
+    <div style="display:flex;justify-content:center;margin-bottom:14px">
+      <div class="contactos-card">
+        <div class="contactos-title">Contactos necesarios para tu meta</div>
+        <div class="contactos-nums">
+          <div class="cnum-box"><div class="cnum-big">36</div><div class="cnum-sub">por mes</div></div>
+          <div class="cnum-box2"><div class="cnum-mid">9</div><div class="cnum-sub">esta semana</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Funnel -->
+    <div class="card">
+      <div class="card-title">Prospectos Referidos por Contactos / Nodos</div>
+
+      <div class="fsep">con contacto / nodo activo</div>
+      <div class="fstep">
+        <div class="fstep-lbl">Contactos/Nodos</div>
+        <div class="fbar-wrap"><div class="fbar bar-c" style="width:80%">36</div></div>
+        <div class="fnum">36</div>
+        <div class="feq">9 contactos por semana</div>
+      </div>
+      <div class="fstep">
+        <div class="fstep-lbl">Prospectos</div>
+        <div class="fbar-wrap"><div class="fbar bar-p" style="width:100%">180</div></div>
+        <div class="fnum">180</div>
+        <div class="feq">5 por contacto</div>
+      </div>
+      <div class="fsep cold">sin contacto / nodo</div>
+      <div class="fstep">
+        <div class="fstep-lbl" style="font-size:11px;opacity:.7">Digital + frío</div>
+        <div class="fbar-wrap"><div class="fbar" style="width:28%;background:#E8E7E2;color:#5F5E5A;font-size:11px">25</div></div>
+        <div class="fnum" style="font-size:13px;color:var(--g400)">25</div>
+        <div class="feq" style="font-size:10px">prospectos adicionales</div>
+      </div>
+    </div>
+
+    <!-- Desglose mix (colapsable) -->
+    <div class="card">
+      <div class="card-title">Desglose del mix de productos — Campaña 2026 <span class="coll-arrow">▾</span></div>
+      <table class="dt">
+        <thead><tr><th>Producto</th><th>Pólizas</th><th>Factor AE</th><th>PPA (UF)</th><th>AE Puntos</th><th>Nota</th></tr></thead>
+        <tbody>
+          <tr><td>Vida Empresarial</td><td>2</td><td>200%</td><td>121,8</td><td>243,6</td><td><span class="pill pill-gn">campaña 100%</span></td></tr>
+          <tr><td>Seguro Temporal</td><td>1</td><td>100%</td><td>24,3</td><td>24,3</td><td></td></tr>
+          <tr><td>Acc. Personales</td><td>1</td><td>100%</td><td>9,1</td><td>9,1</td><td></td></tr>
+          <tr><td>APV</td><td>1</td><td>100%</td><td>36,1</td><td>36,1</td><td><span class="pill pill-gn">campaña 100%</span></td></tr>
+        </tbody>
+        <tfoot><tr><td>Total VI</td><td>5</td><td>—</td><td>—</td><td>313,1 AE</td><td></td></tr></tfoot>
+      </table>
+      <p style="font-size:11px;color:var(--g400);margin-top:8px;line-height:1.6">*Valores aproximados de referencia general.</p>
+    </div>
+
+    <!-- Tramos (colapsable) -->
+    <div class="card">
+      <div class="card-title">Transformación AE Puntos → Bono UF <span class="coll-arrow">▾</span></div>
+      <table class="dt">
+        <thead><tr><th>Tramo AE Puntos</th><th>Puntos aplicados</th><th>%</th><th>UF generadas</th><th>$ CLP</th></tr></thead>
+        <tbody>
+          <tr><td>0 – 49,99</td><td>50,0</td><td>10%</td><td>5,00</td><td>$199.209</td></tr>
+          <tr><td>50 – 99,99</td><td>50,0</td><td>12%</td><td>6,00</td><td>$239.050</td></tr>
+          <tr><td>100 – 149,99</td><td>30,1</td><td>15%</td><td>4,52</td><td>$180.046</td></tr>
+          <tr style="color:var(--g400)"><td>150 – 200</td><td>—</td><td>18%</td><td>—</td><td>—</td></tr>
+          <tr style="color:var(--g400)"><td>200+ (T5)</td><td>—</td><td>10%</td><td>—</td><td>—</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td colspan="3">Bono bruto</td><td>15,52 UF</td><td>$618.273</td></tr>
+          <tr><td colspan="3">× Persistencia (120%)</td><td>18,62 UF</td><td><strong>$741.928</strong></td></tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Consolidado (colapsable) -->
+    <div class="card">
+      <div class="card-title">🧾 Consolidado mensual completo <span class="coll-arrow">▾</span></div>
+      <table class="dt">
+        <thead><tr><th>Componente</th><th>Detalle</th><th>$ mes</th></tr></thead>
+        <tbody>
+          <tr><td>Sueldo base</td><td>Fijo mensual</td><td><strong>$539.000</strong></td></tr>
+          <tr><td>Bono producción AE</td><td>130,1 VI + 0 GI = 130,1 AE</td><td><strong>$741.928</strong></td></tr>
+          <tr><td>Comisión venta mes 1</td><td>Colchón mes 1</td><td><strong>$814.000</strong></td></tr>
+          <tr><td>Incentivo mantención</td><td>Meses 13-24</td><td><strong>$323.000</strong></td></tr>
+          <tr class="consol-highlight"><td colspan="2"><strong>INGRESO BRUTO MENSUAL ESTIMADO</strong></td><td><strong>$2.418.000</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Disclaimer -->
+    <p class="disclaimer">* Esta simulación es una <strong>referencia de gestión</strong>, no una liquidación exacta. Su propósito es estimar el número de contactos y volumen de producción necesarios para alcanzar una meta de ingresos. El resultado real dependerá del mix definitivo de productos, primas cobradas y persistencia mensual. UF = $39.841 · Sueldo mínimo $539.000 (Ley 21.751) · Tope T5: sin tope (mes 24).</p>
+
+    <div style="text-align:center;font-size:11px;color:var(--g400);padding:24px 0 8px;border-top:1px solid var(--g200);margin-top:16px">© 2026 The Precision Selling · Todos los derechos reservados</div>
+  </div><!-- /right -->
+
+</div>
+</body>
+</html>

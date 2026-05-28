@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import LegalGate from '@/components/LegalGate'
 
 type AsesorRow = {
   asesor: string; daysSince: number; msgs7d: number
@@ -11,8 +12,11 @@ type EquipoRow = { nodo: string; nodo_id: string; total: number; urgenciaPromedi
 
 export default function EquipoDashboard() {
   const router = useRouter()
-  const [nombre,   setNombre]   = useState('')
-  const [tipo,     setTipo]     = useState<'supervisor' | 'director'>('supervisor')
+  const [nombre,      setNombre]      = useState('')
+  const [email,       setEmail]       = useState('')
+  const [usuarioId,   setUsuarioId]   = useState('')
+  const [legalOk,     setLegalOk]     = useState(false)
+  const [tipo,        setTipo]        = useState<'supervisor' | 'director'>('supervisor')
   const [asesores, setAsesores] = useState<AsesorRow[]>([])
   const [equipos,  setEquipos]  = useState<EquipoRow[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -23,6 +27,13 @@ export default function EquipoDashboard() {
     if (!raw) { router.push('/equipo/login'); return }
     const session = JSON.parse(raw)
     setNombre(session.nombre ?? '')
+    setEmail(session.email ?? '')
+    setUsuarioId(session.usuario_id ?? '')
+    // Check if supervisor accepted terms
+    fetch(`/api/legal/check?tipo=terminos_supervisor&org_usuario_id=${session.usuario_id}`)
+      .then(r => r.json())
+      .then(d => { if (d.acepto) setLegalOk(true) })
+      .catch(() => setLegalOk(true))
 
     fetch('/api/equipo/dashboard', {
       headers: { Authorization: `Bearer ${session.token}` },
@@ -45,6 +56,16 @@ export default function EquipoDashboard() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafaf7' }}>
       <span style={{ color: '#8a8885', fontSize: 14 }}>Cargando tu equipo…</span>
     </div>
+  )
+
+  if (!legalOk) return (
+    <LegalGate
+      tipo="terminos_supervisor"
+      plataforma="equipo"
+      orgUsuarioId={usuarioId}
+      email={email}
+      onAceptado={() => setLegalOk(true)}
+    />
   )
 
   return (
