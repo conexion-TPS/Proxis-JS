@@ -16,7 +16,7 @@ export async function GET() {
     if (!key) throw new Error('no key')
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${key}`,
-      { method: 'GET' }
+      { method: 'GET', cache: 'no-store' }
     )
     results.gemini = r.ok
     if (!r.ok) results.gemini_status = r.status
