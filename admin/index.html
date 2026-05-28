@@ -365,6 +365,7 @@ body {
   </div>
 </main>
 
+<script src="_secrets.js"></script>
 <script>
 /* ── AUTH ── */
 const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
@@ -385,8 +386,7 @@ const SB_KEY_DEV  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const SB_URL = IS_DEV ? SB_URL_DEV  : SB_URL_PROD;
 const SB_KEY = IS_DEV ? SB_KEY_DEV  : SB_KEY_PROD;
 
-const GEMINI_KEY = 'REDACTED';
-const RESEND_KEY = 're_2iEP2Kbw_9DNXTUW519CRzDzmVKknQ64Y';
+// GEMINI_KEY y RESEND_KEY vienen de admin/_secrets.js (gitignoreado)
 
 /* ── UI: ambiente ── */
 const envBadge = document.getElementById('envBadge');

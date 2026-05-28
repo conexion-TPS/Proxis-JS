@@ -19,9 +19,10 @@ const _SB_KEY_DEV  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const CORE_SB_URL = IS_DEV ? _SB_URL_DEV  : _SB_URL_PROD;
 const CORE_SB_KEY = IS_DEV ? _SB_KEY_DEV  : _SB_KEY_PROD;
 
-// Pegar aquí cuando estén disponibles:
-const GEMINI_KEY = 'REDACTED';
-const RESEND_KEY = 're_2iEP2Kbw_9DNXTUW519CRzDzmVKknQ64Y';
+// Claves definidas en admin/_secrets.js (gitignoreado) — nunca hardcodear aquí
+if (typeof GEMINI_KEY === 'undefined' || typeof RESEND_KEY === 'undefined') {
+  console.error('[core] Falta admin/_secrets.js — copiá _secrets.example.js y completá los valores reales');
+}
 
 /* ── SUPABASE CLIENT ──────────────────────────────────────── */
 const SBC = {

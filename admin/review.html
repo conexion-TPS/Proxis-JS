@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proxis Admin · Revisión</title>
+<title>Proxis Admin Â· RevisiÃ³n</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--black);min-height:100vh;-webkit-font-smoothing:antialiased}
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .header{background:var(--black);padding:0 28px;height:56px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 0 var(--lime-dk);position:sticky;top:0;z-index:100}
 .logo{display:flex;align-items:center;gap:8px;text-decoration:none}
 .logo-wordmark{font-weight:800;font-size:18px;color:var(--white);letter-spacing:-0.04em}
@@ -33,7 +33,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .btn-logout{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.7);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s}
 .btn-logout:hover{background:rgba(255,255,255,0.14);color:white}
 
-/* ── LAYOUT ── */
+/* â”€â”€ LAYOUT â”€â”€ */
 .main{max-width:1200px;margin:0 auto;padding:32px 28px}
 .page-header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
 .back-link{font-size:12px;color:var(--gray-3);text-decoration:none;display:flex;align-items:center;gap:5px;transition:color 0.15s}
@@ -42,7 +42,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 
 .two-col{display:grid;grid-template-columns:1fr 400px;gap:20px;align-items:start}
 
-/* ── TABLA ── */
+/* â”€â”€ TABLA â”€â”€ */
 .card{background:white;border:1px solid var(--gray-5);border-radius:12px;overflow:hidden}
 table{width:100%;border-collapse:collapse}
 thead th{padding:11px 16px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--gray-3);background:#fafaf7;border-bottom:1px solid var(--gray-5)}
@@ -61,7 +61,7 @@ td{padding:11px 16px;font-size:13px;vertical-align:middle}
 .badge-neg{background:var(--red-lt);color:var(--red)}
 .empty-row td{text-align:center;color:var(--gray-3);font-size:13px;padding:40px}
 
-/* ── PAGINACIÓN ── */
+/* â”€â”€ PAGINACIÃ“N â”€â”€ */
 .pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--gray-5);background:#fafaf7}
 .page-info{font-size:12px;color:var(--gray-3)}
 .page-btns{display:flex;gap:6px}
@@ -69,7 +69,7 @@ td{padding:11px 16px;font-size:13px;vertical-align:middle}
 .btn-page:hover:not(:disabled){border-color:var(--black);color:var(--black)}
 .btn-page:disabled{opacity:.4;cursor:not-allowed}
 
-/* ── PANEL DETALLE ── */
+/* â”€â”€ PANEL DETALLE â”€â”€ */
 .detail-panel{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:22px;position:sticky;top:72px}
 .detail-empty{text-align:center;color:var(--gray-3);font-size:13px;padding:40px 0}
 .detail-header{margin-bottom:16px}
@@ -85,7 +85,7 @@ td{padding:11px 16px;font-size:13px;vertical-align:middle}
 .btn-feedback.active-pos{border-color:var(--teal);background:var(--teal-lt)}
 .btn-feedback.active-neg{border-color:var(--red);background:var(--red-lt)}
 
-/* Corrección */
+/* CorrecciÃ³n */
 .correction-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray-3);margin-bottom:8px;display:block}
 textarea.correction{width:100%;padding:11px 14px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;line-height:1.6;color:var(--black);resize:vertical;outline:none;transition:border-color 0.15s;min-height:100px}
 textarea.correction:focus{border-color:var(--black)}
@@ -93,7 +93,7 @@ textarea.correction:focus{border-color:var(--black)}
 .btn-save-correction:hover{background:#2a2926}
 .btn-save-correction:disabled{opacity:.45;cursor:not-allowed}
 
-/* ── TOAST ── */
+/* â”€â”€ TOAST â”€â”€ */
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:white;font-size:13px;font-weight:500;padding:10px 22px;border-radius:30px;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.error{background:var(--red)}
@@ -119,10 +119,10 @@ textarea.correction:focus{border-color:var(--black)}
     <span class="logo-wordmark">Pro<span>xis</span></span>
   </a>
   <div class="header-div"></div>
-  <span class="header-tag"><a href="index.html">Admin</a> / Revisión</span>
-  <span class="header-env" id="envBadge">···</span>
+  <span class="header-tag"><a href="index.html">Admin</a> / RevisiÃ³n</span>
+  <span class="header-env" id="envBadge">Â·Â·Â·</span>
   <div class="header-right">
-    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+    <button class="btn-logout" onclick="logout()">Cerrar sesiÃ³n</button>
   </div>
 </header>
 
@@ -132,7 +132,7 @@ textarea.correction:focus{border-color:var(--black)}
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Panel admin
     </a>
-    <h1 class="page-title">Revisión de mensajes</h1>
+    <h1 class="page-title">RevisiÃ³n de mensajes</h1>
   </div>
 
   <div class="two-col">
@@ -145,19 +145,19 @@ textarea.correction:focus{border-color:var(--black)}
               <th>Asesor</th>
               <th>Trigger</th>
               <th>Fecha</th>
-              <th style="width:80px">Leído</th>
+              <th style="width:80px">LeÃ­do</th>
               <th style="width:80px">Feedback</th>
             </tr>
           </thead>
           <tbody id="logTableBody">
-            <tr class="empty-row"><td colspan="5">Cargando…</td></tr>
+            <tr class="empty-row"><td colspan="5">Cargandoâ€¦</td></tr>
           </tbody>
         </table>
         <div class="pagination">
-          <span class="page-info" id="pageInfo">—</span>
+          <span class="page-info" id="pageInfo">â€”</span>
           <div class="page-btns">
-            <button class="btn-page" id="btnPrev" onclick="changePage(-1)" disabled>← Anterior</button>
-            <button class="btn-page" id="btnNext" onclick="changePage(1)"  disabled>Siguiente →</button>
+            <button class="btn-page" id="btnPrev" onclick="changePage(-1)" disabled>â† Anterior</button>
+            <button class="btn-page" id="btnNext" onclick="changePage(1)"  disabled>Siguiente â†’</button>
           </div>
         </div>
       </div>
@@ -172,9 +172,10 @@ textarea.correction:focus{border-color:var(--black)}
 
 <div class="toast" id="toast"></div>
 
+<script src="_secrets.js"></script>
 <script src="_core.js"></script>
 <script>
-/* ── AUTH ── */
+/* â”€â”€ AUTH â”€â”€ */
 const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
 if (G.role !== 'admin') { window.location.href = 'index.html'; }
 
@@ -182,18 +183,18 @@ const envBadge = document.getElementById('envBadge');
 envBadge.textContent = IS_DEV ? 'DEV' : 'PROD';
 envBadge.className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
 
-/* ── STATE ── */
+/* â”€â”€ STATE â”€â”€ */
 const PAGE_SIZE = 20;
 let currentPage = 0;
 let totalCount  = 0;
 let logs        = [];
 let selectedLog = null;
-let feedbackMap = {}; // message_id → feedback row
+let feedbackMap = {}; // message_id â†’ feedback row
 
-/* ── LOAD ── */
+/* â”€â”€ LOAD â”€â”€ */
 async function loadLogs() {
   const tbody = document.getElementById('logTableBody');
-  tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Cargando…</td></tr>';
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Cargandoâ€¦</td></tr>';
 
   const offset = currentPage * PAGE_SIZE;
   try {
@@ -205,7 +206,7 @@ async function loadLogs() {
     const rangeHeader = countRes.headers.get('content-range') || '0/0';
     totalCount = parseInt(rangeHeader.split('/')[1]) || 0;
 
-    // Cargar página
+    // Cargar pÃ¡gina
     logs = await SBC.get('message_log',
       `order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`);
 
@@ -227,7 +228,7 @@ async function loadLogs() {
 function renderTable() {
   const tbody = document.getElementById('logTableBody');
   if (!logs.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Sin mensajes registrados aún.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Sin mensajes registrados aÃºn.</td></tr>';
     return;
   }
   tbody.innerHTML = '';
@@ -237,14 +238,14 @@ function renderTable() {
     if (selectedLog?.id === log.id) tr.classList.add('selected');
 
     const fbBadge = fb
-      ? `<span class="badge ${fb.score > 0 ? 'badge-pos' : 'badge-neg'}">${fb.score > 0 ? '👍' : '👎'}</span>`
-      : '—';
+      ? `<span class="badge ${fb.score > 0 ? 'badge-pos' : 'badge-neg'}">${fb.score > 0 ? 'ðŸ‘' : 'ðŸ‘Ž'}</span>`
+      : 'â€”';
 
     tr.innerHTML = `
       <td class="td-asesor">${esc(log.asesor)}</td>
-      <td class="td-trigger">${esc(log.trigger_id || '—')}</td>
+      <td class="td-trigger">${esc(log.trigger_id || 'â€”')}</td>
       <td class="td-date">${formatDateTime(log.created_at)}</td>
-      <td><span class="badge ${log.leido ? 'badge-leido' : 'badge-noleido'}">${log.leido ? 'Leído' : 'Nuevo'}</span></td>
+      <td><span class="badge ${log.leido ? 'badge-leido' : 'badge-noleido'}">${log.leido ? 'LeÃ­do' : 'Nuevo'}</span></td>
       <td>${fbBadge}</td>`;
     tr.onclick = () => selectLog(log, tr);
     tbody.appendChild(tr);
@@ -254,7 +255,7 @@ function renderTable() {
 function updatePagination() {
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   document.getElementById('pageInfo').textContent =
-    totalCount ? `Página ${currentPage + 1} de ${totalPages} — ${totalCount} mensajes` : 'Sin mensajes';
+    totalCount ? `PÃ¡gina ${currentPage + 1} de ${totalPages} â€” ${totalCount} mensajes` : 'Sin mensajes';
   document.getElementById('btnPrev').disabled = currentPage === 0;
   document.getElementById('btnNext').disabled = (currentPage + 1) * PAGE_SIZE >= totalCount;
 }
@@ -266,7 +267,7 @@ function changePage(dir) {
   loadLogs();
 }
 
-/* ── SELECT LOG ── */
+/* â”€â”€ SELECT LOG â”€â”€ */
 function selectLog(log, tr) {
   selectedLog = log;
   document.querySelectorAll('tbody tr').forEach(r => r.classList.remove('selected'));
@@ -282,9 +283,9 @@ function renderDetail(log) {
     <div class="detail-header">
       <div class="detail-asesor">${esc(log.asesor)}</div>
       <div class="detail-meta">
-        <span>⚡ ${esc(log.trigger_id || '—')}</span>
-        <span>🕐 ${formatDateTime(log.created_at)}</span>
-        <span>v${log.prompt_version || '—'}</span>
+        <span>âš¡ ${esc(log.trigger_id || 'â€”')}</span>
+        <span>ðŸ• ${formatDateTime(log.created_at)}</span>
+        <span>v${log.prompt_version || 'â€”'}</span>
       </div>
     </div>
 
@@ -292,20 +293,20 @@ function renderDetail(log) {
 
     <div class="feedback-row">
       <button class="btn-feedback ${fb?.score === 1 ? 'active-pos' : ''}"
-        id="btnPos" onclick="darFeedback(1)">👍</button>
+        id="btnPos" onclick="darFeedback(1)">ðŸ‘</button>
       <button class="btn-feedback ${fb?.score === -1 ? 'active-neg' : ''}"
-        id="btnNeg" onclick="darFeedback(-1)">👎</button>
+        id="btnNeg" onclick="darFeedback(-1)">ðŸ‘Ž</button>
     </div>
 
-    <label class="correction-label">Reescribir como debería ser</label>
+    <label class="correction-label">Reescribir como deberÃ­a ser</label>
     <textarea class="correction" id="correctionTA" rows="4"
-      placeholder="Escribe aquí cómo debería ser el mensaje ideal…">${esc(fb?.correccion || '')}</textarea>
+      placeholder="Escribe aquÃ­ cÃ³mo deberÃ­a ser el mensaje idealâ€¦">${esc(fb?.correccion || '')}</textarea>
     <button class="btn-save-correction" onclick="guardarCorreccion()">
-      Guardar corrección
+      Guardar correcciÃ³n
     </button>`;
 }
 
-/* ── FEEDBACK ── */
+/* â”€â”€ FEEDBACK â”€â”€ */
 async function darFeedback(score) {
   if (!selectedLog) return;
   const existing = feedbackMap[selectedLog.id];
@@ -317,7 +318,7 @@ async function darFeedback(score) {
       const [created] = await SBC.post('feedback', { message_id: selectedLog.id, score });
       feedbackMap[selectedLog.id] = created;
     }
-    showToast(score > 0 ? '👍 Feedback positivo guardado.' : '👎 Feedback negativo guardado.');
+    showToast(score > 0 ? 'ðŸ‘ Feedback positivo guardado.' : 'ðŸ‘Ž Feedback negativo guardado.');
     renderDetail(selectedLog);
     renderTable();
   } catch(e) {
@@ -325,11 +326,11 @@ async function darFeedback(score) {
   }
 }
 
-/* ── CORRECCIÓN ── */
+/* â”€â”€ CORRECCIÃ“N â”€â”€ */
 async function guardarCorreccion() {
   if (!selectedLog) return;
   const correccion = document.getElementById('correctionTA').value.trim();
-  if (!correccion) { showToast('Escribe la corrección antes de guardar.', true); return; }
+  if (!correccion) { showToast('Escribe la correcciÃ³n antes de guardar.', true); return; }
 
   const btn = document.querySelector('.btn-save-correction');
   btn.disabled = true;
@@ -359,7 +360,7 @@ async function guardarCorreccion() {
       }
     }
 
-    showToast('Corrección guardada y agregada al prompt.');
+    showToast('CorrecciÃ³n guardada y agregada al prompt.');
     renderDetail(selectedLog);
     renderTable();
   } catch(e) {
@@ -368,9 +369,9 @@ async function guardarCorreccion() {
   btn.disabled = false;
 }
 
-/* ── HELPERS ── */
+/* â”€â”€ HELPERS â”€â”€ */
 function formatDateTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'â€”';
   return new Date(iso).toLocaleString('es-CL', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
 }
 
@@ -394,3 +395,4 @@ loadLogs();
 </script>
 </body>
 </html>
+

@@ -1,15 +1,16 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Proxis Admin — Analytics</title>
+<title>Proxis Admin â€” Analytics</title>
+<script src="_secrets.js"></script>
 <script src="_core.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;min-height:100vh}
 
-/* ── Header ── */
+/* â”€â”€ Header â”€â”€ */
 .hdr{display:flex;align-items:center;gap:16px;padding:20px 32px;border-bottom:1px solid rgba(255,255,255,0.07)}
 .hdr-back{display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.5);cursor:pointer;transition:color .2s}
 .hdr-back:hover{color:#cbf135}
@@ -25,10 +26,10 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
 .btn-refresh.spinning svg{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── Page layout ── */
+/* â”€â”€ Page layout â”€â”€ */
 .page{padding:28px 32px 48px;display:flex;flex-direction:column;gap:24px}
 
-/* ── KPI row ── */
+/* â”€â”€ KPI row â”€â”€ */
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .kpi{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:22px 24px}
 .kpi-label{font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
@@ -39,13 +40,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
 .kpi-red{color:#ef4444}
 .kpi-blue{color:#60a5fa}
 
-/* ── Two-col row ── */
+/* â”€â”€ Two-col row â”€â”€ */
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .panel{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:24px}
 .panel-title{font-size:13px;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:8px}
 .panel-title span{font-size:11px;font-weight:400;color:rgba(255,255,255,0.35)}
 
-/* ── Horizontal bar chart ── */
+/* â”€â”€ Horizontal bar chart â”€â”€ */
 .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .bar-label{font-size:12px;color:rgba(255,255,255,0.6);width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
 .bar-track{flex:1;height:8px;background:rgba(255,255,255,0.07);border-radius:4px;overflow:hidden}
@@ -55,7 +56,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
 .bar-fill.orange{background:#f97316}
 .bar-count{font-size:12px;color:rgba(255,255,255,0.4);width:28px;text-align:right;flex-shrink:0}
 
-/* ── Activity sparkline ── */
+/* â”€â”€ Activity sparkline â”€â”€ */
 .spark-row{display:flex;align-items:flex-end;gap:4px;height:60px;margin-bottom:8px}
 .spark-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
 .spark-bar{width:100%;border-radius:3px 3px 0 0;background:#cbf135;opacity:.7;transition:height .4s ease;min-height:2px}
@@ -63,7 +64,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
 .spark-day{font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px}
 .spark-empty{font-size:12px;color:rgba(255,255,255,0.25);text-align:center;padding:20px 0}
 
-/* ── Asesor table ── */
+/* â”€â”€ Asesor table â”€â”€ */
 .asesor-table{width:100%;border-collapse:collapse}
 .asesor-table th{font-size:11px;font-weight:600;color:rgba(255,255,255,0.35);letter-spacing:.05em;text-transform:uppercase;padding:0 0 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.07)}
 .asesor-table td{font-size:13px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);vertical-align:middle}
@@ -78,7 +79,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
 .score-neg{background:rgba(239,68,68,0.12);color:#ef4444}
 .score-neu{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.4)}
 
-/* ── Recent log ── */
+/* â”€â”€ Recent log â”€â”€ */
 .log-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
 .log-item:last-child{border-bottom:none}
 .log-dot{width:8px;height:8px;border-radius:50%;background:#cbf135;margin-top:5px;flex-shrink:0}
@@ -89,11 +90,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
 .log-body{font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-time{font-size:11px;color:rgba(255,255,255,0.25);flex-shrink:0;margin-top:3px}
 
-/* ── Loading ── */
+/* â”€â”€ Loading â”€â”€ */
 .loading{display:flex;align-items:center;justify-content:center;padding:40px;color:rgba(255,255,255,0.3);font-size:13px;gap:10px}
 .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.1);border-top-color:#cbf135;border-radius:50%;animation:spin .7s linear infinite}
 
-/* ── Empty ── */
+/* â”€â”€ Empty â”€â”€ */
 .empty-panel{text-align:center;padding:32px;color:rgba(255,255,255,0.25);font-size:13px}
 </style>
 </head>
@@ -113,7 +114,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       Actualizar
     </button>
-    <div class="hdr-badge" id="env-badge">—</div>
+    <div class="hdr-badge" id="env-badge">â€”</div>
   </div>
 </div>
 
@@ -122,7 +123,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
 
   <!-- KPIs -->
   <div class="kpi-row" id="kpi-row">
-    <div class="loading" style="grid-column:1/-1"><span class="spin"></span> Cargando métricas…</div>
+    <div class="loading" style="grid-column:1/-1"><span class="spin"></span> Cargando mÃ©tricasâ€¦</div>
   </div>
 
   <!-- Triggers + Actividad -->
@@ -132,7 +133,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
       <div id="trigger-bars"><div class="loading"><span class="spin"></span></div></div>
     </div>
     <div class="panel">
-      <div class="panel-title">Actividad <span>últimos 14 días</span></div>
+      <div class="panel-title">Actividad <span>Ãºltimos 14 dÃ­as</span></div>
       <div id="spark-wrap"><div class="loading"><span class="spin"></span></div></div>
     </div>
   </div>
@@ -145,26 +146,26 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;m
 
   <!-- Log reciente -->
   <div class="panel">
-    <div class="panel-title">Últimos mensajes enviados <span>máx. 10</span></div>
+    <div class="panel-title">Ãšltimos mensajes enviados <span>mÃ¡x. 10</span></div>
     <div id="log-wrap"><div class="loading"><span class="spin"></span></div></div>
   </div>
 
 </div>
 
 <script>
-/* ── Auth ── */
+/* â”€â”€ Auth â”€â”€ */
 (function(){
   const u = JSON.parse(localStorage.getItem('proxis_user') || 'null');
   if (!u || u.role !== 'admin') location.href = '../proxis_plataforma.html';
 })();
 
-/* ── Env badge ── */
+/* â”€â”€ Env badge â”€â”€ */
 document.getElementById('env-badge').textContent = IS_DEV ? 'DEV' : 'PROD';
 document.getElementById('env-badge').className = 'hdr-badge ' + (IS_DEV ? 'badge-dev' : 'badge-prod');
 
-/* ── Helpers ── */
+/* â”€â”€ Helpers â”€â”€ */
 function fmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'â€”';
   const d = new Date(iso);
   return d.toLocaleDateString('es-CL', { day:'2-digit', month:'short' }) +
          ' ' + d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit' });
@@ -181,7 +182,7 @@ function getMes() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 
-/* ── Load all ── */
+/* â”€â”€ Load all â”€â”€ */
 async function loadAll() {
   const btn = document.getElementById('btn-refresh');
   btn.classList.add('spinning');
@@ -211,7 +212,7 @@ async function loadAll() {
   }
 }
 
-/* ── KPIs ── */
+/* â”€â”€ KPIs â”€â”€ */
 function renderKPIs(logs, logsMonth, feedback, triggers) {
   const total   = logs.length;
   const month   = logsMonth.length;
@@ -237,7 +238,7 @@ function renderKPIs(logs, logsMonth, feedback, triggers) {
     </div>
     <div class="kpi">
       <div class="kpi-label">Feedback promedio</div>
-      <div class="kpi-value ${scoreColor}">${avgScore !== null ? avgScore : '—'}</div>
+      <div class="kpi-value ${scoreColor}">${avgScore !== null ? avgScore : 'â€”'}</div>
       <div class="kpi-sub">${scores.length} valoraciones</div>
     </div>
     <div class="kpi">
@@ -247,10 +248,10 @@ function renderKPIs(logs, logsMonth, feedback, triggers) {
     </div>`;
 }
 
-/* ── Trigger bars ── */
+/* â”€â”€ Trigger bars â”€â”€ */
 function renderTriggerBars(logs, triggers) {
   if (!logs.length) {
-    document.getElementById('trigger-bars').innerHTML = '<div class="empty-panel">Sin mensajes aún.</div>';
+    document.getElementById('trigger-bars').innerHTML = '<div class="empty-panel">Sin mensajes aÃºn.</div>';
     return;
   }
 
@@ -275,7 +276,7 @@ function renderTriggerBars(logs, triggers) {
   }).join('') || '<div class="empty-panel">Sin datos.</div>';
 }
 
-/* ── Sparkline 14 días ── */
+/* â”€â”€ Sparkline 14 dÃ­as â”€â”€ */
 function renderSparkline(logs, since14) {
   const days = [];
   for (let i = 13; i >= 0; i--) days.push(daysAgo(i));
@@ -291,7 +292,7 @@ function renderSparkline(logs, since14) {
   const max  = Math.max(...vals, 1);
 
   if (vals.every(v => v === 0)) {
-    document.getElementById('spark-wrap').innerHTML = '<div class="empty-panel">Sin actividad en los últimos 14 días.</div>';
+    document.getElementById('spark-wrap').innerHTML = '<div class="empty-panel">Sin actividad en los Ãºltimos 14 dÃ­as.</div>';
     return;
   }
 
@@ -309,7 +310,7 @@ function renderSparkline(logs, since14) {
     `<div class="spark-row">${bars}</div>`;
 }
 
-/* ── Asesor table ── */
+/* â”€â”€ Asesor table â”€â”€ */
 function renderAsesorTable(logs, feedback, metas) {
   if (!metas.length) {
     document.getElementById('asesor-wrap').innerHTML = '<div class="empty-panel">Sin asesores en la tabla metas.</div>';
@@ -333,7 +334,7 @@ function renderAsesorTable(logs, feedback, metas) {
 
     const pipClass  = p ? `pip-${p.toLowerCase()}` : 'pip-x';
     const scoreHtml = avg === null
-      ? '<span class="score-pill score-neu">—</span>'
+      ? '<span class="score-pill score-neu">â€”</span>'
       : +avg > 0
         ? `<span class="score-pill score-pos">+${avg}</span>`
         : `<span class="score-pill score-neg">${avg}</span>`;
@@ -344,7 +345,7 @@ function renderAsesorTable(logs, feedback, metas) {
         <td style="padding-left:10px">${asesor}</td>
         <td style="text-align:center">${aLogs.length}</td>
         <td style="text-align:center">${scoreHtml}</td>
-        <td style="text-align:right;color:rgba(255,255,255,0.35);font-size:12px">${last ? fmtDate(last) : '—'}</td>
+        <td style="text-align:right;color:rgba(255,255,255,0.35);font-size:12px">${last ? fmtDate(last) : 'â€”'}</td>
       </tr>`;
   }).join('');
 
@@ -356,39 +357,40 @@ function renderAsesorTable(logs, feedback, metas) {
           <th>Asesor</th>
           <th style="text-align:center">Mensajes</th>
           <th style="text-align:center">Feedback</th>
-          <th style="text-align:right">Último mensaje</th>
+          <th style="text-align:right">Ãšltimo mensaje</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
 
-/* ── Recent log ── */
+/* â”€â”€ Recent log â”€â”€ */
 function renderRecentLog(logs, triggers) {
   if (!logs.length) {
-    document.getElementById('log-wrap').innerHTML = '<div class="empty-panel">Sin mensajes enviados aún.</div>';
+    document.getElementById('log-wrap').innerHTML = '<div class="empty-panel">Sin mensajes enviados aÃºn.</div>';
     return;
   }
 
   document.getElementById('log-wrap').innerHTML = logs.map(l => {
     const trig  = triggers.find(t => t.trigger_id === l.trigger_id);
-    const tName = trig?.descripcion || l.trigger_id || '—';
+    const tName = trig?.descripcion || l.trigger_id || 'â€”';
     const body  = (l.body || '').slice(0, 120);
     return `
       <div class="log-item">
         <div class="log-dot"></div>
         <div class="log-meta">
           <div class="log-asesor">${l.asesor}</div>
-          <div class="log-trigger">${tName} · v${l.prompt_version || '?'}</div>
-          <div class="log-body">${body}${(l.body||'').length > 120 ? '…' : ''}</div>
+          <div class="log-trigger">${tName} Â· v${l.prompt_version || '?'}</div>
+          <div class="log-body">${body}${(l.body||'').length > 120 ? 'â€¦' : ''}</div>
         </div>
         <div class="log-time">${fmtDate(l.created_at)}</div>
       </div>`;
   }).join('');
 }
 
-/* ── Init ── */
+/* â”€â”€ Init â”€â”€ */
 loadAll();
 </script>
 </body>
 </html>
+

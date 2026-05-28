@@ -1,16 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Proxis Admin — Base de Conocimiento</title>
+<title>Proxis Admin â€” Base de Conocimiento</title>
+<script src="_secrets.js"></script>
 <script src="_core.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,sans-serif;background:#0b0a09;color:#e8e6e3;min-height:100vh}
 a{color:inherit;text-decoration:none}
 
-/* ── Header ── */
+/* â”€â”€ Header â”€â”€ */
 .hdr{display:flex;align-items:center;gap:16px;padding:20px 32px;border-bottom:1px solid rgba(255,255,255,0.07)}
 .hdr-back{display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.5);cursor:pointer;transition:color .2s}
 .hdr-back:hover{color:#cbf135}
@@ -21,7 +22,7 @@ a{color:inherit;text-decoration:none}
 .badge-dev{background:rgba(203,241,53,0.15);color:#cbf135;border:1px solid rgba(203,241,53,0.3)}
 .badge-prod{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3)}
 
-/* ── Toolbar ── */
+/* â”€â”€ Toolbar â”€â”€ */
 .toolbar{display:flex;align-items:center;gap:12px;padding:20px 32px}
 .toolbar-search{flex:1;max-width:320px;position:relative}
 .toolbar-search input{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px 9px 36px;color:#e8e6e3;font-size:13px;outline:none;transition:border-color .2s}
@@ -39,7 +40,7 @@ a{color:inherit;text-decoration:none}
 .btn-embed-all:hover{background:rgba(203,241,53,0.18)}
 .btn-embed-all:disabled{opacity:.4;cursor:default}
 
-/* ── Grid de cards ── */
+/* â”€â”€ Grid de cards â”€â”€ */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;padding:0 32px 40px}
 .card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:20px;transition:border-color .2s;position:relative}
 .card:hover{border-color:rgba(255,255,255,0.16)}
@@ -63,12 +64,12 @@ a{color:inherit;text-decoration:none}
 .act-btn.del:hover{border-color:rgba(239,68,68,0.4);color:#ef4444;background:rgba(239,68,68,0.08)}
 .act-btn.emb:hover{border-color:rgba(52,211,153,0.4);color:#34d399;background:rgba(52,211,153,0.08)}
 
-/* ── Empty state ── */
+/* â”€â”€ Empty state â”€â”€ */
 .empty{text-align:center;padding:80px 32px;color:rgba(255,255,255,0.3)}
 .empty svg{opacity:.3;margin-bottom:16px}
 .empty p{font-size:14px}
 
-/* ── Modal ── */
+/* â”€â”€ Modal â”€â”€ */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;padding:24px}
 .overlay.open{display:flex}
 .modal{background:#161512;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto}
@@ -92,13 +93,13 @@ a{color:inherit;text-decoration:none}
 .btn-save:hover{opacity:.88}
 .btn-save:disabled{opacity:.4;cursor:default}
 
-/* ── Toast ── */
+/* â”€â”€ Toast â”€â”€ */
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e1d1b;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 20px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{border-color:rgba(52,211,153,0.4);color:#34d399}
 .toast.err{border-color:rgba(239,68,68,0.4);color:#ef4444}
 
-/* ── Loading spinner ── */
+/* â”€â”€ Loading spinner â”€â”€ */
 .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.15);border-top-color:#cbf135;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -116,20 +117,20 @@ a{color:inherit;text-decoration:none}
   <div style="width:1px;height:16px;background:rgba(255,255,255,0.1)"></div>
   <div class="hdr-logo">PROX<span>IS</span></div>
   <div class="hdr-title">/ Base de Conocimiento</div>
-  <div class="hdr-badge" id="env-badge">—</div>
+  <div class="hdr-badge" id="env-badge">â€”</div>
 </div>
 
 <!-- Toolbar -->
 <div class="toolbar">
   <div class="toolbar-search">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="text" id="search-input" placeholder="Buscar por título o contenido…" oninput="applyFilters()">
+    <input type="text" id="search-input" placeholder="Buscar por tÃ­tulo o contenidoâ€¦" oninput="applyFilters()">
   </div>
   <div class="filter-chips">
     <div class="chip active" data-perfil="" onclick="setPerfilFilter(this,'')">Todos</div>
-    <div class="chip chip-d" data-perfil="D" onclick="setPerfilFilter(this,'D')">D — Directivo</div>
-    <div class="chip chip-r" data-perfil="R" onclick="setPerfilFilter(this,'R')">R — Relacional</div>
-    <div class="chip chip-s" data-perfil="S" onclick="setPerfilFilter(this,'S')">S — Sistemático</div>
+    <div class="chip chip-d" data-perfil="D" onclick="setPerfilFilter(this,'D')">D â€” Directivo</div>
+    <div class="chip chip-r" data-perfil="R" onclick="setPerfilFilter(this,'R')">R â€” Relacional</div>
+    <div class="chip chip-s" data-perfil="S" onclick="setPerfilFilter(this,'S')">S â€” SistemÃ¡tico</div>
     <div class="chip" data-perfil="GEN" onclick="setPerfilFilter(this,'GEN')">General</div>
   </div>
   <button class="btn-embed-all" id="btn-embed-all" onclick="embedAll()" title="Generar embeddings para todas las entradas sin vector">
@@ -159,30 +160,30 @@ a{color:inherit;text-decoration:none}
     <h2 id="modal-title">Nueva entrada</h2>
 
     <div class="field">
-      <label>Título</label>
-      <input type="text" id="f-titulo" placeholder="Ej: Cómo manejar el silencio con perfil S" maxlength="120">
+      <label>TÃ­tulo</label>
+      <input type="text" id="f-titulo" placeholder="Ej: CÃ³mo manejar el silencio con perfil S" maxlength="120">
     </div>
 
     <div class="field">
       <label>Perfil conductual</label>
       <select id="f-perfil">
         <option value="">General (aplica a todos)</option>
-        <option value="D">D — Directivo</option>
-        <option value="R">R — Relacional</option>
-        <option value="S">S — Sistemático</option>
+        <option value="D">D â€” Directivo</option>
+        <option value="R">R â€” Relacional</option>
+        <option value="S">S â€” SistemÃ¡tico</option>
       </select>
     </div>
 
     <div class="field">
       <label>Contenido</label>
-      <textarea id="f-cuerpo" rows="7" placeholder="Escribe aquí el conocimiento, insight o técnica coaching…" oninput="updateCharCount()"></textarea>
+      <textarea id="f-cuerpo" rows="7" placeholder="Escribe aquÃ­ el conocimiento, insight o tÃ©cnica coachingâ€¦" oninput="updateCharCount()"></textarea>
       <div class="char-count"><span id="char-count">0</span> caracteres</div>
     </div>
 
     <div class="field">
       <label>Etiquetas (Enter o coma para agregar)</label>
       <div class="tag-input-wrap" id="tag-wrap" onclick="document.getElementById('tag-raw').focus()">
-        <input type="text" id="tag-raw" class="tag-raw" placeholder="prospección, cierre, objeción…"
+        <input type="text" id="tag-raw" class="tag-raw" placeholder="prospecciÃ³n, cierre, objeciÃ³nâ€¦"
                onkeydown="tagKeydown(event)" oninput="tagInput(event)">
       </div>
     </div>
@@ -198,24 +199,24 @@ a{color:inherit;text-decoration:none}
 <div class="toast" id="toast"></div>
 
 <script>
-/* ── Auth ── */
+/* â”€â”€ Auth â”€â”€ */
 (function(){
   const u = JSON.parse(localStorage.getItem('proxis_user') || 'null');
   if (!u || u.role !== 'admin') location.href = '../proxis_plataforma.html';
 })();
 
-/* ── Env badge ── */
+/* â”€â”€ Env badge â”€â”€ */
 document.getElementById('env-badge').textContent = IS_DEV ? 'DEV' : 'PROD';
 document.getElementById('env-badge').className = 'hdr-badge ' + (IS_DEV ? 'badge-dev' : 'badge-prod');
 
-/* ── Estado ── */
+/* â”€â”€ Estado â”€â”€ */
 let allEntries   = [];
 let filteredIds  = [];
 let perfilFilter = '';
 let editingId    = null;
 let tags         = [];
 
-/* ── Init ── */
+/* â”€â”€ Init â”€â”€ */
 loadEntries();
 
 async function loadEntries() {
@@ -228,7 +229,7 @@ async function loadEntries() {
   }
 }
 
-/* ── Filtros ── */
+/* â”€â”€ Filtros â”€â”€ */
 function setPerfilFilter(el, val) {
   document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
@@ -250,7 +251,7 @@ function applyFilters() {
   renderGrid(filtered);
 }
 
-/* ── Render ── */
+/* â”€â”€ Render â”€â”€ */
 function renderGrid(entries) {
   const grid = document.getElementById('grid');
   const empty = document.getElementById('empty-state');
@@ -292,9 +293,9 @@ function renderGrid(entries) {
         </div>
         <div class="card-top">
           <span class="perfil-badge ${pClass}">${pLabel}</span>
-          <div class="card-title">${e.titulo || '(sin título)'}</div>
+          <div class="card-title">${e.titulo || '(sin tÃ­tulo)'}</div>
         </div>
-        <div class="card-body">${bodyPreview}${(e.contenido||'').length > 200 ? '…' : ''}</div>
+        <div class="card-body">${bodyPreview}${(e.contenido||'').length > 200 ? 'â€¦' : ''}</div>
         <div class="card-footer">
           ${tagsHtml}
           <div class="emb-dot ${hasEmb ? 'ok' : ''}" title="${hasEmb ? 'Embedding generado' : 'Sin embedding'}">
@@ -305,7 +306,7 @@ function renderGrid(entries) {
   }).join('');
 }
 
-/* ── Modal ── */
+/* â”€â”€ Modal â”€â”€ */
 function openModal(id) {
   editingId = id || null;
   tags = [];
@@ -341,7 +342,7 @@ document.getElementById('modal-overlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeModal();
 });
 
-/* ── Tags ── */
+/* â”€â”€ Tags â”€â”€ */
 function tagKeydown(e) {
   if (e.key === 'Enter' || e.key === ',') {
     e.preventDefault();
@@ -355,7 +356,7 @@ function tagInput(e) {
   if (e.target.value.endsWith(',')) addTag(e.target.value.slice(0,-1));
 }
 function addTag(val) {
-  const t = val.trim().toLowerCase().replace(/[^a-záéíóúüñ\s-]/gi, '');
+  const t = val.trim().toLowerCase().replace(/[^a-zÃ¡Ã©Ã­Ã³ÃºÃ¼Ã±\s-]/gi, '');
   if (t && !tags.includes(t)) tags.push(t);
   document.getElementById('tag-raw').value = '';
   renderTagChips();
@@ -371,7 +372,7 @@ function renderTagChips() {
   tags.forEach(t => {
     const chip = document.createElement('span');
     chip.className = 'tag-chip';
-    chip.innerHTML = `${t}<button type="button" onclick="removeTag('${t}')">×</button>`;
+    chip.innerHTML = `${t}<button type="button" onclick="removeTag('${t}')">Ã—</button>`;
     wrap.insertBefore(chip, raw);
   });
 }
@@ -381,22 +382,22 @@ function updateCharCount() {
     (document.getElementById('f-cuerpo').value || '').length;
 }
 
-/* ── Guardar ── */
+/* â”€â”€ Guardar â”€â”€ */
 async function guardar() {
   const titulo    = document.getElementById('f-titulo').value.trim();
   const contenido = document.getElementById('f-cuerpo').value.trim();
   const dominio   = document.getElementById('f-perfil').value || null;
 
-  if (!titulo)    { toast('El título es obligatorio.', 'err'); return; }
+  if (!titulo)    { toast('El tÃ­tulo es obligatorio.', 'err'); return; }
   if (!contenido) { toast('El contenido es obligatorio.', 'err'); return; }
 
-  // Flush tag si quedó algo en el input
+  // Flush tag si quedÃ³ algo en el input
   const rawVal = document.getElementById('tag-raw').value.trim();
   if (rawVal) addTag(rawVal);
 
   const btn = document.getElementById('btn-save');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spin"></span> Guardando…';
+  btn.innerHTML = '<span class="spin"></span> Guardandoâ€¦';
 
   try {
     const data = { titulo, contenido, dominio, tags };
@@ -423,9 +424,9 @@ async function guardar() {
   }
 }
 
-/* ── Eliminar ── */
+/* â”€â”€ Eliminar â”€â”€ */
 async function eliminar(id) {
-  if (!confirm('¿Eliminar esta entrada? La acción no se puede deshacer.')) return;
+  if (!confirm('Â¿Eliminar esta entrada? La acciÃ³n no se puede deshacer.')) return;
   try {
     await SBC.del('knowledge_base', `id=eq.${id}`);
     allEntries = allEntries.filter(e => e.id !== id);
@@ -437,7 +438,7 @@ async function eliminar(id) {
   }
 }
 
-/* ── Embeddings ── */
+/* â”€â”€ Embeddings â”€â”€ */
 async function getEmbedding(text) {
   if (!GEMINI_KEY) throw new Error('GEMINI_KEY no configurada en _core.js');
   const res = await fetch(
@@ -484,7 +485,7 @@ async function embedAll() {
 
   const btn = document.getElementById('btn-embed-all');
   btn.disabled = true;
-  btn.innerHTML = `<span class="spin"></span> 0/${pending.length}…`;
+  btn.innerHTML = `<span class="spin"></span> 0/${pending.length}â€¦`;
 
   let done = 0;
   for (const entry of pending) {
@@ -494,7 +495,7 @@ async function embedAll() {
       await SBC.patch('knowledge_base', { embedding }, `id=eq.${entry.id}`);
       entry.embedding = embedding;
       done++;
-      btn.innerHTML = `<span class="spin"></span> ${done}/${pending.length}…`;
+      btn.innerHTML = `<span class="spin"></span> ${done}/${pending.length}â€¦`;
     } catch(e) {
       console.warn('Embed error', entry.id, e.message);
     }
@@ -512,10 +513,10 @@ function updateEmbedBtn() {
   const btn = document.getElementById('btn-embed-all');
   btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> ${pending} sin vector`;
   btn.disabled = pending === 0;
-  if (pending === 0) btn.title = 'Todos los embeddings están generados';
+  if (pending === 0) btn.title = 'Todos los embeddings estÃ¡n generados';
 }
 
-/* ── Toast ── */
+/* â”€â”€ Toast â”€â”€ */
 function toast(msg, type = 'ok') {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -525,3 +526,4 @@ function toast(msg, type = 'ok') {
 </script>
 </body>
 </html>
+

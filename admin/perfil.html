@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proxis Admin · Perfil de Asesor</title>
+<title>Proxis Admin Â· Perfil de Asesor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--black);min-height:100vh;-webkit-font-smoothing:antialiased}
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .header{background:var(--black);padding:0 28px;height:56px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 0 var(--lime-dk);position:sticky;top:0;z-index:100}
 .logo{display:flex;align-items:center;gap:8px;text-decoration:none}
 .logo-wordmark{font-weight:800;font-size:18px;color:var(--white);letter-spacing:-0.04em}
@@ -33,7 +33,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .btn-logout{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.7);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s}
 .btn-logout:hover{background:rgba(255,255,255,0.14);color:white}
 
-/* ── LAYOUT ── */
+/* â”€â”€ LAYOUT â”€â”€ */
 .main{max-width:1200px;margin:0 auto;padding:32px 28px}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;gap:12px;flex-wrap:wrap}
 .page-header-left{display:flex;align-items:center;gap:12px}
@@ -42,7 +42,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .page-title{font-size:22px;font-weight:800;letter-spacing:-0.03em}
 .workspace{display:grid;grid-template-columns:400px 1fr;gap:20px;align-items:start}
 
-/* ── BOTONES ── */
+/* â”€â”€ BOTONES â”€â”€ */
 .btn{padding:9px 18px;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:7px}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn-dark{background:var(--black);color:white}
@@ -55,38 +55,38 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .btn-ghost{background:transparent;color:var(--gray-2);border:1px solid var(--gray-5)}
 .btn-ghost:not(:disabled):hover{border-color:var(--black);color:var(--black)}
 
-/* ── CARDS ── */
+/* â”€â”€ CARDS â”€â”€ */
 .card{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:18px}
 .card-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray-3);margin-bottom:10px}
 
-/* ── SELECTOR ── */
+/* â”€â”€ SELECTOR â”€â”€ */
 .asesor-select{width:100%;padding:10px 14px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:var(--black);background:white;outline:none;cursor:pointer;transition:border-color .15s;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8885' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
 .asesor-select:focus{border-color:var(--black)}
 
-/* ── STATUS ── */
+/* â”€â”€ STATUS â”€â”€ */
 .status-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:white;border:1px solid var(--gray-5);border-radius:8px;margin-top:10px;font-size:12px;color:var(--gray-2)}
 .status-dot{width:7px;height:7px;border-radius:50%;background:var(--gray-4);flex-shrink:0;transition:background .3s}
 .status-dot.new{background:#f59e0b}
 .status-dot.saved{background:var(--teal)}
 
-/* ── DIMENSIONES ── */
+/* â”€â”€ DIMENSIONES â”€â”€ */
 .dim-card{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:14px;margin-top:10px;transition:border-color .2s,background .2s}
 .dim-card.highlight{border-color:var(--lime-dk);background:#fafff0}
 .dim-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray-3);margin-bottom:7px}
 .dim-textarea{width:100%;padding:8px 10px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);background:#fafaf7;outline:none;resize:vertical;min-height:68px;line-height:1.6;transition:border-color .15s,background .15s}
 .dim-textarea:focus{border-color:var(--black);background:white}
 
-/* ── RESUMEN ── */
+/* â”€â”€ RESUMEN â”€â”€ */
 .resumen-card{background:var(--teal-lt);border:1px solid rgba(31,111,86,0.2);border-radius:12px;padding:16px;margin-top:10px}
 .resumen-card .dim-label{color:var(--teal)}
 .resumen-text{font-size:13px;color:#1a3d2e;line-height:1.75}
 .resumen-empty{font-size:12px;color:var(--gray-3);font-style:italic}
 
-/* ── SAVE BAR ── */
+/* â”€â”€ SAVE BAR â”€â”€ */
 .save-bar{display:flex;gap:8px;margin-top:14px}
 .save-bar .btn{flex:1;justify-content:center}
 
-/* ── CHAT PANEL ── */
+/* â”€â”€ CHAT PANEL â”€â”€ */
 .chat-panel{background:white;border:1px solid var(--gray-5);border-radius:12px;display:flex;flex-direction:column;height:calc(100vh - 148px);min-height:520px;position:sticky;top:72px}
 .chat-header{padding:14px 18px;border-bottom:1px solid var(--gray-5)}
 .chat-title{font-size:14px;font-weight:700;letter-spacing:-0.02em}
@@ -95,7 +95,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .chat-empty-state{text-align:center;color:var(--gray-3);font-size:13px;padding:48px 24px;line-height:1.7}
 .chat-empty-state strong{display:block;font-size:15px;font-weight:700;color:var(--gray-2);margin-bottom:8px;letter-spacing:-0.02em}
 
-/* ── MENSAJES ── */
+/* â”€â”€ MENSAJES â”€â”€ */
 .msg-coach{align-self:flex-end;background:var(--black);color:white;border-radius:12px 12px 2px 12px;padding:10px 14px;max-width:85%;font-size:13px;line-height:1.6}
 .msg-ia{align-self:flex-start;width:100%}
 .msg-analisis{background:#f0f9f4;border:1px solid rgba(31,111,86,0.18);border-radius:2px 12px 12px 12px;padding:12px 14px;font-size:13px;color:#1a3d2e;line-height:1.7;margin-bottom:7px}
@@ -113,7 +113,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .dots span:nth-child(3){animation-delay:.4s}
 @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
 
-/* ── CHAT INPUT ── */
+/* â”€â”€ CHAT INPUT â”€â”€ */
 .chat-input-area{padding:12px 16px;border-top:1px solid var(--gray-5)}
 .chat-input-row{display:flex;gap:8px;align-items:flex-end}
 .chat-textarea{flex:1;padding:10px 13px;border:1px solid var(--gray-5);border-radius:10px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);outline:none;resize:none;line-height:1.6;transition:border-color .15s;background:#fafaf7;min-height:42px;max-height:120px}
@@ -121,7 +121,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .chat-textarea:disabled{opacity:.5;cursor:not-allowed}
 .chat-hint{font-size:11px;color:var(--gray-3);margin-top:6px}
 
-/* ── TOAST ── */
+/* â”€â”€ TOAST â”€â”€ */
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:white;font-size:13px;font-weight:500;padding:10px 22px;border-radius:30px;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.error{background:var(--red)}
@@ -151,9 +151,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
   </a>
   <div class="header-div"></div>
   <span class="header-tag"><a href="index.html">Admin</a> / Perfil de Asesor</span>
-  <span class="header-env" id="envBadge">···</span>
+  <span class="header-env" id="envBadge">Â·Â·Â·</span>
   <div class="header-right">
-    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+    <button class="btn-logout" onclick="logout()">Cerrar sesiÃ³n</button>
   </div>
 </header>
 
@@ -170,13 +170,13 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 
   <div class="workspace">
 
-    <!-- ── IZQUIERDA: PERFIL ── -->
+    <!-- â”€â”€ IZQUIERDA: PERFIL â”€â”€ -->
     <div>
 
       <div class="card">
         <div class="card-label">Asesor</div>
         <select class="asesor-select" id="sel-asesor" onchange="seleccionarAsesor(this.value)">
-          <option value="">— Cargando asesores —</option>
+          <option value="">â€” Cargando asesores â€”</option>
         </select>
       </div>
 
@@ -188,8 +188,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
       <div id="dimensiones-container"></div>
 
       <div class="resumen-card" id="resumen-card" style="display:none">
-        <div class="dim-label">Resumen del perfil — generado por IA</div>
-        <div id="resumen-text" class="resumen-empty">Sin resumen aún. Completá las dimensiones y hacé clic en "Generar resumen".</div>
+        <div class="dim-label">Resumen del perfil â€” generado por IA</div>
+        <div id="resumen-text" class="resumen-empty">Sin resumen aÃºn. CompletÃ¡ las dimensiones y hacÃ© clic en "Generar resumen".</div>
       </div>
 
       <div class="save-bar" id="save-bar" style="display:none">
@@ -199,24 +199,24 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 
     </div>
 
-    <!-- ── DERECHA: CALIBRACIÓN ── -->
+    <!-- â”€â”€ DERECHA: CALIBRACIÃ“N â”€â”€ -->
     <div class="chat-panel">
       <div class="chat-header">
-        <div class="chat-title">Calibración con IA</div>
-        <div class="chat-sub" id="chat-sub">Selecciona un asesor para activar la calibración</div>
+        <div class="chat-title">CalibraciÃ³n con IA</div>
+        <div class="chat-sub" id="chat-sub">Selecciona un asesor para activar la calibraciÃ³n</div>
       </div>
 
       <div class="chat-messages" id="chat-messages">
         <div class="chat-empty-state">
-          <strong>Calibración asistida por IA</strong>
-          Describí una observación sobre el asesor — cómo respondió a un mensaje, qué notaste en su comportamiento, qué te contó en una conversación — y la IA sugerirá actualizaciones específicas al perfil.
+          <strong>CalibraciÃ³n asistida por IA</strong>
+          DescribÃ­ una observaciÃ³n sobre el asesor â€” cÃ³mo respondiÃ³ a un mensaje, quÃ© notaste en su comportamiento, quÃ© te contÃ³ en una conversaciÃ³n â€” y la IA sugerirÃ¡ actualizaciones especÃ­ficas al perfil.
         </div>
       </div>
 
       <div class="chat-input-area">
         <div class="chat-input-row">
           <textarea class="chat-textarea" id="chat-input" rows="2"
-            placeholder="Describe una observación sobre el asesor..."
+            placeholder="Describe una observaciÃ³n sobre el asesor..."
             disabled onkeydown="handleKey(event)"></textarea>
           <button class="btn btn-dark" id="btn-enviar" onclick="calibrar()" disabled>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -224,7 +224,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
             </svg>
           </button>
         </div>
-        <div class="chat-hint">Enter para enviar · Shift+Enter para nueva línea</div>
+        <div class="chat-hint">Enter para enviar Â· Shift+Enter para nueva lÃ­nea</div>
       </div>
     </div>
 
@@ -233,61 +233,62 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 
 <div class="toast" id="toast"></div>
 
+<script src="_secrets.js"></script>
 <script src="_core.js"></script>
 <script>
 
-/* ── AUTH ── */
+/* â”€â”€ AUTH â”€â”€ */
 const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
 if (G.role !== 'admin') { window.location.href = 'index.html'; }
 
 document.getElementById('envBadge').textContent = IS_DEV ? 'DEV' : 'PROD';
 document.getElementById('envBadge').className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
 
-/* ── CONFIGURACIÓN DE DIMENSIONES ── */
+/* â”€â”€ CONFIGURACIÃ“N DE DIMENSIONES â”€â”€ */
 const DIMS = [
   {
     key:         'identidad_vendedora',
     label:       'Identidad vendedora',
-    placeholder: 'Cómo se define como vendedor/a. Qué significa este rol para él/ella. Qué le produce orgullo. Cómo integra la venta a su identidad personal...'
+    placeholder: 'CÃ³mo se define como vendedor/a. QuÃ© significa este rol para Ã©l/ella. QuÃ© le produce orgullo. CÃ³mo integra la venta a su identidad personal...'
   },
   {
     key:         'relacion_prospeccion',
-    label:       'Relación con la prospección',
-    placeholder: 'La vive como obligación, oportunidad o juego. Qué la frena. Qué le da energía. Cómo habla de sus contactos. Actitud ante el rechazo...'
+    label:       'RelaciÃ³n con la prospecciÃ³n',
+    placeholder: 'La vive como obligaciÃ³n, oportunidad o juego. QuÃ© la frena. QuÃ© le da energÃ­a. CÃ³mo habla de sus contactos. Actitud ante el rechazo...'
   },
   {
     key:         'modelos_mentales',
     label:       'Modelos mentales de resultado',
-    placeholder: 'Cómo explica sus buenos períodos y los malos. Locus de control (interno vs externo). Creencias sobre lo que determina el éxito...'
+    placeholder: 'CÃ³mo explica sus buenos perÃ­odos y los malos. Locus de control (interno vs externo). Creencias sobre lo que determina el Ã©xito...'
   },
   {
     key:         'relacion_feedback',
-    label:       'Relación con el feedback',
-    placeholder: 'Cómo recibe la corrección. Qué tipo de apoyo le resulta más útil. Qué lo cierra o lo pone defensivo. Si busca el feedback o lo evita...'
+    label:       'RelaciÃ³n con el feedback',
+    placeholder: 'CÃ³mo recibe la correcciÃ³n. QuÃ© tipo de apoyo le resulta mÃ¡s Ãºtil. QuÃ© lo cierra o lo pone defensivo. Si busca el feedback o lo evita...'
   },
   {
     key:         'perfil_conductual_notas',
     label:       'Perfil conductual D / R / S',
-    placeholder: 'Estilo predominante y mezcla estimada. Respuesta bajo presión. Qué tipo de lenguaje y mensaje resuena. Motivadores y detonadores...'
+    placeholder: 'Estilo predominante y mezcla estimada. Respuesta bajo presiÃ³n. QuÃ© tipo de lenguaje y mensaje resuena. Motivadores y detonadores...'
   },
   {
     key:         'contexto_situacional',
     label:       'Contexto situacional',
-    placeholder: 'Momento de vida. Historia profesional relevante. Factores externos que impactan su desempeño. Motivaciones no ligadas a lo económico...'
+    placeholder: 'Momento de vida. Historia profesional relevante. Factores externos que impactan su desempeÃ±o. Motivaciones no ligadas a lo econÃ³mico...'
   }
 ];
 
-/* ── STATE ── */
+/* â”€â”€ STATE â”€â”€ */
 let asesorActual = null;
 let perfil       = {};
 let isNew        = true;
 
-/* ── CARGAR ASESORES ── */
+/* â”€â”€ CARGAR ASESORES â”€â”€ */
 async function loadAsesores() {
   try {
     const data = await SBC.get('metas', 'select=asesor&order=asesor.asc');
     const sel = document.getElementById('sel-asesor');
-    sel.innerHTML = '<option value="">— Seleccionar asesor —</option>';
+    sel.innerHTML = '<option value="">â€” Seleccionar asesor â€”</option>';
     (data || []).forEach(({ asesor }) => {
       const o = document.createElement('option');
       o.value = o.textContent = asesor;
@@ -298,7 +299,7 @@ async function loadAsesores() {
   }
 }
 
-/* ── SELECCIONAR ASESOR ── */
+/* â”€â”€ SELECCIONAR ASESOR â”€â”€ */
 async function seleccionarAsesor(asesor) {
   if (!asesor) return;
   asesorActual = asesor;
@@ -312,7 +313,7 @@ async function seleccionarAsesor(asesor) {
   msgs.innerHTML = `
     <div class="chat-empty-state">
       <strong>Calibrando: ${esc(asesor)}</strong>
-      Describí una observación sobre esta persona — cómo respondió a un mensaje, qué notaste, qué te contó — y la IA sugerirá actualizaciones específicas al perfil.
+      DescribÃ­ una observaciÃ³n sobre esta persona â€” cÃ³mo respondiÃ³ a un mensaje, quÃ© notaste, quÃ© te contÃ³ â€” y la IA sugerirÃ¡ actualizaciones especÃ­ficas al perfil.
     </div>`;
 
   await loadPerfil(asesor);
@@ -321,7 +322,7 @@ async function seleccionarAsesor(asesor) {
   document.getElementById('save-bar').style.display     = 'flex';
 }
 
-/* ── CARGAR PERFIL ── */
+/* â”€â”€ CARGAR PERFIL â”€â”€ */
 async function loadPerfil(asesor) {
   try {
     const data = await SBC.get('asesor_perfil',
@@ -329,11 +330,11 @@ async function loadPerfil(asesor) {
     if (data.length) {
       perfil = data[0];
       isNew  = false;
-      setStatus('saved', `Perfil guardado · ${fmtDate(perfil.updated_at)}`);
+      setStatus('saved', `Perfil guardado Â· ${fmtDate(perfil.updated_at)}`);
     } else {
       perfil = { asesor };
       isNew  = true;
-      setStatus('new', 'Perfil nuevo — aún no guardado');
+      setStatus('new', 'Perfil nuevo â€” aÃºn no guardado');
     }
   } catch(e) {
     perfil = { asesor };
@@ -342,7 +343,7 @@ async function loadPerfil(asesor) {
   }
 }
 
-/* ── RENDERIZAR DIMENSIONES ── */
+/* â”€â”€ RENDERIZAR DIMENSIONES â”€â”€ */
 function renderDimensiones() {
   const container = document.getElementById('dimensiones-container');
   container.innerHTML = '';
@@ -369,16 +370,16 @@ function renderDimensiones() {
     rt.textContent = perfil.resumen_ia;
     rt.className   = 'resumen-text';
   } else {
-    rt.textContent = 'Sin resumen aún. Completá las dimensiones y hacé clic en "Generar resumen".';
+    rt.textContent = 'Sin resumen aÃºn. CompletÃ¡ las dimensiones y hacÃ© clic en "Generar resumen".';
     rt.className   = 'resumen-empty';
   }
 }
 
-/* ── GUARDAR PERFIL ── */
+/* â”€â”€ GUARDAR PERFIL â”€â”€ */
 async function savePerfil() {
   if (!asesorActual) return;
   const btn = document.getElementById('btn-save');
-  btn.disabled = true; btn.textContent = 'Guardando…';
+  btn.disabled = true; btn.textContent = 'Guardandoâ€¦';
 
   const payload = { asesor: asesorActual, updated_at: new Date().toISOString() };
   DIMS.forEach(({ key }) => {
@@ -397,7 +398,7 @@ async function savePerfil() {
         `asesor=eq.${encodeURIComponent(asesorActual)}`);
     }
     perfil = { ...perfil, ...payload };
-    setStatus('saved', `Guardado · ${fmtDate(new Date().toISOString())}`);
+    setStatus('saved', `Guardado Â· ${fmtDate(new Date().toISOString())}`);
     showToast('Perfil guardado.');
   } catch(e) {
     showToast('Error al guardar: ' + e.message, true);
@@ -405,42 +406,42 @@ async function savePerfil() {
   btn.disabled = false; btn.textContent = 'Guardar perfil';
 }
 
-/* ── GENERAR RESUMEN ── */
+/* â”€â”€ GENERAR RESUMEN â”€â”€ */
 async function generarResumen() {
   if (!asesorActual) return;
   const btn = document.getElementById('btn-resumen');
-  btn.disabled = true; btn.textContent = 'Generando…';
+  btn.disabled = true; btn.textContent = 'Generandoâ€¦';
 
   const ctx = {};
   DIMS.forEach(({ key }) => { ctx[key] = document.getElementById(`ta-${key}`)?.value.trim() || null; });
 
   const prompt = `Eres un experto en coaching de ventas con el sistema TPS (The Precision Selling) y en perfiles conductuales D/R/S.
 
-Sintetiza el siguiente perfil del asesor "${asesorActual}" en un párrafo único de máximo 100 palabras. Debe capturar su esencia como vendedor: quién es, cómo funciona, qué lo mueve y cómo debe ser abordado en los mensajes de coaching.
+Sintetiza el siguiente perfil del asesor "${asesorActual}" en un pÃ¡rrafo Ãºnico de mÃ¡ximo 100 palabras. Debe capturar su esencia como vendedor: quiÃ©n es, cÃ³mo funciona, quÃ© lo mueve y cÃ³mo debe ser abordado en los mensajes de coaching.
 
 PERFIL:
 - Identidad vendedora: ${ctx.identidad_vendedora || 'No definida'}
-- Relación con la prospección: ${ctx.relacion_prospeccion || 'No definida'}
+- RelaciÃ³n con la prospecciÃ³n: ${ctx.relacion_prospeccion || 'No definida'}
 - Modelos mentales de resultado: ${ctx.modelos_mentales || 'No definidos'}
-- Relación con el feedback: ${ctx.relacion_feedback || 'No definida'}
+- RelaciÃ³n con el feedback: ${ctx.relacion_feedback || 'No definida'}
 - Perfil conductual D/R/S: ${ctx.perfil_conductual_notas || 'No definido'}
 - Contexto situacional: ${ctx.contexto_situacional || 'No definido'}
 
-Escribe en tercera persona. Sin viñetas ni subtítulos. El resumen debe ser útil para que la IA lo use como contexto al redactar mensajes altamente personalizados.`;
+Escribe en tercera persona. Sin viÃ±etas ni subtÃ­tulos. El resumen debe ser Ãºtil para que la IA lo use como contexto al redactar mensajes altamente personalizados.`;
 
   try {
     const resumen = await callGemini(prompt, 300);
     const rt = document.getElementById('resumen-text');
     rt.textContent = resumen.trim();
     rt.className   = 'resumen-text';
-    showToast('Resumen generado. Guardá el perfil para conservarlo.');
+    showToast('Resumen generado. GuardÃ¡ el perfil para conservarlo.');
   } catch(e) {
     showToast('Error generando resumen: ' + e.message, true);
   }
   btn.disabled = false; btn.textContent = 'Generar resumen';
 }
 
-/* ── CALIBRAR ── */
+/* â”€â”€ CALIBRAR â”€â”€ */
 async function calibrar() {
   const input      = document.getElementById('chat-input');
   const observacion = input.value.trim();
@@ -457,36 +458,36 @@ async function calibrar() {
   const ctx = {};
   DIMS.forEach(({ key }) => { ctx[key] = document.getElementById(`ta-${key}`)?.value.trim() || null; });
 
-  const prompt = `Eres un coach de ventas experto en el sistema TPS (The Precision Selling) y en estilos conductuales D/R/S. Tu rol es ayudar a construir y refinar el perfil psicológico y conductual de asesores de seguros, para que la IA genere mensajes de coaching altamente personalizados y efectivos.
+  const prompt = `Eres un coach de ventas experto en el sistema TPS (The Precision Selling) y en estilos conductuales D/R/S. Tu rol es ayudar a construir y refinar el perfil psicolÃ³gico y conductual de asesores de seguros, para que la IA genere mensajes de coaching altamente personalizados y efectivos.
 
 PERFIL ACTUAL del asesor "${asesorActual}":
 - Identidad vendedora: ${ctx.identidad_vendedora || '(sin definir)'}
-- Relación con la prospección: ${ctx.relacion_prospeccion || '(sin definir)'}
+- RelaciÃ³n con la prospecciÃ³n: ${ctx.relacion_prospeccion || '(sin definir)'}
 - Modelos mentales de resultado: ${ctx.modelos_mentales || '(sin definir)'}
-- Relación con el feedback: ${ctx.relacion_feedback || '(sin definir)'}
+- RelaciÃ³n con el feedback: ${ctx.relacion_feedback || '(sin definir)'}
 - Perfil conductual D/R/S: ${ctx.perfil_conductual_notas || '(sin definir)'}
 - Contexto situacional: ${ctx.contexto_situacional || '(sin definir)'}
 
-OBSERVACIÓN DEL COACH:
+OBSERVACIÃ“N DEL COACH:
 "${observacion}"
 
-Analiza esta observación con profundidad. ¿Qué revela sobre quién es esta persona como vendedor/a? ¿Qué actualiza o confirma del perfil? ¿Qué patrones o creencias subyacentes detectas?
+Analiza esta observaciÃ³n con profundidad. Â¿QuÃ© revela sobre quiÃ©n es esta persona como vendedor/a? Â¿QuÃ© actualiza o confirma del perfil? Â¿QuÃ© patrones o creencias subyacentes detectas?
 
-Responde ÚNICAMENTE con JSON válido, sin texto adicional antes ni después:
+Responde ÃšNICAMENTE con JSON vÃ¡lido, sin texto adicional antes ni despuÃ©s:
 {
-  "analisis": "tu interpretación profunda en 2-4 oraciones",
+  "analisis": "tu interpretaciÃ³n profunda en 2-4 oraciones",
   "sugerencias": [
     {
       "dimension": "nombre_campo",
-      "texto_propuesto": "texto completo y actualizado para esa dimensión, integrando lo nuevo con lo existente",
-      "razonamiento": "por qué este cambio mejora el perfil (1 oración)"
+      "texto_propuesto": "texto completo y actualizado para esa dimensiÃ³n, integrando lo nuevo con lo existente",
+      "razonamiento": "por quÃ© este cambio mejora el perfil (1 oraciÃ³n)"
     }
   ]
 }
 
-Campos válidos para dimension: identidad_vendedora, relacion_prospeccion, modelos_mentales, relacion_feedback, perfil_conductual_notas, contexto_situacional
+Campos vÃ¡lidos para dimension: identidad_vendedora, relacion_prospeccion, modelos_mentales, relacion_feedback, perfil_conductual_notas, contexto_situacional
 
-Incluye solo las dimensiones que realmente requieran actualización.`;
+Incluye solo las dimensiones que realmente requieran actualizaciÃ³n.`;
 
   try {
     const raw = await callGemini(prompt, 1500);
@@ -497,13 +498,13 @@ Incluye solo las dimensiones que realmente requieran actualización.`;
       const match = raw.match(/\{[\s\S]*\}/);
       parsed = JSON.parse(match ? match[0] : raw);
     } catch {
-      addMsgAnalisis('No pude interpretar la respuesta. Intentá reformular la observación.', []);
+      addMsgAnalisis('No pude interpretar la respuesta. IntentÃ¡ reformular la observaciÃ³n.', []);
       return;
     }
     addMsgAnalisis(parsed.analisis || '', parsed.sugerencias || []);
   } catch(e) {
     removeMsgLoading(loadId);
-    showToast('Error en calibración: ' + e.message, true);
+    showToast('Error en calibraciÃ³n: ' + e.message, true);
   } finally {
     input.disabled = false;
     document.getElementById('btn-enviar').disabled = false;
@@ -511,14 +512,14 @@ Incluye solo las dimensiones que realmente requieran actualización.`;
   }
 }
 
-/* ── APLICAR SUGERENCIA ── */
+/* â”€â”€ APLICAR SUGERENCIA â”€â”€ */
 function aplicarSugerencia(dimension, texto, btnEl, sugCard) {
   const ta      = document.getElementById(`ta-${dimension}`);
   const dimCard = document.getElementById(`dim-${dimension}`);
   if (!ta) return;
 
   ta.value = texto;
-  btnEl.textContent = '✓ Aplicado';
+  btnEl.textContent = 'âœ“ Aplicado';
   btnEl.disabled    = true;
   sugCard.classList.add('applied');
 
@@ -529,7 +530,7 @@ function aplicarSugerencia(dimension, texto, btnEl, sugCard) {
   }
 }
 
-/* ── CHAT HELPERS ── */
+/* â”€â”€ CHAT HELPERS â”€â”€ */
 function addMsgCoach(texto) {
   const msgs  = document.getElementById('chat-messages');
   const empty = msgs.querySelector('.chat-empty-state');
@@ -568,7 +569,7 @@ function addMsgAnalisis(analisis, sugerencias) {
     aDiv.className = 'msg-analisis';
     const lbl = document.createElement('div');
     lbl.className   = 'msg-analisis-label';
-    lbl.textContent = 'Análisis';
+    lbl.textContent = 'AnÃ¡lisis';
     const p = document.createElement('p');
     p.style.cssText = 'margin:0;font-size:13px;line-height:1.7';
     p.textContent   = analisis;
@@ -621,7 +622,7 @@ function addMsgAnalisis(analisis, sugerencias) {
   if (!sugerencias.length && analisis) {
     const note = document.createElement('div');
     note.style.cssText  = 'font-size:12px;color:var(--gray-3);padding:4px 2px;font-style:italic';
-    note.textContent    = 'No se sugieren cambios al perfil en base a esta observación.';
+    note.textContent    = 'No se sugieren cambios al perfil en base a esta observaciÃ³n.';
     wrap.appendChild(note);
   }
 
@@ -629,12 +630,12 @@ function addMsgAnalisis(analisis, sugerencias) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
-/* ── KEYBOARD ── */
+/* â”€â”€ KEYBOARD â”€â”€ */
 function handleKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); calibrar(); }
 }
 
-/* ── UTILS ── */
+/* â”€â”€ UTILS â”€â”€ */
 function setStatus(type, text) {
   document.getElementById('status-dot').className  = `status-dot ${type}`;
   document.getElementById('status-text').textContent = text;
@@ -663,8 +664,9 @@ function logout() {
   window.location.href = '../proxis_plataforma.html';
 }
 
-/* ── INIT ── */
+/* â”€â”€ INIT â”€â”€ */
 loadAsesores();
 </script>
 </body>
 </html>
+

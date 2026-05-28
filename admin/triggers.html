@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proxis Admin · Triggers</title>
+<title>Proxis Admin Â· Triggers</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -18,7 +18,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--black);min-height:100vh;-webkit-font-smoothing:antialiased}
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .header{background:var(--black);padding:0 28px;height:56px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 0 var(--lime-dk);position:sticky;top:0;z-index:100}
 .logo{display:flex;align-items:center;gap:8px;text-decoration:none}
 .logo-wordmark{font-weight:800;font-size:18px;color:var(--white);letter-spacing:-0.04em}
@@ -33,7 +33,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .btn-logout{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.7);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s}
 .btn-logout:hover{background:rgba(255,255,255,0.14);color:white}
 
-/* ── LAYOUT ── */
+/* â”€â”€ LAYOUT â”€â”€ */
 .main{max-width:960px;margin:0 auto;padding:32px 28px}
 .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;gap:12px;flex-wrap:wrap}
 .page-header-left{display:flex;align-items:center;gap:12px}
@@ -41,7 +41,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .back-link:hover{color:var(--black)}
 .page-title{font-size:22px;font-weight:800;letter-spacing:-0.03em}
 
-/* ── BOTÓN NUEVO ── */
+/* â”€â”€ BOTÃ“N NUEVO â”€â”€ */
 .btn{padding:9px 18px;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:7px}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn-dark{background:var(--black);color:white}
@@ -54,7 +54,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .btn-danger{background:transparent;color:var(--red);border:1px solid rgba(176,58,58,0.25)}
 .btn-danger:not(:disabled):hover{background:var(--red-lt)}
 
-/* ── TABLA ── */
+/* â”€â”€ TABLA â”€â”€ */
 .card{background:white;border:1px solid var(--gray-5);border-radius:12px;overflow:hidden}
 table{width:100%;border-collapse:collapse}
 thead th{padding:11px 16px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--gray-3);background:#fafaf7;border-bottom:1px solid var(--gray-5)}
@@ -64,7 +64,7 @@ tbody tr:hover{background:#fdfcfb}
 tbody tr.editing{background:#fffdf5}
 td{padding:12px 16px;font-size:13px;vertical-align:middle}
 
-/* ── CELDAS EDITABLES ── */
+/* â”€â”€ CELDAS EDITABLES â”€â”€ */
 .cell-text{color:var(--black)}
 .cell-mono{font-family:'DM Mono',monospace;font-size:12px;color:var(--gray-2)}
 input.inline{width:100%;padding:6px 10px;border:1px solid var(--gray-5);border-radius:6px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);background:white;outline:none;transition:border-color 0.15s}
@@ -74,7 +74,7 @@ input.inline.narrow{width:80px}
 textarea.inline{width:100%;padding:6px 10px;border:1px solid var(--gray-5);border-radius:6px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);background:white;outline:none;resize:none;transition:border-color 0.15s}
 textarea.inline:focus{border-color:var(--black)}
 
-/* ── TOGGLE ── */
+/* â”€â”€ TOGGLE â”€â”€ */
 .toggle-wrap{display:flex;align-items:center;gap:8px}
 .toggle{appearance:none;-webkit-appearance:none;width:36px;height:20px;border-radius:20px;background:var(--gray-4);cursor:pointer;transition:background 0.2s;position:relative;flex-shrink:0}
 .toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:white;top:3px;left:3px;transition:transform 0.2s}
@@ -82,13 +82,13 @@ textarea.inline:focus{border-color:var(--black)}
 .toggle:checked::after{transform:translateX(16px)}
 .toggle-label{font-size:12px;color:var(--gray-2)}
 
-/* ── ACCIONES ── */
+/* â”€â”€ ACCIONES â”€â”€ */
 .actions-cell{display:flex;gap:6px;align-items:center}
 
-/* ── EMPTY ── */
+/* â”€â”€ EMPTY â”€â”€ */
 .empty-row td{text-align:center;color:var(--gray-3);font-size:13px;padding:32px}
 
-/* ── CONFIG PANEL ── */
+/* â”€â”€ CONFIG PANEL â”€â”€ */
 .config-panel{background:white;border:1px solid var(--gray-5);border-radius:12px;padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .config-label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray-3);white-space:nowrap}
 .config-input{flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--gray-5);border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--black);outline:none;transition:border-color 0.15s}
@@ -96,7 +96,7 @@ textarea.inline:focus{border-color:var(--black)}
 .btn-save-config{padding:8px 16px;border:none;border-radius:8px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:600;background:var(--black);color:white;cursor:pointer;transition:opacity .15s;white-space:nowrap}
 .btn-save-config:hover{opacity:.85}
 
-/* ── TOAST ── */
+/* â”€â”€ TOAST â”€â”€ */
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--black);color:white;font-size:13px;font-weight:500;padding:10px 22px;border-radius:30px;opacity:0;transition:all 0.25s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.error{background:var(--red)}
@@ -121,9 +121,9 @@ textarea.inline:focus{border-color:var(--black)}
   </a>
   <div class="header-div"></div>
   <span class="header-tag"><a href="index.html">Admin</a> / Triggers</span>
-  <span class="header-env" id="envBadge">···</span>
+  <span class="header-env" id="envBadge">Â·Â·Â·</span>
   <div class="header-right">
-    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+    <button class="btn-logout" onclick="logout()">Cerrar sesiÃ³n</button>
   </div>
 </header>
 
@@ -154,16 +154,16 @@ textarea.inline:focus{border-color:var(--black)}
       <thead>
         <tr>
           <th>Trigger ID</th>
-          <th>Descripción</th>
+          <th>DescripciÃ³n</th>
           <th>Asunto del email</th>
-          <th style="width:90px">Cooldown (días)</th>
+          <th style="width:90px">Cooldown (dÃ­as)</th>
           <th style="width:80px">Umbral</th>
           <th style="width:90px">Estado</th>
           <th style="width:120px">Acciones</th>
         </tr>
       </thead>
       <tbody id="triggerTableBody">
-        <tr class="empty-row"><td colspan="6">Cargando…</td></tr>
+        <tr class="empty-row"><td colspan="6">Cargandoâ€¦</td></tr>
       </tbody>
     </table>
   </div>
@@ -171,9 +171,10 @@ textarea.inline:focus{border-color:var(--black)}
 
 <div class="toast" id="toast"></div>
 
+<script src="_secrets.js"></script>
 <script src="_core.js"></script>
 <script>
-/* ── AUTH ── */
+/* â”€â”€ AUTH â”€â”€ */
 const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
 if (G.role !== 'admin') { window.location.href = 'index.html'; }
 
@@ -181,14 +182,14 @@ const envBadge = document.getElementById('envBadge');
 envBadge.textContent = IS_DEV ? 'DEV' : 'PROD';
 envBadge.className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
 
-/* ── STATE ── */
+/* â”€â”€ STATE â”€â”€ */
 let triggers = [];
-let editingId = null; // trigger_id en edición
+let editingId = null; // trigger_id en ediciÃ³n
 
-/* ── LOAD ── */
+/* â”€â”€ LOAD â”€â”€ */
 async function loadTriggers() {
   const tbody = document.getElementById('triggerTableBody');
-  tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Cargando…</td></tr>';
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Cargandoâ€¦</td></tr>';
   try {
     triggers = await SBC.get('trigger_config', 'order=trigger_id.asc');
     renderTable();
@@ -217,10 +218,10 @@ function renderTable() {
 function readRow(t) {
   return `
     <td class="cell-mono">${esc(t.trigger_id)}</td>
-    <td class="cell-text">${esc(t.descripcion || '—')}</td>
-    <td class="cell-text" style="font-size:12px;color:var(--gray-2)">${esc(t.asunto || '—')}</td>
-    <td class="cell-text" style="text-align:center">${t.cooldown_dias ?? '—'}</td>
-    <td class="cell-text" style="text-align:center">${t.umbral ?? '—'}</td>
+    <td class="cell-text">${esc(t.descripcion || 'â€”')}</td>
+    <td class="cell-text" style="font-size:12px;color:var(--gray-2)">${esc(t.asunto || 'â€”')}</td>
+    <td class="cell-text" style="text-align:center">${t.cooldown_dias ?? 'â€”'}</td>
+    <td class="cell-text" style="text-align:center">${t.umbral ?? 'â€”'}</td>
     <td>
       <div class="toggle-wrap">
         <input type="checkbox" class="toggle" ${t.activo ? 'checked' : ''}
@@ -238,7 +239,7 @@ function readRow(t) {
 function editingRow(t) {
   return `
     <td><input class="inline mono" id="e-id" value="${esc(t.trigger_id)}" placeholder="trigger-id" ${t._isNew ? '' : 'readonly'}></td>
-    <td><textarea class="inline" id="e-desc" rows="2" placeholder="Descripción">${esc(t.descripcion || '')}</textarea></td>
+    <td><textarea class="inline" id="e-desc" rows="2" placeholder="DescripciÃ³n">${esc(t.descripcion || '')}</textarea></td>
     <td><input class="inline" id="e-asunto" type="text" placeholder="Asunto del email" value="${esc(t.asunto || '')}"></td>
     <td><input class="inline narrow" id="e-cool" type="number" min="1" value="${t.cooldown_dias ?? ''}"></td>
     <td><input class="inline narrow" id="e-umbral" type="number" step="0.01" value="${t.umbral ?? ''}"></td>
@@ -256,7 +257,7 @@ function editingRow(t) {
     </td>`;
 }
 
-/* ── EDIT / CANCEL ── */
+/* â”€â”€ EDIT / CANCEL â”€â”€ */
 function startEdit(triggerId) {
   editingId = triggerId;
   renderTable();
@@ -269,7 +270,7 @@ function cancelEdit() {
   renderTable();
 }
 
-/* ── GUARDAR FILA ── */
+/* â”€â”€ GUARDAR FILA â”€â”€ */
 async function guardarFila(originalId, isNew) {
   const id      = document.getElementById('e-id').value.trim();
   const desc    = document.getElementById('e-desc').value.trim();
@@ -278,7 +279,7 @@ async function guardarFila(originalId, isNew) {
   const umbral  = parseFloat(document.getElementById('e-umbral').value) || null;
   const activo  = document.getElementById('e-activo').checked;
 
-  if (!id) { showToast('El Trigger ID no puede estar vacío.', true); return; }
+  if (!id) { showToast('El Trigger ID no puede estar vacÃ­o.', true); return; }
 
   const payload = { trigger_id: id, descripcion: desc, asunto, cooldown_dias: cool, umbral, activo, updated_at: new Date().toISOString() };
 
@@ -298,7 +299,7 @@ async function guardarFila(originalId, isNew) {
   }
 }
 
-/* ── TOGGLE ACTIVO (inline, sin abrir edición) ── */
+/* â”€â”€ TOGGLE ACTIVO (inline, sin abrir ediciÃ³n) â”€â”€ */
 async function toggleActivo(triggerId, activo) {
   try {
     await SBC.patch('trigger_config', { activo, updated_at: new Date().toISOString() },
@@ -313,7 +314,7 @@ async function toggleActivo(triggerId, activo) {
   }
 }
 
-/* ── NUEVO TRIGGER ── */
+/* â”€â”€ NUEVO TRIGGER â”€â”€ */
 function nuevoTrigger() {
   if (triggers.find(t => t._isNew)) return; // ya hay uno nuevo pendiente
   const nuevo = { trigger_id: '', descripcion: '', asunto: '', cooldown_dias: 7, umbral: null, activo: true, _isNew: true };
@@ -323,7 +324,7 @@ function nuevoTrigger() {
   document.getElementById('e-id')?.focus();
 }
 
-/* ── HELPERS ── */
+/* â”€â”€ HELPERS â”€â”€ */
 function esc(str) {
   return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -340,19 +341,19 @@ function logout() {
   window.location.href = '../proxis_plataforma.html';
 }
 
-/* ── REMITENTE ── */
+/* â”€â”€ REMITENTE â”€â”€ */
 async function loadRemitente() {
   try {
     const rows = await SBC.get('config', 'key=eq.remitente');
     if (rows.length) document.getElementById('remitente-input').value = rows[0].value || '';
   } catch(e) {
-    // silencioso — campo queda vacío
+    // silencioso â€” campo queda vacÃ­o
   }
 }
 
 async function saveRemitente() {
   const val = document.getElementById('remitente-input').value.trim();
-  if (!val) { showToast('El nombre del remitente no puede estar vacío.', true); return; }
+  if (!val) { showToast('El nombre del remitente no puede estar vacÃ­o.', true); return; }
   try {
     await SBC.patch('config', { value: val }, 'key=eq.remitente');
     showToast('Remitente guardado.');
@@ -366,3 +367,4 @@ loadTriggers();
 </script>
 </body>
 </html>
+

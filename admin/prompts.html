@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proxis Admin · Prompts</title>
+<title>Proxis Admin Â· Prompts</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--black);min-height:100vh;-webkit-font-smoothing:antialiased}
 
-/* ── HEADER ── */
+/* â”€â”€ HEADER â”€â”€ */
 .header{background:var(--black);padding:0 28px;height:56px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.06);box-shadow:0 1px 0 0 var(--lime-dk);position:sticky;top:0;z-index:100}
 .logo{display:flex;align-items:center;gap:8px;text-decoration:none}
 .logo-wordmark{font-weight:800;font-size:18px;color:var(--white);letter-spacing:-0.04em}
@@ -35,7 +35,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f5f3ef;color:var(--b
 .btn-logout{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:rgba(255,255,255,0.7);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:500;padding:5px 14px;border-radius:20px;cursor:pointer;transition:all 0.15s}
 .btn-logout:hover{background:rgba(255,255,255,0.14);color:white}
 
-/* ── LAYOUT ── */
+/* â”€â”€ LAYOUT â”€â”€ */
 .main{max-width:1200px;margin:0 auto;padding:32px 28px}
 .page-header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
 .back-link{font-size:12px;color:var(--gray-3);text-decoration:none;display:flex;align-items:center;gap:5px;transition:color 0.15s}
@@ -129,9 +129,9 @@ textarea.editor::placeholder{color:var(--gray-4)}
   </a>
   <div class="header-div"></div>
   <span class="header-tag"><a href="index.html">Admin</a> / Prompts</span>
-  <span class="header-env" id="envBadge">···</span>
+  <span class="header-env" id="envBadge">Â·Â·Â·</span>
   <div class="header-right">
-    <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+    <button class="btn-logout" onclick="logout()">Cerrar sesiÃ³n</button>
   </div>
 </header>
 
@@ -148,7 +148,7 @@ textarea.editor::placeholder{color:var(--gray-4)}
   <div class="trigger-bar">
     <label for="triggerSelect">Trigger</label>
     <select id="triggerSelect" onchange="onTriggerChange()">
-      <option value="">— Selecciona un trigger —</option>
+      <option value="">â€” Selecciona un trigger â€”</option>
     </select>
   </div>
 
@@ -186,7 +186,7 @@ textarea.editor::placeholder{color:var(--gray-4)}
             <span class="var-chip" onclick="insertVar('{{persistencia}}')">{{persistencia}}</span>
             <span class="var-chip" onclick="insertVar('{{mes}}')">{{mes}}</span>
           </div>
-          <p class="var-hint">{{perfil}} = D, R o S según perfil conductual dominante del asesor.</p>
+          <p class="var-hint">{{perfil}} = D, R o S segÃºn perfil conductual dominante del asesor.</p>
         </div>
 
         <hr class="divider">
@@ -195,11 +195,11 @@ textarea.editor::placeholder{color:var(--gray-4)}
         <div class="btn-row">
           <button class="btn btn-dark" id="btnGuardar" onclick="guardarVersion()" disabled>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 2h7l2 2v7H2V2z" stroke="currentColor" stroke-width="1.2"/><path d="M4 2v3h5V2M4 8h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-            Guardar nueva versión
+            Guardar nueva versiÃ³n
           </button>
           <button class="btn btn-teal" id="btnActivar" onclick="activarVersion()" disabled>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2.5 6.5l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Activar esta versión
+            Activar esta versiÃ³n
           </button>
         </div>
 
@@ -210,7 +210,7 @@ textarea.editor::placeholder{color:var(--gray-4)}
           <label class="editor-label">Previsualizar con asesor</label>
           <div class="preview-row">
             <select id="asesorSelect">
-              <option value="">— Selecciona asesor —</option>
+              <option value="">â€” Selecciona asesor â€”</option>
             </select>
             <button class="btn btn-outline" id="btnPreview" onclick="previsualizarMensaje()" disabled>
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 6.5S3 2 6.5 2 12 6.5 12 6.5 10 11 6.5 11 1 6.5 1 6.5z" stroke="currentColor" stroke-width="1.2"/><circle cx="6.5" cy="6.5" r="1.5" stroke="currentColor" stroke-width="1.2"/></svg>
@@ -218,7 +218,7 @@ textarea.editor::placeholder{color:var(--gray-4)}
             </button>
           </div>
           <div class="preview-result empty" id="previewResult">
-            El resultado del mensaje generado por Gemini aparecerá aquí.
+            El resultado del mensaje generado por Gemini aparecerÃ¡ aquÃ­.
           </div>
         </div>
       </div>
@@ -228,24 +228,25 @@ textarea.editor::placeholder{color:var(--gray-4)}
 
 <div class="toast" id="toast"></div>
 
+<script src="_secrets.js"></script>
 <script src="_core.js"></script>
 <script>
-/* ── AUTH ── */
+/* â”€â”€ AUTH â”€â”€ */
 const G = JSON.parse(localStorage.getItem('proxis_user') || '{}');
 if (G.role !== 'admin') { window.location.href = 'index.html'; }
 
-/* ── ENV BADGE ── */
+/* â”€â”€ ENV BADGE â”€â”€ */
 const envBadge = document.getElementById('envBadge');
 envBadge.textContent = IS_DEV ? 'DEV' : 'PROD';
 envBadge.className   = 'header-env ' + (IS_DEV ? 'dev' : 'prod');
 
-/* ── STATE ── */
+/* â”€â”€ STATE â”€â”€ */
 let currentTriggerId  = null;
 let currentVersionId  = null;
 let currentVersionNum = null;
 let allVersions       = [];
 
-/* ── INIT ── */
+/* â”€â”€ INIT â”€â”€ */
 async function init() {
   await Promise.all([loadTriggers(), loadAsesores()]);
 }
@@ -257,7 +258,7 @@ async function loadTriggers() {
     triggers.forEach(t => {
       const o = document.createElement('option');
       o.value = t.trigger_id;
-      o.textContent = `${t.trigger_id} — ${t.descripcion || ''}`;
+      o.textContent = `${t.trigger_id} â€” ${t.descripcion || ''}`;
       sel.appendChild(o);
     });
   } catch(e) { showToast('Error cargando triggers: ' + e.message, true); }
@@ -272,10 +273,10 @@ async function loadAsesores() {
       o.value = o.textContent = r.asesor;
       sel.appendChild(o);
     });
-  } catch(e) { /* silencioso — no bloquea */ }
+  } catch(e) { /* silencioso â€” no bloquea */ }
 }
 
-/* ── TRIGGER CHANGE ── */
+/* â”€â”€ TRIGGER CHANGE â”€â”€ */
 async function onTriggerChange() {
   currentTriggerId  = document.getElementById('triggerSelect').value || null;
   currentVersionId  = null;
@@ -284,7 +285,7 @@ async function onTriggerChange() {
   document.getElementById('btnGuardar').disabled = !currentTriggerId;
   document.getElementById('btnActivar').disabled = true;
   document.getElementById('btnPreview').disabled = !currentTriggerId;
-  document.getElementById('previewResult').textContent = 'El resultado del mensaje generado por Gemini aparecerá aquí.';
+  document.getElementById('previewResult').textContent = 'El resultado del mensaje generado por Gemini aparecerÃ¡ aquÃ­.';
   document.getElementById('previewResult').classList.add('empty');
 
   if (!currentTriggerId) {
@@ -296,13 +297,13 @@ async function onTriggerChange() {
 
 async function loadVersions() {
   const list = document.getElementById('versionList');
-  list.innerHTML = '<li class="empty-state">Cargando…</li>';
+  list.innerHTML = '<li class="empty-state">Cargandoâ€¦</li>';
   try {
     allVersions = await SBC.get('prompts',
       `trigger_id=eq.${encodeURIComponent(currentTriggerId)}&order=version.desc`);
 
     if (!allVersions.length) {
-      list.innerHTML = '<li class="empty-state">Sin versiones — escribe la primera plantilla.</li>';
+      list.innerHTML = '<li class="empty-state">Sin versiones â€” escribe la primera plantilla.</li>';
       return;
     }
 
@@ -316,7 +317,7 @@ async function loadVersions() {
         <span class="version-num">v${v.version}</span>
         <span class="${v.activo ? 'badge-active' : 'badge-inactive'}">${v.activo ? 'Activa' : 'Inactiva'}</span>
         <span class="version-date">${formatDate(v.created_at)}</span>
-        <button class="btn-del-ver" title="Eliminar versión" onclick="eliminarVersion(event,'${v.id}',${v.version},${v.activo})">✕</button>`;
+        <button class="btn-del-ver" title="Eliminar versiÃ³n" onclick="eliminarVersion(event,'${v.id}',${v.version},${v.activo})">âœ•</button>`;
       li.onclick = (e) => { if (!e.target.classList.contains('btn-del-ver')) selectVersion(v, li); };
       list.appendChild(li);
 
@@ -339,10 +340,10 @@ function selectVersion(v, li) {
   document.getElementById('btnActivar').disabled = v.activo;
 }
 
-/* ── GUARDAR NUEVA VERSIÓN ── */
+/* â”€â”€ GUARDAR NUEVA VERSIÃ“N â”€â”€ */
 async function guardarVersion() {
   const body = document.getElementById('editorTA').value.trim();
-  if (!body) { showToast('La plantilla no puede estar vacía.', true); return; }
+  if (!body) { showToast('La plantilla no puede estar vacÃ­a.', true); return; }
   if (!currentTriggerId) { showToast('Selecciona un trigger primero.', true); return; }
 
   const maxVersion = allVersions.length ? Math.max(...allVersions.map(v => v.version)) : 0;
@@ -355,7 +356,7 @@ async function guardarVersion() {
       body,
       activo:     false
     });
-    showToast(`Versión ${maxVersion + 1} guardada.`);
+    showToast(`VersiÃ³n ${maxVersion + 1} guardada.`);
     await loadVersions();
   } catch(e) {
     showToast('Error al guardar: ' + e.message, true);
@@ -363,7 +364,7 @@ async function guardarVersion() {
   document.getElementById('btnGuardar').disabled = false;
 }
 
-/* ── ACTIVAR VERSIÓN ── */
+/* â”€â”€ ACTIVAR VERSIÃ“N â”€â”€ */
 async function activarVersion() {
   if (!currentVersionId || !currentTriggerId) return;
   document.getElementById('btnActivar').disabled = true;
@@ -373,7 +374,7 @@ async function activarVersion() {
       `trigger_id=eq.${encodeURIComponent(currentTriggerId)}`);
     // Activar la seleccionada
     await SBC.patch('prompts', { activo: true }, `id=eq.${currentVersionId}`);
-    showToast(`Versión ${currentVersionNum} activada.`);
+    showToast(`VersiÃ³n ${currentVersionNum} activada.`);
     await loadVersions();
   } catch(e) {
     showToast('Error al activar: ' + e.message, true);
@@ -381,21 +382,21 @@ async function activarVersion() {
   }
 }
 
-/* ── ELIMINAR VERSIÓN ── */
+/* â”€â”€ ELIMINAR VERSIÃ“N â”€â”€ */
 async function eliminarVersion(e, id, num, activa) {
   e.stopPropagation();
-  const aviso = activa ? `La versión ${num} está ACTIVA. Si la eliminas el trigger quedará sin prompt.\n\n¿Continuar?` : `¿Eliminar la versión ${num}? Esta acción no se puede deshacer.`;
+  const aviso = activa ? `La versiÃ³n ${num} estÃ¡ ACTIVA. Si la eliminas el trigger quedarÃ¡ sin prompt.\n\nÂ¿Continuar?` : `Â¿Eliminar la versiÃ³n ${num}? Esta acciÃ³n no se puede deshacer.`;
   if (!confirm(aviso)) return;
   try {
     await SBC.del('prompts', `id=eq.${id}`);
-    showToast(`Versión ${num} eliminada.`);
+    showToast(`VersiÃ³n ${num} eliminada.`);
     await loadVersions();
   } catch(err) {
     showToast('Error al eliminar: ' + err.message, true);
   }
 }
 
-/* ── PREVIEW ── */
+/* â”€â”€ PREVIEW â”€â”€ */
 async function previsualizarMensaje() {
   const asesor = document.getElementById('asesorSelect').value;
   if (!asesor)          { showToast('Selecciona un asesor para previsualizar.', true); return; }
@@ -403,13 +404,13 @@ async function previsualizarMensaje() {
 
   const result = document.getElementById('previewResult');
   result.classList.remove('empty');
-  result.textContent = '⏳ Generando con Gemini…';
+  result.textContent = 'â³ Generando con Geminiâ€¦';
 
   const btn = document.getElementById('btnPreview');
   btn.disabled = true;
 
   try {
-    // Usar la plantilla actual del editor (no la activa de BD) para que el preview refleje lo que se está editando
+    // Usar la plantilla actual del editor (no la activa de BD) para que el preview refleje lo que se estÃ¡ editando
     const bodyEditor = document.getElementById('editorTA').value.trim();
     let mensajeGenerado;
 
@@ -421,7 +422,7 @@ async function previsualizarMensaje() {
       // Sin key: simular con contexto compilado sin pasar por Gemini
       const ctx = await buildContext(asesor);
       const compilado = compileTemplate(bodyEditor || '[sin plantilla]', ctx);
-      mensajeGenerado = `[GEMINI_KEY no configurada — mostrando plantilla compilada]\n\n${compilado}`;
+      mensajeGenerado = `[GEMINI_KEY no configurada â€” mostrando plantilla compilada]\n\n${compilado}`;
     } else {
       const { body } = await generateMessage(asesor, currentTriggerId, true);
       mensajeGenerado = body;
@@ -436,7 +437,7 @@ async function previsualizarMensaje() {
   btn.disabled = false;
 }
 
-/* ── INSERTAR VARIABLE EN CURSOR ── */
+/* â”€â”€ INSERTAR VARIABLE EN CURSOR â”€â”€ */
 function insertVar(variable) {
   const ta = document.getElementById('editorTA');
   const start = ta.selectionStart;
@@ -447,9 +448,9 @@ function insertVar(variable) {
   ta.focus();
 }
 
-/* ── HELPERS ── */
+/* â”€â”€ HELPERS â”€â”€ */
 function formatDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'â€”';
   const d = new Date(iso);
   return d.toLocaleDateString('es-CL', { day:'2-digit', month:'short' });
 }
@@ -470,3 +471,4 @@ init();
 </script>
 </body>
 </html>
+

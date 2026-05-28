@@ -18,6 +18,9 @@ tsconfig.tsbuildinfo
 .env.local
 .env*.local
 
+# Secrets (nunca commitear)
+admin/_secrets.js
+
 # OS
 .DS_Store
 Thumbs.db
