@@ -6,31 +6,35 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { text } = await req.json()
-  if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 })
+  try {
+    const { text } = await req.json()
+    if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 })
 
-  const token = process.env.HUGGINGFACE_TOKEN
-  if (!token) return NextResponse.json({ error: 'HUGGINGFACE_TOKEN not configured', hint: Object.keys(process.env).filter(k => k.includes('HUG')) }, { status: 500 })
+    const token = process.env.HUGGINGFACE_TOKEN
+    if (!token) return NextResponse.json({ error: 'HUGGINGFACE_TOKEN not configured' }, { status: 500 })
 
-  const res = await fetch(
-    'https://api-inference.huggingface.co/models/sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ inputs: text }),
+    const res = await fetch(
+      'https://api-inference.huggingface.co/models/sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputs: text, options: { wait_for_model: true } }),
+      }
+    )
+
+    if (!res.ok) {
+      const err = await res.text()
+      return NextResponse.json({ error: `HuggingFace HTTP ${res.status}: ${err}` }, { status: 502 })
     }
-  )
 
-  if (!res.ok) {
-    const err = await res.text()
-    return NextResponse.json({ error: err }, { status: 502 })
+    const data = await res.json()
+    const embedding = Array.isArray(data[0]) ? data[0] : data
+    return NextResponse.json({ embedding })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: `Unhandled: ${msg}` }, { status: 500 })
   }
-
-  const data = await res.json()
-  // HuggingFace returns nested array for sentence-transformers — unwrap if needed
-  const embedding = Array.isArray(data[0]) ? data[0] : data
-  return NextResponse.json({ embedding })
 }
