@@ -19,8 +19,10 @@ export async function GET() {
       { method: 'GET' }
     )
     results.gemini = r.ok
-  } catch {
+    if (!r.ok) results.gemini_status = r.status
+  } catch (e) {
     results.gemini = false
+    results.gemini_status = e instanceof Error ? e.message : 'catch'
   }
 
   // ── Resend — verificar clave presente (sin enviar) ───────────────────────
