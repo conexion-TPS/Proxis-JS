@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
+import bcrypt from 'bcryptjs'
 import { supabaseAdmin } from '@/lib/supabase'
 
 function genToken() {
@@ -96,6 +97,38 @@ export async function POST(req: NextRequest) {
       .eq('asesor', asesor)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
+  }
+
+  if (accion === 'importar_asesores') {
+    const { rows } = body as { rows: { asesor: string; org_nodo_id: string }[] }
+    if (!Array.isArray(rows) || rows.length === 0)
+      return NextResponse.json({ error: 'rows requerido' }, { status: 400 })
+    let updated = 0
+    for (const row of rows) {
+      const { error } = await sb.from('asesor_credentials')
+        .update({ org_nodo_id: row.org_nodo_id })
+        .eq('asesor', row.asesor)
+      if (!error) updated++
+    }
+    return NextResponse.json({ ok: true, updated })
+  }
+
+  if (accion === 'importar_usuarios') {
+    const { rows } = body as { rows: { nombre: string; email: string; password: string; org_nodo_id: string }[] }
+    if (!Array.isArray(rows) || rows.length === 0)
+      return NextResponse.json({ error: 'rows requerido' }, { status: 400 })
+    const hashed = await Promise.all(
+      rows.map(async r => ({
+        nombre:        r.nombre.trim(),
+        email:         r.email.toLowerCase().trim(),
+        password_hash: await bcrypt.hash(r.password, 10),
+        org_nodo_id:   r.org_nodo_id,
+        activo:        true,
+      }))
+    )
+    const { error } = await sb.from('org_usuarios').upsert(hashed, { onConflict: 'email' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, processed: hashed.length })
   }
 
   return NextResponse.json({ error: 'accion desconocida' }, { status: 400 })
