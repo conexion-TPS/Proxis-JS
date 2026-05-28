@@ -13,6 +13,7 @@ export async function GET() {
   // ── Gemini — verificar clave con list-models (GET, 0 tokens, no consume cuota) ──
   try {
     const key = process.env.GEMINI_KEY
+    results.gemini_key_hint = key ? `${key.slice(0,8)}...${key.slice(-4)}` : 'EMPTY'
     if (!key) throw new Error('no key')
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${key}`,
