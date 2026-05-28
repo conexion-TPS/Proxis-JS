@@ -201,14 +201,17 @@ export default function JerarquiaPage() {
             ))}
 
             {/* Crear institución */}
-            <details style={{ marginTop: 8 }}>
-              <summary style={{ fontSize: 13, color: '#888', cursor: 'pointer', padding: '6px 0' }}>+ Nueva institución / empresa</summary>
+            <details open style={{ marginTop: 8 }}>
+              <summary style={{ fontSize: 13, color: '#555', cursor: 'pointer', padding: '6px 0', fontWeight: 600 }}>+ Nueva institución / empresa</summary>
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <input value={newInst} onChange={e => setNewInst(e.target.value)} placeholder="Nombre de la empresa"
-                  style={inputStyle} />
-                <button onClick={async () => { if (!newInst) return; const r = await api({ accion: 'crear_institucion', nombre: newInst }); if (r) setNewInst('') }} style={btnStyle} disabled={saving}>
+                  style={{ ...inputStyle, flex: 1 }} />
+                <button onClick={async () => { if (!newInst.trim()) return; const r = await api({ accion: 'crear_institucion', nombre: newInst.trim() }); if (r) setNewInst('') }} style={btnStyle} disabled={saving || !newInst.trim()}>
                   Crear
                 </button>
+              </div>
+              <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+                Crea primero la empresa/organización, luego crea nodos y asigna asesores.
               </div>
             </details>
           </div>

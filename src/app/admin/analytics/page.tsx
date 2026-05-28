@@ -131,11 +131,17 @@ export default function AnalyticsPage() {
       ) : (
         <>
           {filtroNodo && (
-            <div style={{ marginBottom: 16, fontSize: 12, color: '#8a8885', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ marginBottom: 16, fontSize: 12, color: '#8a8885', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#ede9fe', color: '#6b45c8' }}>
                 👥 {orgNodos.find(n => n.id === filtroNodo)?.nombre}
               </span>
-              <span>— mostrando sólo asesores de este equipo</span>
+              {asesoresEnNodo && asesoresEnNodo.size === 0 ? (
+                <span style={{ color: '#a8691a' }}>
+                  Sin asesores asignados — <a href="/admin/jerarquia" style={{ color: '#cbf135', fontWeight: 600 }}>Asignar en Jerarquía →</a>
+                </span>
+              ) : (
+                <span>— mostrando sólo asesores de este equipo</span>
+              )}
               <button onClick={() => setFiltroNodo('')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 11, color: '#8a8885', textDecoration: 'underline', fontFamily: 'inherit' }}>
                 ver todos
               </button>

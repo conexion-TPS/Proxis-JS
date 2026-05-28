@@ -60,7 +60,12 @@ export default function SenalesPage() {
     let q = supabase.from('behavioral_signals').select('*').order('created_at', { ascending: false }).limit(300)
     if (filterA) {
       q = q.eq('asesor', filterA)
-    } else if (asesoresFiltrados && asesoresFiltrados.length > 0) {
+    } else if (asesoresFiltrados !== null) {
+      if (asesoresFiltrados.length === 0) {
+        setSignals([])
+        setLoading(false)
+        return
+      }
       q = q.in('asesor', asesoresFiltrados)
     }
     if (filterF) q = q.eq('fuente', filterF)
@@ -265,7 +270,11 @@ export default function SenalesPage() {
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: '#8a8885' }}>Cargando señales…</div>
       ) : signals.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, color: '#8a8885' }}>Sin señales registradas aún.</div>
+        <div style={{ textAlign: 'center', padding: 60, color: '#8a8885' }}>
+          {filterNodo && asesoresFiltrados?.length === 0
+            ? <>Ningún asesor asignado a este equipo aún. <a href="/admin/jerarquia" style={{ color: '#cbf135', fontWeight: 600 }}>Asignar en Jerarquía →</a></>
+            : 'Sin señales registradas aún.'}
+        </div>
       ) : (
         <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

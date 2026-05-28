@@ -535,8 +535,16 @@ export default function CuestionariosPage() {
               ? perfiles.filter(p => creds.find(c => c.asesor === p.asesor)?.org_nodo_id === filtroNodo)
               : perfiles
             if (visible.length === 0) return (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885' }}>
-                {filtroNodo ? 'Ningún asesor de este equipo tiene perfil TPS calculado.' : 'Ningún asesor ha completado la evaluación TPS aún.'}
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885', lineHeight: 1.7 }}>
+                {filtroNodo ? (
+                  <>
+                    Ningún asesor de este equipo tiene perfil TPS calculado.
+                    <br />
+                    <a href="/admin/jerarquia" style={{ fontSize: 12, color: '#cbf135', fontWeight: 600 }}>
+                      Asignar asesores al equipo en Jerarquía →
+                    </a>
+                  </>
+                ) : 'Ningún asesor ha completado la evaluación TPS aún.'}
               </div>
             )
             const dist: Record<string, number> = {}
