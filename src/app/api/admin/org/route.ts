@@ -82,10 +82,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, data })
   }
 
-  if (accion === 'revocar_invitacion') {
-    const { id } = body
-    if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
-    await sb.from('org_invitaciones').update({ usado: true }).eq('id', id)
+  if (accion === 'set_activo') {
+    const { tipo, id, activo } = body as { tipo: string; id: string; activo: boolean }
+    const tables: Record<string, string> = {
+      institucion: 'instituciones',
+      nodo:        'org_nodos',
+      usuario:     'org_usuarios',
+    }
+    const table = tables[tipo]
+    if (!table || !id) return NextResponse.json({ error: 'tipo e id requeridos' }, { status: 400 })
+    const { error } = await sb.from(table).update({ activo }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   }
 

@@ -8,19 +8,16 @@ type Institucion = { id: string; nombre: string; tipo: string; activo: boolean }
 type Capa        = { id: string; institucion_id: string; nivel: number; nombre_cargo: string }
 type Nodo        = { id: string; parent_id: string | null; institucion_id: string; capa_id: string | null; nombre: string; titulo_propio: string | null; activo: boolean }
 type OrgUsuario  = { id: string; nombre: string; email: string; org_nodo_id: string | null; activo: boolean; ultimo_login: string | null }
-type Invitacion  = { id: string; token: string; institucion_id: string; parent_nodo_id: string | null; nivel_sugerido: number | null; email_destino: string | null; expira_at: string }
 type AsesorCred  = { asesor: string; org_nodo_id: string | null }
-type Data        = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[]; usuarios: OrgUsuario[]; invitaciones: Invitacion[] }
+type Data        = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[]; usuarios: OrgUsuario[] }
 
-type Tab    = 'arbol' | 'asesores' | 'supervisores' | 'invitaciones'
+type Tab    = 'arbol' | 'asesores' | 'supervisores'
 type AsRow  = { csv_asesor: string; csv_equipo: string; asesor: string | null; nodo_id: string | null; status: 'ok' | 'no_asesor' | 'no_nodo' }
 type SupRow = { nombre: string; email: string; password: string; csv_equipo: string; nodo_id: string | null; exists: boolean; status: 'ok' | 'no_nodo' | 'incomplete' }
 
-const BASE = typeof window !== 'undefined' ? window.location.origin : ''
-
 /* ── helpers ── */
 function buildTree(nodos: Nodo[], parentId: string | null) {
-  return nodos.filter(n => n.parent_id === parentId)
+  return nodos.filter(n => n.parent_id === parentId && n.activo)
 }
 function capaLabel(capas: Capa[], capaId: string | null, nodo: Nodo) {
   if (!capaId) return nodo.titulo_propio ?? ''
@@ -61,7 +58,8 @@ function NodoItem({ nodo, nodos, capas, usuarios, onSelect, selected, depth = 0 
         border: `1px solid ${isActive ? 'rgba(203,241,53,0.4)' : 'transparent'}`,
       }}>
         {children.length > 0
-          ? <span onClick={e => { e.stopPropagation(); setOpen(o => !o) }} style={{ fontSize: 10, color: '#888', cursor: 'pointer', width: 12, textAlign: 'center' }}>{open ? '▼' : '▶'}</span>
+          ? <span onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+              style={{ fontSize: 10, color: '#888', cursor: 'pointer', width: 12, textAlign: 'center' }}>{open ? '▼' : '▶'}</span>
           : <span style={{ width: 12 }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nodo.nombre}</div>
@@ -79,7 +77,7 @@ function NodoItem({ nodo, nodos, capas, usuarios, onSelect, selected, depth = 0 
   )
 }
 
-/* ── StatusBadge ── */
+/* ── Badge ── */
 function Badge({ status }: { status: 'ok' | 'exists' | 'no_asesor' | 'no_nodo' | 'incomplete' }) {
   const map = {
     ok:         { bg: '#e6f3ed', color: '#1f6f56', text: '✅ Listo' },
@@ -92,7 +90,7 @@ function Badge({ status }: { status: 'ok' | 'exists' | 'no_asesor' | 'no_nodo' |
   return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{s.text}</span>
 }
 
-/* ── CsvSection — shared layout for both CSV tabs ── */
+/* ── CsvSection ── */
 function CsvSection({ title, description, templateContent, templateName, text, setText, onPreview, result, children }: {
   title: string; description: string; templateContent: string; templateName: string
   text: string; setText: (s: string) => void; onPreview: () => void; result: string; children?: React.ReactNode
@@ -136,6 +134,21 @@ function CsvSection({ title, description, templateContent, templateName, text, s
   )
 }
 
+/* ── ArchivedSection ── */
+function ArchivedSection({ label, count, children }: { label: string; count: number; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  if (count === 0) return null
+  return (
+    <details open={open} onToggle={e => setOpen((e.target as HTMLDetailsElement).open)}
+      style={{ marginTop: 20, borderTop: '1px solid #f0f0ec', paddingTop: 16 }}>
+      <summary style={{ fontSize: 12, color: '#aaa', cursor: 'pointer', userSelect: 'none' }}>
+        📦 Archivados — {label} ({count}) · click para ver / recuperar
+      </summary>
+      <div style={{ marginTop: 12 }}>{children}</div>
+    </details>
+  )
+}
+
 /* ── Página principal ── */
 export default function JerarquiaPage() {
   const [data,    setData]    = useState<Data | null>(null)
@@ -157,13 +170,6 @@ export default function JerarquiaPage() {
   const [newNodoCapa,   setNewNodoCapa]   = useState('')
   const [creds,         setCreds]         = useState<AsesorCred[]>([])
   const [selAsesor,     setSelAsesor]     = useState('')
-
-  /* invitaciones */
-  const [invInst,      setInvInst]      = useState('')
-  const [invParent,    setInvParent]    = useState('')
-  const [invNivel,     setInvNivel]     = useState('')
-  const [invEmail,     setInvEmail]     = useState('')
-  const [createdToken, setCreatedToken] = useState('')
 
   /* CSV asesores */
   const [asText,      setAsText]      = useState('')
@@ -200,6 +206,11 @@ export default function JerarquiaPage() {
     return j
   }
 
+  async function setActivo(tipo: 'institucion' | 'nodo' | 'usuario', id: string, activo: boolean) {
+    await api({ accion: 'set_activo', tipo, id, activo })
+    if (tipo === 'nodo' && !activo && selected?.id === id) setSelected(null)
+  }
+
   /* ── CSV parsing ── */
   function parseAsRows() {
     if (!data) return
@@ -209,11 +220,12 @@ export default function JerarquiaPage() {
     const iA = h.findIndex(x => x.includes('asesor') || x.includes('nombre'))
     const iE = h.findIndex(x => x.includes('equipo') || x.includes('nodo') || x.includes('team'))
     if (iA < 0 || iE < 0) { setAsResult('Columnas requeridas: "asesor" y "equipo"'); return }
+    const activeNodos = data.nodos.filter(n => n.activo)
     const rows: AsRow[] = lines.slice(1).filter(r => r[iA]?.trim()).map(r => {
       const csv_asesor = r[iA]?.trim() ?? ''
       const csv_equipo = r[iE]?.trim() ?? ''
       const credMatch  = creds.find(c => c.asesor.toLowerCase() === csv_asesor.toLowerCase())
-      const nodoMatch  = data.nodos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
+      const nodoMatch  = activeNodos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
       return {
         csv_asesor, csv_equipo,
         asesor:  credMatch?.asesor ?? null,
@@ -233,15 +245,14 @@ export default function JerarquiaPage() {
     const iE = h.findIndex(x => x.includes('email')  || x.includes('correo'))
     const iP = h.findIndex(x => x.includes('password') || x.includes('clave') || x.includes('contrase'))
     const iQ = h.findIndex(x => x.includes('equipo') || x.includes('nodo')  || x.includes('team'))
-    if (iN < 0 || iE < 0 || iP < 0 || iQ < 0) {
-      setSupResult('Columnas requeridas: nombre, email, password, equipo'); return
-    }
+    if (iN < 0 || iE < 0 || iP < 0 || iQ < 0) { setSupResult('Columnas requeridas: nombre, email, password, equipo'); return }
+    const activeNodos = data.nodos.filter(n => n.activo)
     const rows: SupRow[] = lines.slice(1).filter(r => r[iN]?.trim()).map(r => {
       const nombre     = r[iN]?.trim() ?? ''
       const email      = r[iE]?.trim().toLowerCase() ?? ''
       const password   = r[iP]?.trim() ?? ''
       const csv_equipo = r[iQ]?.trim() ?? ''
-      const nodoMatch  = data.nodos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
+      const nodoMatch  = activeNodos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
       const exists     = data.usuarios.some(u => u.email === email)
       const incomplete = !nombre || !email || !password
       return {
@@ -254,22 +265,19 @@ export default function JerarquiaPage() {
     setSupRows(rows); setSupResult('')
   }
 
-  /* ── Confirmar imports ── */
   async function confirmAsImport() {
     const valid = asRows.filter(r => r.status === 'ok')
     if (!valid.length) return
     setAsImporting(true)
     const r = await fetch('/api/admin/org', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accion: 'importar_asesores', rows: valid.map(r => ({ asesor: r.asesor!, org_nodo_id: r.nodo_id! })) }),
     })
     const j = await r.json()
     setAsImporting(false)
     if (!r.ok) { setAsResult('Error: ' + (j.error ?? 'desconocido')); return }
     setAsResult(`✅ ${j.updated} asesores asignados correctamente.`)
-    setAsRows([]); setAsText('')
-    await load()
+    setAsRows([]); setAsText(''); await load()
   }
 
   async function confirmSupImport() {
@@ -277,38 +285,39 @@ export default function JerarquiaPage() {
     if (!valid.length) return
     setSupImporting(true)
     const r = await fetch('/api/admin/org', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accion: 'importar_usuarios', rows: valid.map(r => ({ nombre: r.nombre, email: r.email, password: r.password, org_nodo_id: r.nodo_id! })) }),
     })
     const j = await r.json()
     setSupImporting(false)
     if (!r.ok) { setSupResult('Error: ' + (j.error ?? 'desconocido')); return }
     setSupResult(`✅ ${j.processed} usuarios procesados.`)
-    setSupRows([]); setSupText('')
-    await load()
+    setSupRows([]); setSupText(''); await load()
   }
 
   if (loading || !data) return <div style={{ padding: 40, color: '#888', fontSize: 14 }}>Cargando jerarquía…</div>
 
-  const capasDeInst = (instId: string) => data.capas.filter(c => c.institucion_id === instId).sort((a, b) => a.nivel - b.nivel)
-  const nodosRaiz   = (instId: string) => buildTree(data.nodos.filter(n => n.institucion_id === instId), null)
-  const origin      = BASE || 'https://proxis.theprecisionselling.com'
-  const asOk        = asRows.filter(r => r.status === 'ok').length
-  const supOk       = supRows.filter(r => r.status === 'ok').length
+  const capasDeInst    = (instId: string) => data.capas.filter(c => c.institucion_id === instId).sort((a, b) => a.nivel - b.nivel)
+  const nodosRaiz      = (instId: string) => buildTree(data.nodos.filter(n => n.institucion_id === instId), null)
+  const activeInsts    = data.instituciones.filter(i => i.activo)
+  const archivedInsts  = data.instituciones.filter(i => !i.activo)
+  const archivedNodos  = data.nodos.filter(n => !n.activo)
+  const activeUsers    = data.usuarios.filter(u => u.activo)
+  const archivedUsers  = data.usuarios.filter(u => !u.activo)
+  const asOk           = asRows.filter(r => r.status === 'ok').length
+  const supOk          = supRows.filter(r => r.status === 'ok').length
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'arbol',        label: '🌲 Estructura'   },
     { key: 'asesores',     label: '📋 Asesores'     },
     { key: 'supervisores', label: '👤 Supervisores' },
-    { key: 'invitaciones', label: '✉️ Invitaciones' },
   ]
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 1100, margin: '0 auto' }}>
       <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0b0a09', marginBottom: 4 }}>Jerarquía organizacional</h1>
       <p style={{ fontSize: 13, color: '#888', marginBottom: 24 }}>
-        1 · Crea la estructura &nbsp;→&nbsp; 2 · Importa asesores desde CSV &nbsp;→&nbsp; 3 · Crea supervisores desde CSV
+        1 · Crea la estructura &nbsp;→&nbsp; 2 · Importa asesores &nbsp;→&nbsp; 3 · Importa supervisores
       </p>
 
       {/* Tabs */}
@@ -316,10 +325,9 @@ export default function JerarquiaPage() {
         {TABS.map(({ key, label }) => (
           <button key={key} onClick={() => setTab(key)} style={{
             padding: '8px 20px', border: 'none', background: 'transparent', cursor: 'pointer',
-            fontSize: 13, fontWeight: tab === key ? 700 : 400,
+            fontSize: 13, fontWeight: tab === key ? 700 : 400, fontFamily: 'inherit',
             color: tab === key ? '#0b0a09' : '#888',
-            borderBottom: `2px solid ${tab === key ? '#cbf135' : 'transparent'}`,
-            marginBottom: -1, fontFamily: 'inherit',
+            borderBottom: `2px solid ${tab === key ? '#cbf135' : 'transparent'}`, marginBottom: -1,
           }}>{label}</button>
         ))}
       </div>
@@ -330,16 +338,21 @@ export default function JerarquiaPage() {
       {tab === 'arbol' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
           <div>
-            {data.instituciones.map(inst => (
+            {/* Instituciones activas */}
+            {activeInsts.map(inst => (
               <div key={inst.id} style={{ marginBottom: 20, background: '#fff', borderRadius: 12, border: '1px solid #e5e5e5', overflow: 'hidden' }}>
                 <div style={{ padding: '12px 16px', background: '#f9f9f7', borderBottom: '1px solid #e5e5e5', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontWeight: 700, fontSize: 14, color: '#0b0a09' }}>{inst.nombre}</span>
                   <span style={{ fontSize: 11, color: '#aaa', background: '#f0f0ec', padding: '2px 8px', borderRadius: 10 }}>{inst.tipo}</span>
-                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
                     {capasDeInst(inst.id).map(c => (
                       <span key={c.id} style={{ fontSize: 10, color: '#666', background: '#eee', padding: '2px 8px', borderRadius: 10 }}>N{c.nivel} {c.nombre_cargo}</span>
                     ))}
                   </div>
+                  <button onClick={() => setActivo('institucion', inst.id, false)} disabled={saving}
+                    style={{ marginLeft: 'auto', fontSize: 11, color: '#aaa', background: 'transparent', border: '1px solid #e5e5e5', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Archivar
+                  </button>
                 </div>
                 <div style={{ padding: '10px 12px' }}>
                   {nodosRaiz(inst.id).length === 0
@@ -352,6 +365,11 @@ export default function JerarquiaPage() {
               </div>
             ))}
 
+            {activeInsts.length === 0 && (
+              <div style={{ fontSize: 13, color: '#bbb', padding: '20px 0' }}>No hay instituciones activas — crea una abajo.</div>
+            )}
+
+            {/* Nueva institución */}
             <details open style={{ marginTop: 8 }}>
               <summary style={{ fontSize: 13, color: '#555', cursor: 'pointer', padding: '6px 0', fontWeight: 600 }}>+ Nueva institución / empresa</summary>
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -359,10 +377,39 @@ export default function JerarquiaPage() {
                 <button onClick={async () => { if (!newInst.trim()) return; const r = await api({ accion: 'crear_institucion', nombre: newInst.trim() }); if (r) setNewInst('') }}
                   style={btnStyle} disabled={saving || !newInst.trim()}>Crear</button>
               </div>
-              <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Crea la empresa primero, luego agrega nodos y usa las pestañas para importar personas.</div>
+              <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Crea la empresa primero, luego agrega nodos e importa personas.</div>
             </details>
+
+            {/* Archivados */}
+            <ArchivedSection label="instituciones y nodos" count={archivedInsts.length + archivedNodos.length}>
+              {archivedInsts.map(inst => (
+                <div key={inst.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#fafaf8', borderRadius: 8, marginBottom: 6, border: '1px solid #ebebeb' }}>
+                  <span style={{ fontSize: 13, color: '#888', flex: 1 }}>🏢 {inst.nombre} <span style={{ fontSize: 11, color: '#ccc' }}>({inst.tipo})</span></span>
+                  <button onClick={() => setActivo('institucion', inst.id, true)} disabled={saving}
+                    style={{ ...btnStyle, fontSize: 11, padding: '4px 12px', background: 'transparent', border: '1px solid #cbf135', color: '#4a5c00' }}>
+                    Reactivar
+                  </button>
+                </div>
+              ))}
+              {archivedNodos.map(nodo => {
+                const inst = data.instituciones.find(i => i.id === nodo.institucion_id)
+                return (
+                  <div key={nodo.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#fafaf8', borderRadius: 8, marginBottom: 6, border: '1px solid #ebebeb' }}>
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: 13, color: '#888' }}>📁 {nodo.nombre}</span>
+                      {inst && <span style={{ fontSize: 11, color: '#ccc', marginLeft: 8 }}>{inst.nombre}</span>}
+                    </div>
+                    <button onClick={() => setActivo('nodo', nodo.id, true)} disabled={saving}
+                      style={{ ...btnStyle, fontSize: 11, padding: '4px 12px', background: 'transparent', border: '1px solid #cbf135', color: '#4a5c00' }}>
+                      Reactivar
+                    </button>
+                  </div>
+                )
+              })}
+            </ArchivedSection>
           </div>
 
+          {/* Panel derecho */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Crear nodo */}
             <div style={panelStyle}>
@@ -370,12 +417,12 @@ export default function JerarquiaPage() {
               <label style={labelStyle}>Institución</label>
               <select value={newNodoInst} onChange={e => setNewNodoInst(e.target.value)} style={inputStyle}>
                 <option value=''>Selecciona…</option>
-                {data.instituciones.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+                {activeInsts.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
               </select>
               <label style={labelStyle}>Nodo padre (opcional)</label>
               <select value={newNodoParent} onChange={e => setNewNodoParent(e.target.value)} style={inputStyle}>
                 <option value=''>Sin padre (nodo raíz)</option>
-                {data.nodos.filter(n => !newNodoInst || n.institucion_id === newNodoInst).map(n => (
+                {data.nodos.filter(n => n.activo && (!newNodoInst || n.institucion_id === newNodoInst)).map(n => (
                   <option key={n.id} value={n.id}>{n.nombre}</option>
                 ))}
               </select>
@@ -397,12 +444,13 @@ export default function JerarquiaPage() {
                 }}>Crear nodo</button>
             </div>
 
+            {/* Nivel jerárquico */}
             <details>
               <summary style={{ fontSize: 13, color: '#888', cursor: 'pointer', padding: '4px 0' }}>+ Definir nivel jerárquico</summary>
               <div style={{ ...panelStyle, marginTop: 8 }}>
                 <select value={newCapaInst} onChange={e => setNewCapaInst(e.target.value)} style={inputStyle}>
                   <option value=''>Institución…</option>
-                  {data.instituciones.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+                  {activeInsts.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
                 </select>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <input value={newCapaNivel} onChange={e => setNewCapaNivel(e.target.value)} placeholder="Nivel (1, 2…)" type="number" style={{ ...inputStyle, width: 80 }} />
@@ -416,6 +464,7 @@ export default function JerarquiaPage() {
               </div>
             </details>
 
+            {/* Nodo seleccionado */}
             {selected && (() => {
               const asesoresEnNodo     = creds.filter(c => c.org_nodo_id === selected.id)
               const asesoresSinAsignar = creds.filter(c => !c.org_nodo_id)
@@ -453,10 +502,16 @@ export default function JerarquiaPage() {
                     </div>
                   )}
 
-                  <button onClick={() => { setNewNodoInst(selected.institucion_id); setNewNodoParent(selected.id) }}
-                    style={{ ...btnStyle, width: '100%', background: 'transparent', border: '1px solid #cbf135', color: '#4a5c00' }}>
-                    Crear hijo de este nodo →
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setNewNodoInst(selected.institucion_id); setNewNodoParent(selected.id) }}
+                      style={{ ...btnStyle, flex: 1, background: 'transparent', border: '1px solid #cbf135', color: '#4a5c00', fontSize: 12 }}>
+                      Crear hijo →
+                    </button>
+                    <button onClick={() => setActivo('nodo', selected.id, false)} disabled={saving}
+                      style={{ ...btnStyle, background: 'transparent', border: '1px solid #e5e5e5', color: '#aaa', fontSize: 12 }}>
+                      Archivar
+                    </button>
+                  </div>
                 </div>
               )
             })()}
@@ -468,12 +523,11 @@ export default function JerarquiaPage() {
       {tab === 'asesores' && (
         <CsvSection
           title="Importar asesores desde CSV"
-          description="Asigna asesores a sus equipos en lote. Los nombres deben coincidir exactamente con los registrados en la plataforma. Los que no coincidan aparecen en rojo — corrígelos en el CSV y vuelve a previsualizar."
+          description="Asigna asesores a sus equipos en lote. Los nombres deben coincidir exactamente con los registrados en la plataforma."
           templateContent={'asesor,equipo\nJuan Pérez,Equipo Sur\nMaría González,Equipo Norte\nPedro Silva,Equipo Sur'}
           templateName="plantilla_asesores.csv"
           text={asText} setText={t => { setAsText(t); setAsRows([]); setAsResult('') }}
-          onPreview={parseAsRows}
-          result={asResult}
+          onPreview={parseAsRows} result={asResult}
         >
           {asRows.length > 0 && (
             <>
@@ -486,9 +540,7 @@ export default function JerarquiaPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#f9f9f7', borderBottom: '1px solid #e5e5e5' }}>
-                      {['Asesor (CSV)', 'Equipo (CSV)', 'Estado'].map(h => (
-                        <th key={h} style={thStyle}>{h}</th>
-                      ))}
+                      {['Asesor (CSV)', 'Equipo (CSV)', 'Estado'].map(h => <th key={h} style={thStyle}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -515,129 +567,107 @@ export default function JerarquiaPage() {
 
       {/* ── TAB SUPERVISORES ── */}
       {tab === 'supervisores' && (
-        <CsvSection
-          title="Importar supervisores y cargos jerárquicos"
-          description="Carga directores, supervisores regionales y cualquier rol que deba acceder al portal de equipo. El campo 'equipo' debe coincidir exactamente con un nodo de la estructura. Si el email ya existe, la contraseña y el equipo se actualizan."
-          templateContent={'nombre,email,password,equipo\nHernán Poblete,hp@empresa.com,clave123,Equipo Sur\nAna Martínez,am@empresa.com,pass456,Zona Norte\nCarlos Dir,cd@empresa.com,director789,Dirección Nacional'}
-          templateName="plantilla_supervisores.csv"
-          text={supText} setText={t => { setSupText(t); setSupRows([]); setSupResult('') }}
-          onPreview={parseSupRows}
-          result={supResult}
-        >
-          {supRows.length > 0 && (
-            <>
-              <div style={{ fontSize: 13, color: '#555', marginBottom: 10 }}>
-                <strong>{supRows.length}</strong> filas —{' '}
-                <span style={{ color: '#1f6f56' }}>✅ {supOk} válidas</span>
-                {supRows.filter(r => r.exists && r.status === 'ok').length > 0 && (
-                  <span style={{ color: '#1d4ed8' }}> · ↺ {supRows.filter(r => r.exists && r.status === 'ok').length} actualizaciones</span>
-                )}
-                {supRows.length - supOk > 0 && <span style={{ color: '#b03a3a' }}> · ❌ {supRows.length - supOk} con errores (se omiten)</span>}
-              </div>
-              <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+        <div style={{ maxWidth: 820 }}>
+          {/* Lista de supervisores activos */}
+          {activeUsers.length > 0 && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0b0a09', marginBottom: 12 }}>Supervisores activos ({activeUsers.length})</div>
+              <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#f9f9f7', borderBottom: '1px solid #e5e5e5' }}>
-                      {['Nombre', 'Email', 'Equipo', 'Estado'].map(h => (
-                        <th key={h} style={thStyle}>{h}</th>
-                      ))}
+                      {['Nombre', 'Email', 'Equipo', 'Último login', ''].map(h => <th key={h} style={thStyle}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
-                    {supRows.map((r, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #f5f3ef' }}>
-                        <td style={td}>{r.nombre}</td>
-                        <td style={{ ...td, fontSize: 11, color: '#555' }}>{r.email}</td>
-                        <td style={td}>{r.csv_equipo}</td>
-                        <td style={td}><Badge status={r.exists && r.status === 'ok' ? 'exists' : r.status} /></td>
-                      </tr>
-                    ))}
+                    {activeUsers.map(u => {
+                      const nodo = data.nodos.find(n => n.id === u.org_nodo_id)
+                      return (
+                        <tr key={u.id} style={{ borderBottom: '1px solid #f5f3ef' }}>
+                          <td style={td}>{u.nombre}</td>
+                          <td style={{ ...td, fontSize: 11, color: '#666' }}>{u.email}</td>
+                          <td style={td}>{nodo ? <span style={{ fontSize: 11, background: '#ede9fe', color: '#6b45c8', padding: '2px 8px', borderRadius: 10 }}>{nodo.nombre}</span> : <span style={{ fontSize: 11, color: '#ccc' }}>sin equipo</span>}</td>
+                          <td style={{ ...td, fontSize: 11, color: '#aaa' }}>{u.ultimo_login ? new Date(u.ultimo_login).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) : '—'}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <button onClick={() => setActivo('usuario', u.id, false)} disabled={saving}
+                              style={{ fontSize: 11, color: '#aaa', background: 'transparent', border: '1px solid #e5e5e5', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Archivar
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={confirmSupImport} disabled={supOk === 0 || supImporting}
-                  style={{ ...btnStyle, opacity: supOk === 0 || supImporting ? 0.5 : 1, minWidth: 220 }}>
-                  {supImporting ? 'Procesando…' : `Crear / actualizar ${supOk} usuarios`}
-                </button>
-              </div>
-            </>
+            </div>
           )}
-        </CsvSection>
-      )}
 
-      {/* ── TAB INVITACIONES ── */}
-      {tab === 'invitaciones' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 12 }}>
-              Invitaciones activas ({data.invitaciones.length})
-            </div>
-            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 16 }}>
-              Opción avanzada: genera un link para que alguien se registre por su cuenta (útil para supervisores remotos).
-            </div>
-            {data.invitaciones.length === 0 && <div style={{ fontSize: 13, color: '#bbb', padding: '20px 0' }}>No hay invitaciones pendientes.</div>}
-            {data.invitaciones.map(inv => {
-              const inst = data.instituciones.find(i => i.id === inv.institucion_id)
-              const nodo = inv.parent_nodo_id ? data.nodos.find(n => n.id === inv.parent_nodo_id) : null
-              const link = `${origin}/join/${inv.token}`
+          {/* CSV import */}
+          <CsvSection
+            title={activeUsers.length === 0 ? 'Importar supervisores desde CSV' : 'Agregar más supervisores'}
+            description="Carga directores, supervisores regionales y cualquier rol que deba acceder al portal de equipo. El campo 'equipo' debe coincidir con un nodo activo de la estructura."
+            templateContent={'nombre,email,password,equipo\nHernán Poblete,hp@empresa.com,clave123,Equipo Sur\nAna Martínez,am@empresa.com,pass456,Zona Norte\nCarlos Dir,cd@empresa.com,director789,Dirección Nacional'}
+            templateName="plantilla_supervisores.csv"
+            text={supText} setText={t => { setSupText(t); setSupRows([]); setSupResult('') }}
+            onPreview={parseSupRows} result={supResult}
+          >
+            {supRows.length > 0 && (
+              <>
+                <div style={{ fontSize: 13, color: '#555', marginBottom: 10 }}>
+                  <strong>{supRows.length}</strong> filas —{' '}
+                  <span style={{ color: '#1f6f56' }}>✅ {supOk} válidas</span>
+                  {supRows.filter(r => r.exists && r.status === 'ok').length > 0 && <span style={{ color: '#1d4ed8' }}> · ↺ {supRows.filter(r => r.exists && r.status === 'ok').length} actualizaciones</span>}
+                  {supRows.length - supOk > 0 && <span style={{ color: '#b03a3a' }}> · ❌ {supRows.length - supOk} con errores (se omiten)</span>}
+                </div>
+                <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f9f9f7', borderBottom: '1px solid #e5e5e5' }}>
+                        {['Nombre', 'Email', 'Equipo', 'Estado'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supRows.map((r, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f5f3ef' }}>
+                          <td style={td}>{r.nombre}</td>
+                          <td style={{ ...td, fontSize: 11, color: '#555' }}>{r.email}</td>
+                          <td style={td}>{r.csv_equipo}</td>
+                          <td style={td}><Badge status={r.exists && r.status === 'ok' ? 'exists' : r.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={confirmSupImport} disabled={supOk === 0 || supImporting}
+                    style={{ ...btnStyle, opacity: supOk === 0 || supImporting ? 0.5 : 1, minWidth: 220 }}>
+                    {supImporting ? 'Procesando…' : `Crear / actualizar ${supOk} usuarios`}
+                  </button>
+                </div>
+              </>
+            )}
+          </CsvSection>
+
+          {/* Archivados */}
+          <ArchivedSection label="supervisores" count={archivedUsers.length}>
+            {archivedUsers.map(u => {
+              const nodo = data.nodos.find(n => n.id === u.org_nodo_id)
               return (
-                <div key={inv.id} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 10, padding: '14px 16px', marginBottom: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0b0a09' }}>{inv.email_destino ?? 'Sin destinatario específico'}</div>
-                      <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
-                        {inst?.nombre ?? '—'}{nodo ? ` · bajo ${nodo.nombre}` : ''}{inv.nivel_sugerido ? ` · nivel ${inv.nivel_sugerido}` : ''}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#bbb', marginTop: 2 }}>Expira: {new Date(inv.expira_at).toLocaleDateString('es-CL')}</div>
-                    </div>
-                    <button onClick={async () => { await api({ accion: 'revocar_invitacion', id: inv.id }) }}
-                      style={{ fontSize: 11, color: '#dc2626', background: 'transparent', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>
-                      Revocar
-                    </button>
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#fafaf8', borderRadius: 8, marginBottom: 6, border: '1px solid #ebebeb' }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 13, color: '#888' }}>{u.nombre}</span>
+                    <span style={{ fontSize: 11, color: '#ccc', marginLeft: 8 }}>{u.email}</span>
+                    {nodo && <span style={{ fontSize: 11, color: '#ccc', marginLeft: 8 }}>· {nodo.nombre}</span>}
                   </div>
-                  <div style={{ marginTop: 10, display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <input readOnly value={link} style={{ ...inputStyle, flex: 1, fontSize: 11, color: '#555', fontFamily: 'monospace' }} />
-                    <button onClick={() => navigator.clipboard.writeText(link)} style={{ ...btnStyle, fontSize: 11, padding: '6px 12px', whiteSpace: 'nowrap' }}>Copiar</button>
-                  </div>
+                  <button onClick={() => setActivo('usuario', u.id, true)} disabled={saving}
+                    style={{ ...btnStyle, fontSize: 11, padding: '4px 12px', background: 'transparent', border: '1px solid #cbf135', color: '#4a5c00' }}>
+                    Reactivar
+                  </button>
                 </div>
               )
             })}
-          </div>
-
-          <div style={panelStyle}>
-            <div style={panelTitle}>Nueva invitación</div>
-            <label style={labelStyle}>Institución</label>
-            <select value={invInst} onChange={e => setInvInst(e.target.value)} style={inputStyle}>
-              <option value=''>Selecciona…</option>
-              {data.instituciones.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-            </select>
-            <label style={labelStyle}>Nodo padre (opcional)</label>
-            <select value={invParent} onChange={e => setInvParent(e.target.value)} style={inputStyle}>
-              <option value=''>Sin padre (nodo raíz)</option>
-              {data.nodos.filter(n => !invInst || n.institucion_id === invInst).map(n => (
-                <option key={n.id} value={n.id}>{n.nombre}</option>
-              ))}
-            </select>
-            <label style={labelStyle}>Nivel sugerido</label>
-            <input value={invNivel} onChange={e => setInvNivel(e.target.value)} type="number" placeholder="ej: 2" style={inputStyle} />
-            <label style={labelStyle}>Email destino (opcional)</label>
-            <input value={invEmail} onChange={e => setInvEmail(e.target.value)} type="email" placeholder="carlos@empresa.com" style={inputStyle} />
-            <button disabled={saving || !invInst} style={{ ...btnStyle, width: '100%', marginTop: 4 }}
-              onClick={async () => {
-                const r = await api({ accion: 'crear_invitacion', institucion_id: invInst, parent_nodo_id: invParent || null, nivel_sugerido: invNivel ? parseInt(invNivel) : null, email_destino: invEmail || null })
-                if (r?.data?.token) { setCreatedToken(`${origin}/join/${r.data.token}`); setInvEmail(''); setInvNivel('') }
-              }}>Generar link</button>
-            {createdToken && (
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, marginBottom: 4 }}>✓ Link generado:</div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input readOnly value={createdToken} style={{ ...inputStyle, flex: 1, fontSize: 10, fontFamily: 'monospace' }} />
-                  <button onClick={() => navigator.clipboard.writeText(createdToken)} style={{ ...btnStyle, fontSize: 11, padding: '6px 10px' }}>Copiar</button>
-                </div>
-              </div>
-            )}
-          </div>
+          </ArchivedSection>
         </div>
       )}
     </div>
@@ -645,7 +675,7 @@ export default function JerarquiaPage() {
 }
 
 /* ── estilos ── */
-const td: React.CSSProperties  = { padding: '10px 14px', fontSize: 12, verticalAlign: 'middle' }
+const td:      React.CSSProperties = { padding: '10px 14px', fontSize: 12, verticalAlign: 'middle' }
 const thStyle: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8a8885' }
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '7px 10px', borderRadius: 8,
