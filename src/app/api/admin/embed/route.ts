@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 })
 
   const token = process.env.HUGGINGFACE_TOKEN
-  if (!token) return NextResponse.json({ error: 'HUGGINGFACE_TOKEN not configured' }, { status: 500 })
+  if (!token) return NextResponse.json({ error: 'HUGGINGFACE_TOKEN not configured', hint: Object.keys(process.env).filter(k => k.includes('HUG')) }, { status: 500 })
 
   const res = await fetch(
     'https://api-inference.huggingface.co/models/sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
