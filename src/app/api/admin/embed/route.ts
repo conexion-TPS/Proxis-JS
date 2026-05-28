@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (!token) return NextResponse.json({ error: 'HUGGINGFACE_TOKEN not configured' }, { status: 500 })
 
     const res = await fetch(
-      'https://api-inference.huggingface.co/models/sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
+      'https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2',
       {
         method: 'POST',
         headers: {
