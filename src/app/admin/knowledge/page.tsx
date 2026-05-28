@@ -131,12 +131,16 @@ export default function KnowledgePage() {
       try {
         const text = `${entry.titulo}\n\n${entry.contenido}`
         const emb = await getEmbedding(text)
-        await supabase.from('knowledge_base').update({ embedding: emb }).eq('id', entry.id)
+        const { error: sbErr } = await supabase.from('knowledge_base').update({ embedding: emb }).eq('id', entry.id)
+        if (sbErr) throw new Error(`Supabase: ${sbErr.message}`)
         setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, embedding: emb } : e))
         done++
-      } catch { /* skip */ }
+      } catch (e: unknown) {
+        showToast(`Error en "${entry.titulo?.slice(0,30)}": ${e instanceof Error ? e.message : 'desconocido'}`, true)
+        break
+      }
     }
-    showToast(`${done} embedding${done !== 1 ? 's' : ''} generado${done !== 1 ? 's' : ''}.`)
+    if (done > 0) showToast(`${done} embedding${done !== 1 ? 's' : ''} generado${done !== 1 ? 's' : ''}.`)
   }
 
   return (
