@@ -27,7 +27,7 @@ interface SystemStatus {
   triggers: { active: number; paused: number }
   messages: { last24h: number; last7d: number }
   cuestionarios: { tps_preguntas: number }
-  cerebro: { checked_at: string; estado_global: string; alertas: number; metricas: Record<string, number> } | null
+  cerebro: { checked_at: string; estado_global: string; alertas: { tipo: string; mensaje: string; severidad: string }[]; metricas: Record<string, number> } | null
   deployments: Array<{ estado: string; url: string | null; rama: string | null; commit_sha: string | null; mensaje: string | null; created_at: string }>
   errores: { recientes: Array<{ componente: string; severidad: string; mensaje: string; created_at: string }>; total_7d: number }
   integridad: {
@@ -241,13 +241,20 @@ export default function AdminDashboard() {
           {/* Cerebro */}
           {(() => {
             const cb = sys?.cerebro
-            const cbStatus: HealthStatus = sys === null ? 'loading' : !cb ? 'warn' : cb.estado_global === 'saludable' ? 'ok' : cb.estado_global === 'degradado' ? 'warn' : 'error'
+            const m = cb?.metricas ?? {}
+            // Derive status from both cerebro alerts AND metrics thresholds
+            const hasMetricAlert = (m.senales_pendientes ?? 0) > 10 || (m.gemini_quota_errores_24h ?? 0) > 0
+            const cbStatus: HealthStatus = sys === null ? 'loading'
+              : !cb ? 'warn'
+              : cb.estado_global === 'critico' || hasMetricAlert ? 'error'
+              : cb.estado_global === 'degradado' ? 'warn'
+              : 'ok'
             return (
               <HealthCard
                 label="Cerebro IA"
                 status={cbStatus}
                 value={sys === null ? '…' : !cb ? 'Sin reporte' : cb.estado_global.charAt(0).toUpperCase() + cb.estado_global.slice(1)}
-                sub={cb ? `${cb.alertas} alerta${cb.alertas !== 1 ? 's' : ''} — ${new Date(cb.checked_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Corre diario a las 6am'}
+                sub={cb ? `Últ. run ${new Date(cb.checked_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Corre diario a las 6am'}
               />
             )
           })()}
@@ -362,6 +369,77 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Cerebro IA — detalle de alertas y métricas */}
+        {sys?.cerebro && (
+          <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid #f0ede8' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8a8885' }}>
+                Cerebro IA — Diagnóstico
+              </div>
+              <span style={{ fontSize: 10, color: '#8a8885' }}>
+                {new Date(sys.cerebro.checked_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+
+            {/* Alertas del cerebro */}
+            {sys.cerebro.alertas.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                {sys.cerebro.alertas.map((a, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 12,
+                    padding: '8px 10px', borderRadius: 6, border: '1px solid',
+                    background: a.severidad === 'critical' ? '#fbe9e9' : '#fef3e2',
+                    borderColor: a.severidad === 'critical' ? '#f0b8b8' : '#f5d9a0',
+                  }}>
+                    <Dot status={a.severidad === 'critical' ? 'error' : 'warn'} />
+                    <span style={{ color: a.severidad === 'critical' ? '#b03a3a' : '#a8691a' }}>{a.mensaje}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Métricas clave con alertas automáticas */}
+            {(() => {
+              const m = sys.cerebro!.metricas
+              const items: { label: string; value: number; alerta?: boolean; critico?: boolean; link?: string; unit?: string }[] = [
+                { label: 'Señales pendientes de procesar', value: m.senales_pendientes ?? 0, alerta: (m.senales_pendientes ?? 0) > 0, critico: (m.senales_pendientes ?? 0) > 10, link: '/admin/senales' },
+                { label: 'Total señales en sistema',       value: m.total_senales ?? 0 },
+                { label: 'Mensajes enviados (7 días)',     value: m.mensajes_7d ?? 0, alerta: (m.mensajes_7d ?? 0) < 5 },
+                { label: 'Gaps de conocimiento abiertos', value: m.gaps_abiertos ?? 0, alerta: (m.gaps_abiertos ?? 0) > 0, link: '/admin/conocimiento' },
+                { label: 'Hipótesis pendientes revisión', value: m.hipotesis_pendientes ?? 0, alerta: (m.hipotesis_pendientes ?? 0) > 3, link: '/admin/hipotesis' },
+                { label: 'Errores Gemini (24h)',           value: m.gemini_quota_errores_24h ?? 0, critico: (m.gemini_quota_errores_24h ?? 0) > 0 },
+              ]
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  {items.map((item, i) => {
+                    const hasIssue = item.critico || item.alerta
+                    const color = item.critico ? '#b03a3a' : item.alerta ? '#a8691a' : '#1f6f56'
+                    const bg    = item.critico ? '#fbe9e9' : item.alerta ? '#fef3e2' : '#f0faf4'
+                    const bc    = item.critico ? '#f0b8b8' : item.alerta ? '#f5d9a0' : '#c3e8d0'
+                    const content = (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '7px 10px', borderRadius: 6, fontSize: 12,
+                        background: hasIssue ? bg : '#fafaf7',
+                        border: `1px solid ${hasIssue ? bc : '#f0ede8'}`,
+                        cursor: item.link ? 'pointer' : 'default',
+                      }}>
+                        <span style={{ color: hasIssue ? color : '#4a4844' }}>{item.label}</span>
+                        <span style={{ fontWeight: 700, color: hasIssue ? color : '#0b0a09', marginLeft: 8, flexShrink: 0 }}>
+                          {item.value}
+                        </span>
+                      </div>
+                    )
+                    return item.link
+                      ? <Link key={i} href={item.link} style={{ textDecoration: 'none' }}>{content}</Link>
+                      : <div key={i}>{content}</div>
+                  })}
+                </div>
+              )
+            })()}
           </div>
         )}
 

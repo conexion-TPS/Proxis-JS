@@ -123,7 +123,7 @@ export async function GET() {
       ? {
           checked_at:    healthLog.checked_at,
           estado_global: healthLog.estado_global,
-          alertas:       Array.isArray(healthLog.alertas_count) ? healthLog.alertas_count.length : 0,
+          alertas:       Array.isArray(healthLog.alertas_count) ? healthLog.alertas_count : [],
           metricas:      healthLog.metricas,
         }
       : null
