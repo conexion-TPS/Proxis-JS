@@ -470,35 +470,36 @@ export default function SenalesPage() {
   const loadData = useCallback(async () => {
     setSpin(true)
     try {
-      const [instRes, nodosRes, credsRes, signalsRes, metasRes, obsRes] = await Promise.all([
+      const [instRes, nodosRes, credsRes, signalsRes, metasRes, obsRes, perfilesRes] = await Promise.all([
         supabase.from('instituciones').select('id,nombre,tipo').eq('activo', true).order('nombre'),
-        supabase.from('org_nodos').select('id,parent_id,institucion_id,nombre').eq('activo', true).order('nombre'),
+        supabase.from('org_nodos').select('id,institucion_id,nombre').eq('activo', true).order('nombre'),
         supabase.from('asesor_credentials').select('asesor,org_nodo_id').eq('activo', true),
         supabase.from('behavioral_signals').select('id,asesor,tipo,fuente,valor,procesada,created_at').order('created_at', { ascending: false }).limit(500),
         supabase.from('metas').select('asesor,supervisor'),
         supabase.from('behavioral_signals').select('asesor,created_at').eq('fuente', 'supervisor').order('created_at', { ascending: false }),
+        supabase.from('tps_perfiles').select('asesor,perfil'),
       ])
 
-      const insts   = instRes.data   ?? []
-      const nodos   = nodosRes.data  ?? []
-      const creds   = credsRes.data  ?? []
-      const signals = signalsRes.data ?? []
-      const metas   = metasRes.data  ?? []
-      const obsRows = obsRes.data    ?? []
+      const insts    = instRes.data    ?? []
+      const nodos    = nodosRes.data   ?? []
+      const creds    = credsRes.data   ?? []
+      const signals  = signalsRes.data ?? []
+      const metas    = metasRes.data   ?? []
+      const obsRows  = obsRes.data     ?? []
+      const perfiles = perfilesRes.data ?? []
 
-      // supervisor map: asesor → supervisor name
       const supMap: Record<string, string> = {}
       for (const m of metas) if (m.supervisor) supMap[m.asesor] = m.supervisor
 
-      // last observation per asesor (supervisor source)
+      const perfilMap: Record<string, string> = {}
+      for (const p of perfiles) perfilMap[p.asesor] = p.perfil
+
       const lastObsMap: Record<string, number> = {}
       for (const o of obsRows) {
-        if (!(o.asesor in lastObsMap)) {
+        if (!(o.asesor in lastObsMap))
           lastObsMap[o.asesor] = (Date.now() - new Date(o.created_at).getTime()) / 86_400_000
-        }
       }
 
-      // signals per asesor
       const sigMap: Record<string, Signal[]> = {}
       for (const s of signals) {
         if (!sigMap[s.asesor]) sigMap[s.asesor] = []
@@ -506,54 +507,57 @@ export default function SenalesPage() {
         sigMap[s.asesor].push({ ...s, ageHours: ageHours(s.created_at), kind: meta.kind, label: meta.label })
       }
 
-      // asesor → nodo map
-      const asesorNodo: Record<string, string> = {}
-      for (const c of creds) if (c.org_nodo_id) asesorNodo[c.asesor] = c.org_nodo_id
+      function makeAsesor(nombre: string): AsesorNode {
+        return { id: nombre, nombre, perfil: perfilMap[nombre] ?? null, signals: sigMap[nombre] ?? [], obsDays: Math.round(lastObsMap[nombre] ?? 999) }
+      }
 
-      // build nodo → asesores
+      // Build nodo → asesores from credentials
       const nodoAsesores: Record<string, AsesorNode[]> = {}
       for (const c of creds) {
-        const nid = c.org_nodo_id ?? '__none__'
+        const nid = c.org_nodo_id ?? '__sin_nodo__'
         if (!nodoAsesores[nid]) nodoAsesores[nid] = []
-        nodoAsesores[nid].push({
-          id:      c.asesor,
-          nombre:  c.asesor,
-          perfil:  null,
-          signals: sigMap[c.asesor] ?? [],
-          obsDays: Math.round(lastObsMap[c.asesor] ?? 999),
+        nodoAsesores[nid].push(makeAsesor(c.asesor))
+      }
+
+      function nodoSupervisor(nid: string) { const as = nodoAsesores[nid] ?? []; for (const a of as) if (supMap[a.id]) return supMap[a.id]; return null }
+      function nodoSupObsDays(nid: string) { const as = nodoAsesores[nid] ?? []; return as.length ? Math.max(...as.map(a => a.obsDays)) : 0 }
+
+      // Hierarchy from org structure
+      const orgResult: Institucion[] = insts.map(inst => ({
+        id: inst.id, nombre: inst.nombre, tipo: inst.tipo,
+        nodos: nodos.filter(n => n.institucion_id === inst.id).map(n => ({
+          id: n.id, nombre: n.nombre,
+          supervisor: nodoSupervisor(n.id),
+          supervisorObsDays: nodoSupObsDays(n.id),
+          asesores: nodoAsesores[n.id] ?? [],
+        })).filter(n => n.asesores.length > 0),
+      })).filter(inst => inst.nodos.length > 0)
+
+      // Fallback: asesores with signals but no org assignment
+      const assignedAsesores = new Set(creds.map(c => c.asesor))
+      const unassigned = [...new Set(signals.map(s => s.asesor))].filter(a => !assignedAsesores.has(a))
+
+      if (unassigned.length > 0) {
+        orgResult.push({
+          id: '__sin_estructura__', nombre: 'Sin estructura asignada', tipo: 'Asesores sin nodo',
+          nodos: [{
+            id: '__sin_nodo__', nombre: 'Sin nodo', supervisor: null, supervisorObsDays: 0,
+            asesores: unassigned.map(makeAsesor),
+          }],
         })
       }
 
-      // supervisor per nodo: from metas, find supervisors of asesores in this nodo
-      function nodoSupervisor(nid: string): string | null {
-        const as = nodoAsesores[nid] ?? []
-        for (const a of as) if (supMap[a.id]) return supMap[a.id]
-        return null
-      }
-      function nodoSupObsDays(nid: string): number {
-        const as = nodoAsesores[nid] ?? []
-        if (!as.length) return 0
-        return Math.max(...as.map(a => a.obsDays))
+      // Also add asesores assigned to no nodo
+      if (nodoAsesores['__sin_nodo__']?.length) {
+        const existing = orgResult.find(i => i.id === '__sin_estructura__')
+        if (existing) existing.nodos[0].asesores.push(...nodoAsesores['__sin_nodo__'])
+        else orgResult.push({
+          id: '__sin_estructura__', nombre: 'Sin estructura asignada', tipo: 'Asesores sin nodo',
+          nodos: [{ id: '__sin_nodo__', nombre: 'Sin nodo', supervisor: null, supervisorObsDays: 0, asesores: nodoAsesores['__sin_nodo__'] }],
+        })
       }
 
-      // build hierarchy
-      const result: Institucion[] = insts.map(inst => ({
-        id:     inst.id,
-        nombre: inst.nombre,
-        tipo:   inst.tipo,
-        nodos:  nodos
-          .filter(n => n.institucion_id === inst.id)
-          .map(n => ({
-            id:                n.id,
-            nombre:            n.nombre,
-            supervisor:        nodoSupervisor(n.id),
-            supervisorObsDays: nodoSupObsDays(n.id),
-            asesores:          nodoAsesores[n.id] ?? [],
-          }))
-          .filter(n => n.asesores.length > 0),
-      })).filter(inst => inst.nodos.length > 0)
-
-      setData(result)
+      setData(orgResult)
       setStamp(new Date())
     } catch (e) {
       console.error('Error loading señales:', e)
