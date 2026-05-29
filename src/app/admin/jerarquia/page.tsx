@@ -7,13 +7,13 @@ import { supabase } from '@/lib/supabase'
 type Institucion = { id: string; nombre: string; tipo: string; activo: boolean }
 type Capa        = { id: string; institucion_id: string; nivel: number; nombre_cargo: string }
 type Nodo        = { id: string; parent_id: string | null; institucion_id: string; capa_id: string | null; nombre: string; titulo_propio: string | null; activo: boolean }
-type OrgUsuario  = { id: string; nombre: string; email: string; org_nodo_id: string | null; activo: boolean; ultimo_login: string | null }
+type OrgUsuario  = { id: string; nombre: string; email: string; org_nodo_id: string | null; cargo: string | null; activo: boolean; ultimo_login: string | null }
 type AsesorCred  = { asesor: string; org_nodo_id: string | null }
 type Data        = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[]; usuarios: OrgUsuario[] }
 
 type Tab    = 'arbol' | 'asesores' | 'supervisores'
 type AsRow  = { csv_asesor: string; csv_equipo: string; asesor: string | null; nodo_id: string | null; status: 'ok' | 'no_asesor' | 'no_nodo' }
-type SupRow = { nombre: string; email: string; password: string; csv_equipo: string; nodo_id: string | null; exists: boolean; status: 'ok' | 'no_nodo' | 'incomplete' }
+type SupRow = { nombre: string; email: string; password: string; cargo: string; csv_equipo: string; nodo_id: string | null; exists: boolean; status: 'ok' | 'no_nodo' | 'incomplete' }
 
 /* ── helpers ── */
 function buildTree(nodos: Nodo[], parentId: string | null) {
@@ -88,6 +88,18 @@ function Badge({ status }: { status: 'ok' | 'exists' | 'no_asesor' | 'no_nodo' |
   }
   const s = map[status]
   return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{s.text}</span>
+}
+
+/* ── CargoBadge ── */
+function CargoBadge({ cargo }: { cargo: string }) {
+  const map: Record<string, { bg: string; color: string; text: string }> = {
+    supervisor:       { bg: '#ede9fe', color: '#6b45c8', text: 'Supervisor' },
+    gerente_zonal:    { bg: '#dbeafe', color: '#1d4ed8', text: 'Gerente Zonal' },
+    gerente_regional: { bg: '#fef3c7', color: '#a8691a', text: 'Gerente Regional' },
+    admin:            { bg: '#0b0a09', color: '#cbf135', text: 'Admin' },
+  }
+  const s = map[cargo] ?? map.supervisor
+  return <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{s.text}</span>
 }
 
 /* ── CsvSection ── */
@@ -219,13 +231,17 @@ export default function JerarquiaPage() {
     const h = lines[0].map(x => x.toLowerCase())
     const iA = h.findIndex(x => x.includes('asesor') || x.includes('nombre'))
     const iE = h.findIndex(x => x.includes('equipo') || x.includes('nodo') || x.includes('team'))
-    if (iA < 0 || iE < 0) { setAsResult('Columnas requeridas: "asesor" y "equipo"'); return }
+    const iI = h.findIndex(x => x.includes('institucion') || x.includes('institución') || x.includes('empresa') || x.includes('compañia') || x.includes('compania'))
+    if (iA < 0 || iE < 0) { setAsResult('Columnas requeridas: "asesor" y "equipo". Opcional: institucion'); return }
     const activeNodos = data.nodos.filter(n => n.activo)
     const rows: AsRow[] = lines.slice(1).filter(r => r[iA]?.trim()).map(r => {
       const csv_asesor = r[iA]?.trim() ?? ''
       const csv_equipo = r[iE]?.trim() ?? ''
+      const csv_inst   = iI >= 0 ? (r[iI]?.trim() ?? '') : ''
       const credMatch  = creds.find(c => c.asesor.toLowerCase() === csv_asesor.toLowerCase())
-      const nodoMatch  = activeNodos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
+      const instMatch  = csv_inst ? data.instituciones.find(i => i.activo && i.nombre.toLowerCase() === csv_inst.toLowerCase()) : null
+      const candidatos = instMatch ? activeNodos.filter(n => n.institucion_id === instMatch.id) : activeNodos
+      const nodoMatch  = candidatos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
       return {
         csv_asesor, csv_equipo,
         asesor:  credMatch?.asesor ?? null,
@@ -241,22 +257,31 @@ export default function JerarquiaPage() {
     const lines = parseCSV(supText)
     if (lines.length < 2) { setSupResult('El CSV debe tener encabezado + al menos una fila.'); return }
     const h = lines[0].map(x => x.toLowerCase())
-    const iN = h.findIndex(x => x.includes('nombre') || x.includes('name'))
-    const iE = h.findIndex(x => x.includes('email')  || x.includes('correo'))
-    const iP = h.findIndex(x => x.includes('password') || x.includes('clave') || x.includes('contrase'))
-    const iQ = h.findIndex(x => x.includes('equipo') || x.includes('nodo')  || x.includes('team'))
-    if (iN < 0 || iE < 0 || iP < 0 || iQ < 0) { setSupResult('Columnas requeridas: nombre, email, password, equipo'); return }
+    const iN  = h.findIndex(x => x.includes('nombre') || x.includes('name'))
+    const iE  = h.findIndex(x => x.includes('email')  || x.includes('correo'))
+    const iP  = h.findIndex(x => x.includes('password') || x.includes('clave') || x.includes('contrase'))
+    const iQ  = h.findIndex(x => x.includes('equipo') || x.includes('nodo')  || x.includes('team'))
+    const iC  = h.findIndex(x => x.includes('cargo')  || x.includes('rol')   || x.includes('role'))
+    const iI  = h.findIndex(x => x.includes('institucion') || x.includes('institución') || x.includes('empresa') || x.includes('compañia') || x.includes('compania'))
+    if (iN < 0 || iE < 0 || iP < 0 || iQ < 0) { setSupResult('Columnas requeridas: nombre, email, password, equipo. Opcional: cargo, institucion'); return }
+    const CARGOS = ['supervisor','gerente_zonal','gerente_regional','admin']
     const activeNodos = data.nodos.filter(n => n.activo)
     const rows: SupRow[] = lines.slice(1).filter(r => r[iN]?.trim()).map(r => {
       const nombre     = r[iN]?.trim() ?? ''
       const email      = r[iE]?.trim().toLowerCase() ?? ''
       const password   = r[iP]?.trim() ?? ''
       const csv_equipo = r[iQ]?.trim() ?? ''
-      const nodoMatch  = activeNodos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
+      const csv_inst   = iI >= 0 ? (r[iI]?.trim() ?? '') : ''
+      const rawCargo   = r[iC]?.trim().toLowerCase() ?? ''
+      const cargo      = CARGOS.includes(rawCargo) ? rawCargo : 'supervisor'
+      // Si se especifica institución, filtrar nodos por ella para resolver ambigüedad
+      const instMatch  = csv_inst ? data.instituciones.find(i => i.activo && i.nombre.toLowerCase() === csv_inst.toLowerCase()) : null
+      const candidatos = instMatch ? activeNodos.filter(n => n.institucion_id === instMatch.id) : activeNodos
+      const nodoMatch  = candidatos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
       const exists     = data.usuarios.some(u => u.email === email)
       const incomplete = !nombre || !email || !password
       return {
-        nombre, email, password, csv_equipo,
+        nombre, email, password, cargo, csv_equipo,
         nodo_id: nodoMatch?.id ?? null,
         exists,
         status: incomplete ? 'incomplete' : !nodoMatch ? 'no_nodo' : 'ok',
@@ -286,7 +311,7 @@ export default function JerarquiaPage() {
     setSupImporting(true)
     const r = await fetch('/api/admin/org', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'importar_usuarios', rows: valid.map(r => ({ nombre: r.nombre, email: r.email, password: r.password, org_nodo_id: r.nodo_id! })) }),
+      body: JSON.stringify({ accion: 'importar_usuarios', rows: valid.map(r => ({ nombre: r.nombre, email: r.email, password: r.password, org_nodo_id: r.nodo_id!, cargo: r.cargo })) }),
     })
     const j = await r.json()
     setSupImporting(false)
@@ -523,8 +548,8 @@ export default function JerarquiaPage() {
       {tab === 'asesores' && (
         <CsvSection
           title="Importar asesores desde CSV"
-          description="Asigna asesores a sus equipos en lote. Los nombres deben coincidir exactamente con los registrados en la plataforma."
-          templateContent={'asesor,equipo\nJuan Pérez,Equipo Sur\nMaría González,Equipo Norte\nPedro Silva,Equipo Sur'}
+          description="Asigna asesores a sus equipos en lote. Los nombres deben coincidir exactamente con los registrados en la plataforma. La columna 'institucion' resuelve ambigüedad si dos empresas tienen nodos con el mismo nombre."
+          templateContent={'asesor,institucion,equipo\nJuan Pérez,Zurich,Equipo Sur\nMaría González,Zurich,Equipo Norte\nPedro Silva,Consorcio,Equipo Sur'}
           templateName="plantilla_asesores.csv"
           text={asText} setText={t => { setAsText(t); setAsRows([]); setAsResult('') }}
           onPreview={parseAsRows} result={asResult}
@@ -576,7 +601,7 @@ export default function JerarquiaPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#f9f9f7', borderBottom: '1px solid #e5e5e5' }}>
-                      {['Nombre', 'Email', 'Equipo', 'Último login', ''].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                      {['Nombre', 'Email', 'Cargo', 'Equipo', 'Último login', ''].map(h => <th key={h} style={thStyle}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -586,6 +611,7 @@ export default function JerarquiaPage() {
                         <tr key={u.id} style={{ borderBottom: '1px solid #f5f3ef' }}>
                           <td style={td}>{u.nombre}</td>
                           <td style={{ ...td, fontSize: 11, color: '#666' }}>{u.email}</td>
+                          <td style={td}><CargoBadge cargo={u.cargo ?? 'supervisor'} /></td>
                           <td style={td}>{nodo ? <span style={{ fontSize: 11, background: '#ede9fe', color: '#6b45c8', padding: '2px 8px', borderRadius: 10 }}>{nodo.nombre}</span> : <span style={{ fontSize: 11, color: '#ccc' }}>sin equipo</span>}</td>
                           <td style={{ ...td, fontSize: 11, color: '#aaa' }}>{u.ultimo_login ? new Date(u.ultimo_login).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) : '—'}</td>
                           <td style={{ ...td, textAlign: 'right' }}>
@@ -606,8 +632,8 @@ export default function JerarquiaPage() {
           {/* CSV import */}
           <CsvSection
             title={activeUsers.length === 0 ? 'Importar supervisores desde CSV' : 'Agregar más supervisores'}
-            description="Carga directores, supervisores regionales y cualquier rol que deba acceder al portal de equipo. El campo 'equipo' debe coincidir con un nodo activo de la estructura."
-            templateContent={'nombre,email,password,equipo\nHernán Poblete,hp@empresa.com,clave123,Equipo Sur\nAna Martínez,am@empresa.com,pass456,Zona Norte\nCarlos Dir,cd@empresa.com,director789,Dirección Nacional'}
+            description="Carga directores, supervisores y gerentes que deban acceder al portal de equipo. 'equipo' debe coincidir con un nodo activo. 'cargo' define el nivel de visibilidad: supervisor, gerente_zonal, gerente_regional o admin. 'institucion' resuelve ambigüedad si dos empresas tienen nodos con el mismo nombre."
+            templateContent={'nombre,email,password,institucion,equipo,cargo\nHernán Poblete,hp@zurich.com,clave123,Zurich,Equipo Sur,supervisor\nAna Martínez,am@zurich.com,pass456,Zurich,Zona Norte,gerente_zonal\nCarlos Díaz,cd@consorcio.com,clave789,Consorcio,Región Centro,gerente_regional'}
             templateName="plantilla_supervisores.csv"
             text={supText} setText={t => { setSupText(t); setSupRows([]); setSupResult('') }}
             onPreview={parseSupRows} result={supResult}
@@ -624,7 +650,7 @@ export default function JerarquiaPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: '#f9f9f7', borderBottom: '1px solid #e5e5e5' }}>
-                        {['Nombre', 'Email', 'Equipo', 'Estado'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                        {['Nombre', 'Email', 'Cargo', 'Equipo', 'Estado'].map(h => <th key={h} style={thStyle}>{h}</th>)}
                       </tr>
                     </thead>
                     <tbody>
@@ -632,6 +658,7 @@ export default function JerarquiaPage() {
                         <tr key={i} style={{ borderBottom: '1px solid #f5f3ef' }}>
                           <td style={td}>{r.nombre}</td>
                           <td style={{ ...td, fontSize: 11, color: '#555' }}>{r.email}</td>
+                          <td style={td}><CargoBadge cargo={r.cargo} /></td>
                           <td style={td}>{r.csv_equipo}</td>
                           <td style={td}><Badge status={r.exists && r.status === 'ok' ? 'exists' : r.status} /></td>
                         </tr>

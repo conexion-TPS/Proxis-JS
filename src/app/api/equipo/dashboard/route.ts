@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
   const sb = supabaseAdmin()
-  const { org_nodo_id } = session
+  const { org_nodo_id, cargo } = session
 
   // Get all nodo IDs in this supervisor's subtree
   let subtreeIds: string[] = []
@@ -106,6 +106,14 @@ export async function GET(req: NextRequest) {
     }).sort((a, b) => b.urgenciaPromedio - a.urgenciaPromedio)
   }
 
-  const tipo = (childNodos ?? []).length > 0 && resultado.some(r => r.nodo) ? 'director' : 'supervisor'
-  return NextResponse.json({ tipo, asesores: resultado, equipos })
+  // Tipo de vista basado en cargo explícito
+  const tipoMap: Record<string, string> = {
+    gerente_regional: 'director',
+    gerente_zonal:    'director',
+    admin:            'director',
+    supervisor:       'supervisor',
+    asesor:           'supervisor',
+  }
+  const tipo = tipoMap[cargo ?? ''] ?? ((childNodos ?? []).length > 0 ? 'director' : 'supervisor')
+  return NextResponse.json({ tipo, cargo: cargo ?? 'supervisor', asesores: resultado, equipos })
 }

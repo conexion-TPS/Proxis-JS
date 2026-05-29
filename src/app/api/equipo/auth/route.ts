@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const sb = supabaseAdmin()
   const { data: usuario, error } = await sb
     .from('org_usuarios')
-    .select('id, nombre, email, password_hash, org_nodo_id, activo')
+    .select('id, nombre, email, password_hash, org_nodo_id, cargo, activo')
     .eq('email', email.toLowerCase().trim())
     .single()
 
@@ -28,20 +28,20 @@ export async function POST(req: NextRequest) {
   await sb.from('org_usuarios').update({ ultimo_login: new Date().toISOString() }).eq('id', usuario.id)
 
   const token = jwt.sign(
-    { usuario_id: usuario.id, org_nodo_id: usuario.org_nodo_id, email: usuario.email, nombre: usuario.nombre },
+    { usuario_id: usuario.id, org_nodo_id: usuario.org_nodo_id, email: usuario.email, nombre: usuario.nombre, cargo: usuario.cargo ?? 'supervisor' },
     SECRET,
     { expiresIn: EXPIRES }
   )
 
-  return NextResponse.json({ ok: true, token, nombre: usuario.nombre, org_nodo_id: usuario.org_nodo_id, usuario_id: usuario.id, email: usuario.email })
+  return NextResponse.json({ ok: true, token, nombre: usuario.nombre, org_nodo_id: usuario.org_nodo_id, usuario_id: usuario.id, email: usuario.email, cargo: usuario.cargo ?? 'supervisor' })
 }
 
-export function verifyEquipoToken(req: NextRequest): { usuario_id: string; org_nodo_id: string | null; email: string; nombre: string } | null {
+export function verifyEquipoToken(req: NextRequest): { usuario_id: string; org_nodo_id: string | null; email: string; nombre: string; cargo: string } | null {
   const auth = req.headers.get('authorization') ?? ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
   if (!token) return null
   try {
-    return jwt.verify(token, SECRET) as { usuario_id: string; org_nodo_id: string | null; email: string; nombre: string }
+    return jwt.verify(token, SECRET) as { usuario_id: string; org_nodo_id: string | null; email: string; nombre: string; cargo: string }
   } catch {
     return null
   }

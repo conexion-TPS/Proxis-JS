@@ -9,9 +9,6 @@ const CORS = [
 ]
 
 const nextConfig: NextConfig = {
-  experimental: {
-    instrumentationHook: true,
-  },
   async headers() {
     return [
       { source: '/api/auth/sailor',         headers: CORS },

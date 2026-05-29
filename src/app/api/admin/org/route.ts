@@ -13,7 +13,7 @@ export async function GET() {
     sb.from('instituciones').select('id, nombre, tipo, activo').order('nombre'),
     sb.from('org_capas').select('id, institucion_id, nivel, nombre_cargo').order('nivel'),
     sb.from('org_nodos').select('id, parent_id, institucion_id, capa_id, nombre, titulo_propio, activo').order('nombre'),
-    sb.from('org_usuarios').select('id, nombre, email, org_nodo_id, activo, ultimo_login').order('nombre'),
+    sb.from('org_usuarios').select('id, nombre, email, org_nodo_id, cargo, activo, ultimo_login').order('nombre'),
     sb.from('org_invitaciones')
       .select('id, token, institucion_id, parent_nodo_id, nivel_sugerido, email_destino, usado, expira_at, created_at')
       .eq('usado', false)
@@ -121,15 +121,17 @@ export async function POST(req: NextRequest) {
   }
 
   if (accion === 'importar_usuarios') {
-    const { rows } = body as { rows: { nombre: string; email: string; password: string; org_nodo_id: string }[] }
+    const { rows } = body as { rows: { nombre: string; email: string; password: string; org_nodo_id: string; cargo?: string }[] }
     if (!Array.isArray(rows) || rows.length === 0)
       return NextResponse.json({ error: 'rows requerido' }, { status: 400 })
+    const CARGOS_VALIDOS = ['asesor','supervisor','gerente_zonal','gerente_regional','admin']
     const hashed = await Promise.all(
       rows.map(async r => ({
         nombre:        r.nombre.trim(),
         email:         r.email.toLowerCase().trim(),
         password_hash: await bcrypt.hash(r.password, 10),
         org_nodo_id:   r.org_nodo_id,
+        cargo:         CARGOS_VALIDOS.includes(r.cargo ?? '') ? r.cargo : 'supervisor',
         activo:        true,
       }))
     )
