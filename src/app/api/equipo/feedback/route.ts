@@ -1,0 +1,25 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
+import { verifyEquipoToken } from '../auth/route'
+
+export async function POST(req: NextRequest) {
+  const session = verifyEquipoToken(req)
+  if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const { message_id, score } = await req.json().catch(() => ({}))
+  if (!message_id || ![-1, 1].includes(score))
+    return NextResponse.json({ error: 'message_id y score (1 ó -1) requeridos' }, { status: 400 })
+
+  const sb = supabaseAdmin()
+
+  const { data: existing } = await sb
+    .from('feedback').select('id').eq('message_id', message_id).maybeSingle()
+
+  if (existing) {
+    await sb.from('feedback').update({ score }).eq('id', existing.id)
+  } else {
+    await sb.from('feedback').insert({ message_id, score, correccion: '[supervisor]' })
+  }
+
+  return NextResponse.json({ ok: true })
+}
