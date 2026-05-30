@@ -174,6 +174,13 @@ export default function PromptsPage() {
         <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em' }}>Prompts</h1>
       </div>
 
+      {/* Nota de uso */}
+      <div style={{ background: '#f5f3ef', border: '1px solid #e8e6e3', borderRadius: 10, padding: '12px 16px', marginBottom: 24, fontSize: 12, color: '#666', lineHeight: 1.6 }}>
+        <strong style={{ color: '#0b0a09' }}>Esta sección es para diseñadores de prompts, no para operación diaria.</strong>{' '}
+        Úsala para verificar variables antes de activar una versión, hacer A/B entre versiones, o depurar el contexto de un asesor específico.
+        El preview usa datos reales del asesor seleccionado — si no tiene metas configuradas, verás valores por defecto (3 contactos, 15 prospectos).
+      </div>
+
       {/* Trigger selector */}
       <div style={{
         background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12,
