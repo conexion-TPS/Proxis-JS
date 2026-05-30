@@ -446,12 +446,25 @@ export default function JerarquiaPage() {
                   Columnas: <code>institucion, nivel, cargo, nodo, nodo_padre</code>.
                   El <code>nodo_padre</code> queda vacío en la raíz y debe coincidir con un <code>nodo</code> de nivel superior.
                 </div>
-                <button onClick={() => downloadCSV(
-                  'institucion,nivel,cargo,nodo,nodo_padre\nZurich,1,Gerente Regional,Región Centro,\nZurich,2,Gerente Zonal,Zona Norte,Región Centro\nZurich,2,Gerente Zonal,Zona Sur,Región Centro\nZurich,3,Supervisor,Equipo Norte A,Zona Norte\nZurich,3,Supervisor,Equipo Sur A,Zona Sur',
-                  'plantilla_estructura.csv')}
-                  style={{ fontSize: 12, color: '#1d4ed8', background: 'transparent', border: '1px solid #cdd9f0', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12 }}>
-                  ⬇ Descargar plantilla
-                </button>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <button onClick={() => downloadCSV(
+                    'institucion,nivel,cargo,nodo,nodo_padre\nZurich,1,Gerente Regional,Región Centro,\nZurich,2,Gerente Zonal,Zona Norte,Región Centro\nZurich,2,Gerente Zonal,Zona Sur,Región Centro\nZurich,3,Supervisor,Equipo Norte A,Zona Norte\nZurich,3,Supervisor,Equipo Sur A,Zona Sur',
+                    'plantilla_estructura.csv')}
+                    style={{ fontSize: 12, color: '#1d4ed8', background: 'transparent', border: '1px solid #cdd9f0', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    ⬇ Descargar plantilla
+                  </button>
+                  <label style={{ fontSize: 12, color: '#4a4844', background: '#f5f3ef', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' } as React.CSSProperties}>
+                    📁 Cargar .csv
+                    <input type="file" accept=".csv,.txt" style={{ display: 'none' }}
+                      onChange={e => {
+                        const f = e.target.files?.[0]; if (!f) return
+                        const reader = new FileReader()
+                        reader.onload = ev => { setStText(ev.target?.result as string ?? ''); setStRows([]); setStResult('') }
+                        reader.readAsText(f, 'utf-8')
+                        e.target.value = ''
+                      }} />
+                  </label>
+                </div>
                 <textarea value={stText} onChange={e => { setStText(e.target.value); setStRows([]); setStResult('') }}
                   placeholder={'institucion,nivel,cargo,nodo,nodo_padre\nZurich,1,Gerente Regional,Región Centro,\nZurich,2,Gerente Zonal,Zona Norte,Región Centro'}
                   style={{ width: '100%', minHeight: 120, padding: 10, border: '1px solid #e5e5e5', borderRadius: 8, fontFamily: 'ui-monospace, monospace', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }} />
