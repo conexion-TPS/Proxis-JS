@@ -107,17 +107,46 @@ export async function POST(req: NextRequest) {
   }
 
   if (accion === 'importar_asesores') {
-    const { rows } = body as { rows: { asesor: string; org_nodo_id: string }[] }
+    const { rows } = body as { rows: { asesor: string; org_nodo_id: string; email?: string; password?: string }[] }
     if (!Array.isArray(rows) || rows.length === 0)
       return NextResponse.json({ error: 'rows requerido' }, { status: 400 })
+
+    // Asesores existentes (para decidir crear vs actualizar)
+    const { data: existentes } = await sb.from('asesor_credentials').select('asesor')
+    const existSet = new Set((existentes ?? []).map(e => e.asesor.toLowerCase().trim()))
+
     let updated = 0
+    let created = 0
+    const errores: string[] = []
+
     for (const row of rows) {
-      const { error } = await sb.from('asesor_credentials')
-        .update({ org_nodo_id: row.org_nodo_id })
-        .eq('asesor', row.asesor)
-      if (!error) updated++
+      const yaExiste = existSet.has(row.asesor.toLowerCase().trim())
+      if (yaExiste) {
+        const { error } = await sb.from('asesor_credentials')
+          .update({ org_nodo_id: row.org_nodo_id })
+          .eq('asesor', row.asesor)
+        if (error) errores.push(`${row.asesor}: ${error.message}`)
+        else updated++
+      } else {
+        // Crear asesor nuevo — requiere email + password
+        if (!row.email || !row.password) {
+          errores.push(`${row.asesor}: nuevo asesor sin email/password (se omite)`)
+          continue
+        }
+        const password_hash = await bcrypt.hash(row.password, 10)
+        const { error } = await sb.from('asesor_credentials').insert({
+          asesor:       row.asesor.trim(),
+          email:        row.email.toLowerCase().trim(),
+          password_hash,
+          rol:          'asesor',
+          org_nodo_id:  row.org_nodo_id,
+          activo:       true,
+        })
+        if (error) errores.push(`${row.asesor}: ${error.message}`)
+        else created++
+      }
     }
-    return NextResponse.json({ ok: true, updated })
+    return NextResponse.json({ ok: true, updated, created, errores })
   }
 
   if (accion === 'importar_usuarios') {

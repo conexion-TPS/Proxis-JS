@@ -12,7 +12,7 @@ type AsesorCred  = { asesor: string; org_nodo_id: string | null }
 type Data        = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[]; usuarios: OrgUsuario[] }
 
 type Tab    = 'arbol' | 'asesores' | 'supervisores'
-type AsRow  = { csv_asesor: string; csv_equipo: string; asesor: string | null; nodo_id: string | null; status: 'ok' | 'no_asesor' | 'no_nodo' }
+type AsRow  = { csv_asesor: string; csv_equipo: string; email: string; password: string; asesor: string | null; nodo_id: string | null; exists: boolean; status: 'ok' | 'create' | 'no_nodo' | 'incomplete' }
 type SupRow = { nombre: string; email: string; password: string; cargo: string; csv_equipo: string; nodo_id: string | null; exists: boolean; status: 'ok' | 'no_nodo' | 'incomplete' }
 
 /* ── helpers ── */
@@ -78,13 +78,14 @@ function NodoItem({ nodo, nodos, capas, usuarios, onSelect, selected, depth = 0 
 }
 
 /* ── Badge ── */
-function Badge({ status }: { status: 'ok' | 'exists' | 'no_asesor' | 'no_nodo' | 'incomplete' }) {
+function Badge({ status }: { status: 'ok' | 'create' | 'exists' | 'no_asesor' | 'no_nodo' | 'incomplete' }) {
   const map = {
-    ok:         { bg: '#e6f3ed', color: '#1f6f56', text: '✅ Listo' },
+    ok:         { bg: '#e6f3ed', color: '#1f6f56', text: '✅ Asignar' },
+    create:     { bg: '#e0f2fe', color: '#0369a1', text: '＋ Crear nuevo' },
     exists:     { bg: '#dbeafe', color: '#1d4ed8', text: '↺ Actualizar' },
     no_asesor:  { bg: '#fbe9e9', color: '#b03a3a', text: '❌ Asesor no encontrado' },
     no_nodo:    { bg: '#fff3e0', color: '#a8691a', text: '⚠️ Equipo no encontrado' },
-    incomplete: { bg: '#fbe9e9', color: '#b03a3a', text: '❌ Campos incompletos' },
+    incomplete: { bg: '#fbe9e9', color: '#b03a3a', text: '❌ Falta email/password' },
   }
   const s = map[status]
   return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{s.text}</span>
@@ -232,21 +233,32 @@ export default function JerarquiaPage() {
     const iA = h.findIndex(x => x.includes('asesor') || x.includes('nombre'))
     const iE = h.findIndex(x => x.includes('equipo') || x.includes('nodo') || x.includes('team'))
     const iI = h.findIndex(x => x.includes('institucion') || x.includes('institución') || x.includes('empresa') || x.includes('compañia') || x.includes('compania'))
-    if (iA < 0 || iE < 0) { setAsResult('Columnas requeridas: "asesor" y "equipo". Opcional: institucion'); return }
+    const iM = h.findIndex(x => x.includes('email') || x.includes('correo'))
+    const iP = h.findIndex(x => x.includes('password') || x.includes('clave') || x.includes('contrase'))
+    if (iA < 0 || iE < 0) { setAsResult('Columnas requeridas: "asesor" y "equipo". Para crear asesores nuevos: email, password. Opcional: institucion'); return }
     const activeNodos = data.nodos.filter(n => n.activo)
     const rows: AsRow[] = lines.slice(1).filter(r => r[iA]?.trim()).map(r => {
       const csv_asesor = r[iA]?.trim() ?? ''
       const csv_equipo = r[iE]?.trim() ?? ''
       const csv_inst   = iI >= 0 ? (r[iI]?.trim() ?? '') : ''
+      const email      = iM >= 0 ? (r[iM]?.trim().toLowerCase() ?? '') : ''
+      const password   = iP >= 0 ? (r[iP]?.trim() ?? '') : ''
       const credMatch  = creds.find(c => c.asesor.toLowerCase() === csv_asesor.toLowerCase())
       const instMatch  = csv_inst ? data.instituciones.find(i => i.activo && i.nombre.toLowerCase() === csv_inst.toLowerCase()) : null
       const candidatos = instMatch ? activeNodos.filter(n => n.institucion_id === instMatch.id) : activeNodos
       const nodoMatch  = candidatos.find(n => n.nombre.toLowerCase() === csv_equipo.toLowerCase())
+      const exists     = !!credMatch
+      let status: AsRow['status']
+      if (!nodoMatch)       status = 'no_nodo'
+      else if (exists)      status = 'ok'           // asesor existe → asignar
+      else if (email && password) status = 'create' // nuevo con credenciales → crear
+      else                  status = 'incomplete'   // nuevo sin email/password
       return {
-        csv_asesor, csv_equipo,
-        asesor:  credMatch?.asesor ?? null,
-        nodo_id: nodoMatch?.id     ?? null,
-        status:  !credMatch ? 'no_asesor' : !nodoMatch ? 'no_nodo' : 'ok',
+        csv_asesor, csv_equipo, email, password,
+        asesor:  credMatch?.asesor ?? csv_asesor,
+        nodo_id: nodoMatch?.id ?? null,
+        exists,
+        status,
       }
     })
     setAsRows(rows); setAsResult('')
@@ -291,17 +303,22 @@ export default function JerarquiaPage() {
   }
 
   async function confirmAsImport() {
-    const valid = asRows.filter(r => r.status === 'ok')
+    const valid = asRows.filter(r => r.status === 'ok' || r.status === 'create')
     if (!valid.length) return
     setAsImporting(true)
     const r = await fetch('/api/admin/org', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'importar_asesores', rows: valid.map(r => ({ asesor: r.asesor!, org_nodo_id: r.nodo_id! })) }),
+      body: JSON.stringify({ accion: 'importar_asesores', rows: valid.map(r => ({ asesor: r.asesor!, org_nodo_id: r.nodo_id!, email: r.email, password: r.password })) }),
     })
     const j = await r.json()
     setAsImporting(false)
     if (!r.ok) { setAsResult('Error: ' + (j.error ?? 'desconocido')); return }
-    setAsResult(`✅ ${j.updated} asesores asignados correctamente.`)
+    const partes = []
+    if (j.created > 0) partes.push(`${j.created} creados`)
+    if (j.updated > 0) partes.push(`${j.updated} asignados`)
+    let msg = `✅ ${partes.join(' · ') || 'sin cambios'}.`
+    if (j.errores?.length) msg += ` ⚠️ ${j.errores.length} con error.`
+    setAsResult(msg)
     setAsRows([]); setAsText(''); await load()
   }
 
@@ -329,7 +346,7 @@ export default function JerarquiaPage() {
   const archivedNodos  = data.nodos.filter(n => !n.activo)
   const activeUsers    = data.usuarios.filter(u => u.activo)
   const archivedUsers  = data.usuarios.filter(u => !u.activo)
-  const asOk           = asRows.filter(r => r.status === 'ok').length
+  const asOk           = asRows.filter(r => r.status === 'ok' || r.status === 'create').length
   const supOk          = supRows.filter(r => r.status === 'ok').length
 
   const TABS: { key: Tab; label: string }[] = [
@@ -548,8 +565,8 @@ export default function JerarquiaPage() {
       {tab === 'asesores' && (
         <CsvSection
           title="Importar asesores desde CSV"
-          description="Asigna asesores a sus equipos en lote. Los nombres deben coincidir exactamente con los registrados en la plataforma. La columna 'institucion' resuelve ambigüedad si dos empresas tienen nodos con el mismo nombre."
-          templateContent={'asesor,institucion,equipo\nJuan Pérez,Zurich,Equipo Sur\nMaría González,Zurich,Equipo Norte\nPedro Silva,Consorcio,Equipo Sur'}
+          description="Carga la nómina de asesores. Si el asesor ya existe, se asigna a su equipo; si es nuevo, se crea con su email y password (mínimo necesario para acceder a Sailor). La columna 'institucion' resuelve ambigüedad si dos empresas tienen nodos con el mismo nombre."
+          templateContent={'asesor,email,password,institucion,equipo\nJuan Pérez,jperez@zurich.com,clave123,Zurich,Equipo Sur\nMaría González,mgonzalez@zurich.com,clave456,Zurich,Equipo Norte\nPedro Silva,psilva@consorcio.com,clave789,Consorcio,Equipo Sur'}
           templateName="plantilla_asesores.csv"
           text={asText} setText={t => { setAsText(t); setAsRows([]); setAsResult('') }}
           onPreview={parseAsRows} result={asResult}
@@ -558,20 +575,22 @@ export default function JerarquiaPage() {
             <>
               <div style={{ fontSize: 13, color: '#555', marginBottom: 10 }}>
                 <strong>{asRows.length}</strong> filas —{' '}
-                <span style={{ color: '#1f6f56' }}>✅ {asOk} válidas</span>
+                {asRows.filter(r => r.status === 'create').length > 0 && <span style={{ color: '#0369a1' }}>＋ {asRows.filter(r => r.status === 'create').length} crear · </span>}
+                <span style={{ color: '#1f6f56' }}>✅ {asRows.filter(r => r.status === 'ok').length} asignar</span>
                 {asRows.length - asOk > 0 && <span style={{ color: '#b03a3a' }}> · ❌ {asRows.length - asOk} con errores (se omiten)</span>}
               </div>
               <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#f9f9f7', borderBottom: '1px solid #e5e5e5' }}>
-                      {['Asesor (CSV)', 'Equipo (CSV)', 'Estado'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                      {['Asesor', 'Email', 'Equipo', 'Estado'].map(h => <th key={h} style={thStyle}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {asRows.map((r, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid #f5f3ef' }}>
                         <td style={td}>{r.csv_asesor}</td>
+                        <td style={{ ...td, fontSize: 11, color: '#555' }}>{r.email || <span style={{ color: '#ccc' }}>—</span>}</td>
                         <td style={td}>{r.csv_equipo}</td>
                         <td style={td}><Badge status={r.status} /></td>
                       </tr>
@@ -582,7 +601,7 @@ export default function JerarquiaPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={confirmAsImport} disabled={asOk === 0 || asImporting}
                   style={{ ...btnStyle, opacity: asOk === 0 || asImporting ? 0.5 : 1, minWidth: 200 }}>
-                  {asImporting ? 'Asignando…' : `Confirmar ${asOk} asignaciones`}
+                  {asImporting ? 'Procesando…' : `Confirmar ${asOk} asesores`}
                 </button>
               </div>
             </>
