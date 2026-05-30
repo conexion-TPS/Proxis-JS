@@ -14,6 +14,7 @@ type Data        = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[];
 type Tab    = 'arbol' | 'asesores' | 'supervisores'
 type AsRow  = { csv_asesor: string; csv_equipo: string; email: string; password: string; asesor: string | null; nodo_id: string | null; exists: boolean; status: 'ok' | 'create' | 'no_nodo' | 'incomplete' }
 type SupRow = { nombre: string; email: string; password: string; cargo: string; csv_equipo: string; nodo_id: string | null; exists: boolean; status: 'ok' | 'no_nodo' | 'incomplete' }
+type StRow  = { institucion: string; nivel: number; cargo: string; nodo: string; nodo_padre: string; status: 'ok' | 'sin_padre' | 'incompleto' }
 
 /* ── helpers ── */
 function buildTree(nodos: Nodo[], parentId: string | null) {
@@ -196,6 +197,12 @@ export default function JerarquiaPage() {
   const [supImporting, setSupImporting] = useState(false)
   const [supResult,    setSupResult]    = useState('')
 
+  /* CSV estructura */
+  const [stText,      setStText]      = useState('')
+  const [stRows,      setStRows]      = useState<StRow[]>([])
+  const [stImporting, setStImporting] = useState(false)
+  const [stResult,    setStResult]    = useState('')
+
   const load = useCallback(async () => {
     setLoading(true)
     const [orgRes, credsRes] = await Promise.all([
@@ -302,6 +309,54 @@ export default function JerarquiaPage() {
     setSupRows(rows); setSupResult('')
   }
 
+  function parseStRows() {
+    const lines = parseCSV(stText)
+    if (lines.length < 2) { setStResult('El CSV debe tener encabezado + al menos una fila.'); return }
+    const h = lines[0].map(x => x.toLowerCase())
+    const iI = h.findIndex(x => x.includes('institucion') || x.includes('institución') || x.includes('empresa'))
+    const iL = h.findIndex(x => x.includes('nivel') || x.includes('level'))
+    const iC = h.findIndex(x => x.includes('cargo') || x.includes('rol'))
+    const iN = h.findIndex(x => x === 'nodo' || x.includes('equipo') || x.includes('unidad'))
+    const iP = h.findIndex(x => x.includes('padre') || x.includes('parent') || x.includes('depende'))
+    if (iI < 0 || iL < 0 || iN < 0) { setStResult('Columnas requeridas: institucion, nivel, nodo. Opcional: cargo, nodo_padre'); return }
+    // Recolectar nombres de nodos definidos en este CSV (para validar padres internos)
+    const nodosDef = new Set(lines.slice(1).map(r => r[iN]?.trim().toLowerCase()).filter(Boolean))
+    const rows: StRow[] = lines.slice(1).filter(r => r[iN]?.trim()).map(r => {
+      const institucion = r[iI]?.trim() ?? ''
+      const nivel       = parseInt(r[iL]?.trim() ?? '0') || 0
+      const cargo       = iC >= 0 ? (r[iC]?.trim() ?? '') : ''
+      const nodo        = r[iN]?.trim() ?? ''
+      const nodo_padre  = iP >= 0 ? (r[iP]?.trim() ?? '') : ''
+      let status: StRow['status']
+      if (!institucion || !nivel || !nodo)       status = 'incompleto'
+      else if (nodo_padre && !nodosDef.has(nodo_padre.toLowerCase())) status = 'sin_padre'
+      else                                        status = 'ok'
+      return { institucion, nivel, cargo, nodo, nodo_padre, status }
+    })
+    setStRows(rows); setStResult('')
+  }
+
+  async function confirmStImport() {
+    const valid = stRows.filter(r => r.status === 'ok')
+    if (!valid.length) return
+    setStImporting(true)
+    const r = await fetch('/api/admin/org', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion: 'importar_estructura', rows: valid }),
+    })
+    const j = await r.json()
+    setStImporting(false)
+    if (!r.ok) { setStResult('Error: ' + (j.error ?? 'desconocido')); return }
+    const partes = []
+    if (j.instituciones > 0) partes.push(`${j.instituciones} empresas`)
+    if (j.capas > 0)         partes.push(`${j.capas} capas`)
+    if (j.nodos > 0)         partes.push(`${j.nodos} nodos`)
+    let msg = `✅ Creado: ${partes.join(' · ') || 'sin cambios'}.`
+    if (j.errores?.length) msg += ` ⚠️ ${j.errores.length} errores: ${j.errores.slice(0,3).join('; ')}`
+    setStResult(msg)
+    setStRows([]); setStText(''); await load()
+  }
+
   async function confirmAsImport() {
     const valid = asRows.filter(r => r.status === 'ok' || r.status === 'create')
     if (!valid.length) return
@@ -380,6 +435,75 @@ export default function JerarquiaPage() {
       {tab === 'arbol' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
           <div>
+            {/* Importar estructura desde CSV */}
+            <details style={{ marginBottom: 18, background: '#fff', border: '1px solid #e5e5e5', borderRadius: 12, overflow: 'hidden' }}>
+              <summary style={{ padding: '12px 16px', background: '#f9f9f7', fontSize: 13, fontWeight: 700, color: '#0b0a09', cursor: 'pointer' }}>
+                📥 Importar estructura completa desde CSV
+              </summary>
+              <div style={{ padding: '16px' }}>
+                <div style={{ fontSize: 12, color: '#666', marginBottom: 12, lineHeight: 1.5 }}>
+                  Crea empresas, capas (niveles de cargo) y todo el árbol de nodos en un solo paso.
+                  Columnas: <code>institucion, nivel, cargo, nodo, nodo_padre</code>.
+                  El <code>nodo_padre</code> queda vacío en la raíz y debe coincidir con un <code>nodo</code> de nivel superior.
+                </div>
+                <button onClick={() => downloadCSV(
+                  'institucion,nivel,cargo,nodo,nodo_padre\nZurich,1,Gerente Regional,Región Centro,\nZurich,2,Gerente Zonal,Zona Norte,Región Centro\nZurich,2,Gerente Zonal,Zona Sur,Región Centro\nZurich,3,Supervisor,Equipo Norte A,Zona Norte\nZurich,3,Supervisor,Equipo Sur A,Zona Sur',
+                  'plantilla_estructura.csv')}
+                  style={{ fontSize: 12, color: '#1d4ed8', background: 'transparent', border: '1px solid #cdd9f0', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 12 }}>
+                  ⬇ Descargar plantilla
+                </button>
+                <textarea value={stText} onChange={e => { setStText(e.target.value); setStRows([]); setStResult('') }}
+                  placeholder={'institucion,nivel,cargo,nodo,nodo_padre\nZurich,1,Gerente Regional,Región Centro,\nZurich,2,Gerente Zonal,Zona Norte,Región Centro'}
+                  style={{ width: '100%', minHeight: 120, padding: 10, border: '1px solid #e5e5e5', borderRadius: 8, fontFamily: 'ui-monospace, monospace', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }} />
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button onClick={parseStRows} disabled={!stText.trim()} style={{ ...btnStyle, opacity: stText.trim() ? 1 : 0.5 }}>Previsualizar</button>
+                </div>
+                {stResult && <div style={{ fontSize: 12, color: stResult.startsWith('✅') ? '#1f6f56' : '#b03a3a', marginTop: 10 }}>{stResult}</div>}
+                {stRows.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 13, color: '#555', margin: '14px 0 8px' }}>
+                      <strong>{stRows.length}</strong> filas —{' '}
+                      <span style={{ color: '#1f6f56' }}>✅ {stRows.filter(r => r.status === 'ok').length} válidas</span>
+                      {stRows.filter(r => r.status !== 'ok').length > 0 && <span style={{ color: '#b03a3a' }}> · ❌ {stRows.filter(r => r.status !== 'ok').length} con errores</span>}
+                    </div>
+                    <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: '#f9f9f7', borderBottom: '1px solid #e5e5e5' }}>
+                            {['Empresa', 'Nv', 'Cargo', 'Nodo', 'Padre', 'Estado'].map(hh => <th key={hh} style={thStyle}>{hh}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stRows.map((r, i) => (
+                            <tr key={i} style={{ borderBottom: '1px solid #f5f3ef' }}>
+                              <td style={td}>{r.institucion}</td>
+                              <td style={{ ...td, textAlign: 'center' }}>{r.nivel || '—'}</td>
+                              <td style={{ ...td, fontSize: 11, color: '#666' }}>{r.cargo || '—'}</td>
+                              <td style={td}>{r.nodo}</td>
+                              <td style={{ ...td, fontSize: 11, color: '#888' }}>{r.nodo_padre || <span style={{ color: '#ccc' }}>raíz</span>}</td>
+                              <td style={td}>
+                                <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+                                  background: r.status === 'ok' ? '#e6f3ed' : '#fbe9e9',
+                                  color: r.status === 'ok' ? '#1f6f56' : '#b03a3a' }}>
+                                  {r.status === 'ok' ? '✅ Listo' : r.status === 'sin_padre' ? '⚠️ Padre no definido' : '❌ Incompleto'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <button onClick={confirmStImport} disabled={stRows.filter(r => r.status === 'ok').length === 0 || stImporting}
+                        style={{ ...btnStyle, opacity: stRows.filter(r => r.status === 'ok').length === 0 || stImporting ? 0.5 : 1, minWidth: 200 }}>
+                        {stImporting ? 'Creando…' : `Crear ${stRows.filter(r => r.status === 'ok').length} nodos`}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </details>
+
             {/* Instituciones activas */}
             {activeInsts.map(inst => (
               <div key={inst.id} style={{ marginBottom: 20, background: '#fff', borderRadius: 12, border: '1px solid #e5e5e5', overflow: 'hidden' }}>

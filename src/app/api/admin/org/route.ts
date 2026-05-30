@@ -64,6 +64,81 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, data })
   }
 
+  if (accion === 'importar_estructura') {
+    const { rows } = body as { rows: { institucion: string; nivel: number; cargo: string; nodo: string; nodo_padre: string }[] }
+    if (!Array.isArray(rows) || rows.length === 0)
+      return NextResponse.json({ error: 'rows requerido' }, { status: 400 })
+
+    const resultado = { instituciones: 0, capas: 0, nodos: 0, errores: [] as string[] }
+
+    // Agrupar por institución
+    const porInst: Record<string, typeof rows> = {}
+    for (const r of rows) {
+      const key = r.institucion.trim()
+      if (!key) continue
+      if (!porInst[key]) porInst[key] = []
+      porInst[key].push(r)
+    }
+
+    for (const [instNombre, instRows] of Object.entries(porInst)) {
+      // 1. Buscar o crear institución
+      let instId: string
+      const { data: existingInst } = await sb.from('instituciones')
+        .select('id').ilike('nombre', instNombre).eq('activo', true).maybeSingle()
+      if (existingInst) {
+        instId = existingInst.id
+      } else {
+        const { data: newInst, error } = await sb.from('instituciones')
+          .insert({ nombre: instNombre, tipo: 'empresa' }).select('id').single()
+        if (error || !newInst) { resultado.errores.push(`Institución "${instNombre}": ${error?.message}`); continue }
+        instId = newInst.id
+        resultado.instituciones++
+      }
+
+      // 2. Crear capas únicas (nivel → cargo)
+      const capasUnicas = new Map<number, string>()
+      for (const r of instRows) if (r.nivel && r.cargo?.trim()) capasUnicas.set(Number(r.nivel), r.cargo.trim())
+      const capasMap: Record<number, string> = {}
+      for (const [nivel, cargo] of capasUnicas) {
+        const { data: capa, error } = await sb.from('org_capas')
+          .upsert({ institucion_id: instId, nivel, nombre_cargo: cargo }, { onConflict: 'institucion_id,nivel' })
+          .select('id').single()
+        if (error || !capa) { resultado.errores.push(`Capa N${nivel} "${cargo}": ${error?.message}`); continue }
+        capasMap[nivel] = capa.id
+        resultado.capas++
+      }
+
+      // 3. Cargar nodos existentes (resolución de padre + idempotencia)
+      const { data: existingNodos } = await sb.from('org_nodos')
+        .select('id, nombre').eq('institucion_id', instId)
+      const nodoNameToId: Record<string, string> = {}
+      for (const n of existingNodos ?? []) nodoNameToId[n.nombre.toLowerCase()] = n.id
+
+      // 4. Crear nodos por nivel ascendente (padres antes que hijos)
+      const sortedRows = [...instRows].sort((a, b) => (Number(a.nivel) || 0) - (Number(b.nivel) || 0))
+      for (const r of sortedRows) {
+        const nodoNombre = r.nodo?.trim() ?? ''
+        if (!nodoNombre) continue
+        if (nodoNameToId[nodoNombre.toLowerCase()]) continue // ya existe
+
+        const parentNombre = r.nodo_padre?.trim() ?? ''
+        const parentId = parentNombre ? (nodoNameToId[parentNombre.toLowerCase()] ?? null) : null
+        if (parentNombre && !parentId) {
+          resultado.errores.push(`Nodo "${nodoNombre}": padre "${parentNombre}" no encontrado`)
+          continue
+        }
+        const { data: newNodo, error } = await sb.from('org_nodos')
+          .insert({ institucion_id: instId, parent_id: parentId, capa_id: capasMap[Number(r.nivel)] ?? null, nombre: nodoNombre })
+          .select('id').single()
+        if (error || !newNodo) { resultado.errores.push(`Nodo "${nodoNombre}": ${error?.message}`); continue }
+        nodoNameToId[nodoNombre.toLowerCase()] = newNodo.id
+        resultado.nodos++
+      }
+    }
+
+    return NextResponse.json({ ok: true, ...resultado })
+  }
+
   if (accion === 'crear_invitacion') {
     const { institucion_id, parent_nodo_id, nivel_sugerido, email_destino } = body
     if (!institucion_id)
