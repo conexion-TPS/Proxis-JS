@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       : ''
 
     const perfilBlock = ctx.perfil_resumen ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n` : ''
-    const message = await callGemini(perfilBlock + kbBlock + compilado)
+    const message = await callGemini(perfilBlock + kbBlock + compilado, { maxTokens: 2500 })
 
     return NextResponse.json({ message, kbChunks: kbMatches.length })
   } catch (e: unknown) {
