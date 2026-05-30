@@ -5,9 +5,12 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const VARIABLES = [
-  '{{nombre}}','{{perfil}}','{{zPuntos}}','{{meta}}','{{metaContactos}}',
-  '{{semanasSinReporte}}','{{pcPromedio}}','{{ingresoMes}}',
-  '{{nodosActivos}}','{{persistencia}}','{{mes}}',
+  '{{nombre}}','{{perfil}}','{{mes}}',
+  '{{metaContactos}}','{{meta}}','{{metaProspectos}}',
+  '{{metaVentas}}','{{metaIngresosMes}}',
+  '{{pcPromedio}}','{{persistencia}}','{{semanasSinReporte}}',
+  '{{nodosActivos}}','{{ingresoMes}}',
+  '{{prospectosMesAnterior}}','{{ingresosMesAnterior}}','{{esPrimerMes}}',
 ]
 
 type Trigger  = { trigger_id: string; descripcion: string | null }

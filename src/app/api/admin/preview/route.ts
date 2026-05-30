@@ -14,17 +14,22 @@ function compileTemplate(tpl: string, ctx: Record<string, unknown>): string {
         .sort((a, b) => b[1] - a[1])[0][0]
     : 'S'
   return tpl
-    .replace(/\{\{nombre\}\}/g,            String(ctx.nombre            ?? ''))
-    .replace(/\{\{perfil\}\}/g,            perfil)
-    .replace(/\{\{zPuntos\}\}/g,           String(ctx.z_proyectados     ?? ''))
-    .replace(/\{\{meta\}\}/g,              String(ctx.meta_prospectos_mes ?? ''))
+    .replace(/\{\{nombre\}\}/g,             String(ctx.nombre                ?? ''))
+    .replace(/\{\{perfil\}\}/g,             perfil)
+    .replace(/\{\{metaProspectos\}\}/g,     String(ctx.prospectos_mes        ?? ''))
+    .replace(/\{\{meta\}\}/g,              String(ctx.meta_prospectos_mes   ?? ''))
     .replace(/\{\{metaContactos\}\}/g,     String(ctx.meta_contactos_semana ?? ''))
-    .replace(/\{\{semanasSinReporte\}\}/g, String(ctx.semanas_sin_reporte ?? ''))
-    .replace(/\{\{pcPromedio\}\}/g,        String(ctx.pc_promedio       ?? ''))
-    .replace(/\{\{ingresoMes\}\}/g,        String(ctx.ingreso_mes_actual ?? ''))
-    .replace(/\{\{nodosActivos\}\}/g,      String(ctx.nodos_activos     ?? ''))
-    .replace(/\{\{persistencia\}\}/g,      String(ctx.persistencia_actual ?? ''))
-    .replace(/\{\{mes\}\}/g,              String(ctx.mes_actual        ?? ''))
+    .replace(/\{\{semanasSinReporte\}\}/g, String(ctx.semanas_sin_reporte   ?? ''))
+    .replace(/\{\{pcPromedio\}\}/g,        String(ctx.pc_promedio           ?? ''))
+    .replace(/\{\{ingresoMes\}\}/g,        String(ctx.ingreso_mes_actual    ?? ''))
+    .replace(/\{\{nodosActivos\}\}/g,      String(ctx.nodos_activos         ?? ''))
+    .replace(/\{\{persistencia\}\}/g,      String(ctx.persistencia_actual   ?? ''))
+    .replace(/\{\{metaVentas\}\}/g,        String(ctx.meta_ventas_mes       ?? ''))
+    .replace(/\{\{metaIngresosMes\}\}/g,   String(ctx.meta_ingresos_mes     ?? ''))
+    .replace(/\{\{prospectosMesAnterior\}\}/g, String(ctx.prospectos_mes_anterior ?? ''))
+    .replace(/\{\{ingresosMesAnterior\}\}/g,   String(ctx.ingreso_mes_anterior    ?? ''))
+    .replace(/\{\{esPrimerMes\}\}/g,       (ctx.es_primer_mes as boolean) ? 'sí' : 'no')
+    .replace(/\{\{mes\}\}/g,              String(ctx.mes_actual            ?? ''))
 }
 
 async function buildContext(asesor: string) {
@@ -64,13 +69,18 @@ async function buildContext(asesor: string) {
     meta_ingresos:           (meta as Record<string,unknown>).meta_ingresos        ?? 2000000,
     perfil_conductual:       (meta as Record<string,unknown>).perfil_conductual    ?? null,
     semanas_sin_reporte:     semanas,
-    nodos_activos:           0,
-    ingreso_mes_actual:      (ingreso as Record<string,unknown>).ingreso_real      ?? 0,
-    mes_actual:              mes,
-    pc_promedio:             0,
-    z_proyectados:           0,
-    persistencia_actual:     0,
-    perfil_resumen:          perfilRes.data?.[0]?.resumen_ia ?? null,
+    nodos_activos:            0,
+    ingreso_mes_actual:       (ingreso as Record<string,unknown>).ingreso_real ?? 0,
+    mes_actual:               mes,
+    pc_promedio:              0,
+    prospectos_mes:           0,
+    persistencia_actual:      0,
+    meta_ventas_mes:          (meta as Record<string,unknown>).meta_ventas_mes   ?? 0,
+    meta_ingresos_mes:        (meta as Record<string,unknown>).meta_ingresos     ?? 0,
+    prospectos_mes_anterior:  0,
+    ingreso_mes_anterior:     0,
+    es_primer_mes:            false,
+    perfil_resumen:           perfilRes.data?.[0]?.resumen_ia ?? null,
   }
 }
 
