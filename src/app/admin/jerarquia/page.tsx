@@ -24,6 +24,21 @@ function capaLabel(capas: Capa[], capaId: string | null, nodo: Nodo) {
   if (!capaId) return nodo.titulo_propio ?? ''
   return nodo.titulo_propio ?? capas.find(c => c.id === capaId)?.nombre_cargo ?? ''
 }
+function readCSVFile(f: File, onLoad: (text: string) => void) {
+  const r = new FileReader()
+  r.onload = ev => {
+    const text = ev.target?.result as string ?? ''
+    if (text.includes('�')) {
+      const r2 = new FileReader()
+      r2.onload = ev2 => onLoad(ev2.target?.result as string ?? '')
+      r2.readAsText(f, 'windows-1252')
+    } else {
+      onLoad(text)
+    }
+  }
+  r.readAsText(f, 'utf-8')
+}
+
 function parseCSV(raw: string): string[][] {
   return raw.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     .split('\n')
@@ -123,9 +138,7 @@ function CsvSection({ title, description, templateContent, templateName, text, s
           <input type="file" accept=".csv,.txt" style={{ display: 'none' }}
             onChange={e => {
               const f = e.target.files?.[0]; if (!f) return
-              const reader = new FileReader()
-              reader.onload = ev => setText(ev.target?.result as string ?? '')
-              reader.readAsText(f, 'utf-8')
+              readCSVFile(f, setText)
               e.target.value = ''
             }} />
         </label>
@@ -450,9 +463,7 @@ export default function JerarquiaPage() {
                     <input type="file" accept=".csv,.txt" style={{ display: 'none' }}
                       onChange={e => {
                         const f = e.target.files?.[0]; if (!f) return
-                        const reader = new FileReader()
-                        reader.onload = ev => { setStText(ev.target?.result as string ?? ''); setStRows([]); setStResult('') }
-                        reader.readAsText(f, 'utf-8')
+                        readCSVFile(f, t => { setStText(t); setStRows([]); setStResult('') })
                         e.target.value = ''
                       }} />
                   </label>
