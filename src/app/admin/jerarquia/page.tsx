@@ -174,14 +174,6 @@ export default function JerarquiaPage() {
 
   /* árbol */
   const [newInst,       setNewInst]       = useState('')
-  const [newCapaInst,   setNewCapaInst]   = useState('')
-  const [newCapaNivel,  setNewCapaNivel]  = useState('')
-  const [newCapaNombre, setNewCapaNombre] = useState('')
-  const [newNodoNombre, setNewNodoNombre] = useState('')
-  const [newNodoTitulo, setNewNodoTitulo] = useState('')
-  const [newNodoParent, setNewNodoParent] = useState('')
-  const [newNodoInst,   setNewNodoInst]   = useState('')
-  const [newNodoCapa,   setNewNodoCapa]   = useState('')
   const [creds,         setCreds]         = useState<AsesorCred[]>([])
   const [selAsesor,     setSelAsesor]     = useState('')
 
@@ -590,59 +582,12 @@ export default function JerarquiaPage() {
 
           {/* Panel derecho */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Crear nodo */}
-            <div style={panelStyle}>
-              <div style={panelTitle}>Nuevo nodo</div>
-              <label style={labelStyle}>Institución</label>
-              <select value={newNodoInst} onChange={e => setNewNodoInst(e.target.value)} style={inputStyle}>
-                <option value=''>Selecciona…</option>
-                {activeInsts.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-              </select>
-              <label style={labelStyle}>Nodo padre (opcional)</label>
-              <select value={newNodoParent} onChange={e => setNewNodoParent(e.target.value)} style={inputStyle}>
-                <option value=''>Sin padre (nodo raíz)</option>
-                {data.nodos.filter(n => n.activo && (!newNodoInst || n.institucion_id === newNodoInst)).map(n => (
-                  <option key={n.id} value={n.id}>{n.nombre}</option>
-                ))}
-              </select>
-              <label style={labelStyle}>Nivel / cargo</label>
-              <select value={newNodoCapa} onChange={e => setNewNodoCapa(e.target.value)} style={inputStyle}>
-                <option value=''>Sin nivel</option>
-                {newNodoInst && capasDeInst(newNodoInst).map(c => (
-                  <option key={c.id} value={c.id}>N{c.nivel} — {c.nombre_cargo}</option>
-                ))}
-              </select>
-              <label style={labelStyle}>Nombre del nodo</label>
-              <input value={newNodoNombre} onChange={e => setNewNodoNombre(e.target.value)} placeholder="ej: Zona Norte, Equipo Sur" style={inputStyle} />
-              <label style={labelStyle}>Título propio (opcional)</label>
-              <input value={newNodoTitulo} onChange={e => setNewNodoTitulo(e.target.value)} placeholder="ej: Dirección Regional" style={inputStyle} />
-              <button disabled={saving || !newNodoNombre || !newNodoInst} style={{ ...btnStyle, width: '100%', marginTop: 4 }}
-                onClick={async () => {
-                  const r = await api({ accion: 'crear_nodo', institucion_id: newNodoInst, parent_id: newNodoParent || null, capa_id: newNodoCapa || null, nombre: newNodoNombre, titulo_propio: newNodoTitulo || null })
-                  if (r) { setNewNodoNombre(''); setNewNodoTitulo('') }
-                }}>Crear nodo</button>
-            </div>
-
-            {/* Nivel jerárquico */}
-            <details>
-              <summary style={{ fontSize: 13, color: '#888', cursor: 'pointer', padding: '4px 0' }}>+ Definir nivel jerárquico</summary>
-              <div style={{ ...panelStyle, marginTop: 8 }}>
-                <select value={newCapaInst} onChange={e => setNewCapaInst(e.target.value)} style={inputStyle}>
-                  <option value=''>Institución…</option>
-                  {activeInsts.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
-                </select>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <input value={newCapaNivel} onChange={e => setNewCapaNivel(e.target.value)} placeholder="Nivel (1, 2…)" type="number" style={{ ...inputStyle, width: 80 }} />
-                  <input value={newCapaNombre} onChange={e => setNewCapaNombre(e.target.value)} placeholder="Nombre del cargo" style={{ ...inputStyle, flex: 1 }} />
-                </div>
-                <button disabled={saving || !newCapaInst || !newCapaNivel || !newCapaNombre} style={{ ...btnStyle, width: '100%', marginTop: 8 }}
-                  onClick={async () => {
-                    const r = await api({ accion: 'crear_capa', institucion_id: newCapaInst, nivel: parseInt(newCapaNivel), nombre_cargo: newCapaNombre })
-                    if (r) { setNewCapaNivel(''); setNewCapaNombre('') }
-                  }}>Guardar nivel</button>
+            {/* Nodo seleccionado */}
+            {!selected && (
+              <div style={{ ...panelStyle, textAlign: 'center', color: '#aaa', fontSize: 13, padding: '32px 16px' }}>
+                Haz clic en un nodo del árbol para ver sus detalles y opciones.
               </div>
-            </details>
-
+            )}
             {/* Nodo seleccionado */}
             {selected && (() => {
               const asesoresEnNodo     = creds.filter(c => c.org_nodo_id === selected.id)
@@ -682,13 +627,9 @@ export default function JerarquiaPage() {
                   )}
 
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => { setNewNodoInst(selected.institucion_id); setNewNodoParent(selected.id) }}
-                      style={{ ...btnStyle, flex: 1, background: 'transparent', border: '1px solid #cbf135', color: '#4a5c00', fontSize: 12 }}>
-                      Crear hijo →
-                    </button>
                     <button onClick={() => setActivo('nodo', selected.id, false)} disabled={saving}
                       style={{ ...btnStyle, background: 'transparent', border: '1px solid #e5e5e5', color: '#aaa', fontSize: 12 }}>
-                      Archivar
+                      Archivar nodo
                     </button>
                   </div>
                 </div>
