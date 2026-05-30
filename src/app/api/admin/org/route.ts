@@ -7,6 +7,8 @@ function genToken() {
   return randomBytes(24).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const sb = supabaseAdmin()
   const [instRes, capasRes, nodosRes, usuariosRes, invRes] = await Promise.all([
