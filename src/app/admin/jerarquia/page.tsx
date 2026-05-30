@@ -316,7 +316,7 @@ export default function JerarquiaPage() {
     const iI = h.findIndex(x => x.includes('institucion') || x.includes('institución') || x.includes('empresa'))
     const iL = h.findIndex(x => x.includes('nivel') || x.includes('level'))
     const iC = h.findIndex(x => x.includes('cargo') || x.includes('rol'))
-    const iN = h.findIndex(x => x === 'nodo' || x.includes('equipo') || x.includes('unidad'))
+    const iN = h.findIndex(x => x.includes('nodo') || x.includes('equipo') || x.includes('unidad'))
     const iP = h.findIndex(x => x.includes('padre') || x.includes('parent') || x.includes('depende'))
     if (iI < 0 || iL < 0 || iN < 0) { setStResult('Columnas requeridas: institucion, nivel, nodo. Opcional: cargo, nodo_padre'); return }
     // Recolectar nombres de nodos definidos en este CSV (para validar padres internos)
