@@ -46,7 +46,10 @@ export default function PromptsPage() {
     supabase.from('trigger_config').select('trigger_id,descripcion').order('trigger_id')
       .then(({ data }) => setTriggers(data ?? []))
     supabase.from('asesor_credentials').select('asesor, org_nodo_id').eq('activo', true).order('asesor')
-      .then(({ data }) => setAsesores((data ?? []) as Asesor[]))
+      .then(({ data, error }) => {
+        if (error) showToast('Error cargando asesores: ' + error.message, true)
+        setAsesores((data ?? []) as Asesor[])
+      })
     fetch('/api/admin/org').then(r => r.json()).then(d => setOrgNodos(d.nodos ?? []))
   }, [])
 
@@ -356,7 +359,7 @@ export default function PromptsPage() {
                     background: '#fff', outline: 'none',
                   }}
                 >
-                  <option value="">— Selecciona asesor —</option>
+                  <option value="">{asesores.length === 0 ? '— Sin asesores cargados —' : '— Selecciona asesor —'}</option>
                   {asesores
                     .filter(a => !filtroNodo || a.org_nodo_id === filtroNodo)
                     .map(a => (
