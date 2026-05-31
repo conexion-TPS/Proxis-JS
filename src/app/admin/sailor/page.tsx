@@ -205,7 +205,9 @@ export default function SailorPage() {
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                           <span style={{ fontSize: 12, fontWeight: 700 }}>
-                            {m.origen === 'coach_ia' ? 'Coach IA' : m.asesor.split(' ')[0]}
+                            {m.origen === 'coach_ia'
+                              ? <>Coach IA <span style={{ color: '#8a8885', fontWeight: 600 }}>→ {m.asesor.split(' ')[0]}</span></>
+                              : m.asesor.split(' ')[0]}
                           </span>
                           {m.tipo && (
                             <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 20,
