@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 export async function GET() {
   const sb = supabaseAdmin()
   const [credsRes, metasRes] = await Promise.all([
-    sb.from('asesor_credentials').select('id,asesor,email,rol,activo,created_at').order('asesor'),
+    sb.from('asesor_credentials').select('id,asesor,email,rol,activo,created_at,org_nodo_id,titulo_cargo').order('asesor'),
     sb.from('metas').select('asesor,supervisor,meta_contactos_semana,meta_prospectos_mes,meta_ingresos').order('asesor'),
   ])
   const creds = credsRes.data ?? []
