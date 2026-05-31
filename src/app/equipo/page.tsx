@@ -6,7 +6,7 @@ import LegalGate from '@/components/LegalGate'
 
 type AsesorRow = {
   asesor: string; daysSince: number; msgs7d: number
-  urgency: number; lastMsg: string | null
+  urgency: number; sinValorar: number; lastMsg: string | null
   nodo: string | null; nodo_id: string | null
 }
 type NodoRow = { id: string; parent_id: string | null; nombre: string; titulo_propio: string | null; cargo_nombre: string | null }
@@ -207,6 +207,9 @@ export default function EquipoDashboard() {
     return { total: m.length, avg: m.length ? Math.round(m.reduce((s, x) => s + x.urgency, 0) / m.length) : 0 }
   }
 
+  // Mensajes del coach sin valorar (en el alcance visible)
+  const totalSinValorar = visibles.reduce((s, a) => s + (a.sinValorar ?? 0), 0)
+
   // Migas de pan del nodo seleccionado
   const breadcrumb: NodoRow[] = []
   if (selNode) {
@@ -271,6 +274,15 @@ export default function EquipoDashboard() {
 
           {/* ── Lista de asesores ── */}
           <div>
+            {totalSinValorar > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fef6e6', border: '1px solid #f3d9a4', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
+                <span style={{ fontSize: 18 }}>📝</span>
+                <div style={{ fontSize: 12.5, color: '#8a6212', lineHeight: 1.5 }}>
+                  Tienes <strong>{totalSinValorar}</strong> mensaje{totalSinValorar !== 1 ? 's' : ''} del coach sin valorar.
+                  <span style={{ color: '#a8691a' }}> Marcar “oportuno / no era el momento” en cada uno enseña al coach cuándo acertar — toma segundos al abrir cada asesor.</span>
+                </div>
+              </div>
+            )}
             {hasTree && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14, fontSize: 13, color: '#8a8885', flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 700, color: '#0b0a09' }}>Viendo:</span>
@@ -312,9 +324,12 @@ export default function EquipoDashboard() {
                               {level === 'alta' ? '⚠ Atención alta' : level === 'media' ? '◉ Atención media' : '✓ Al día'}
                             </span>
                           </div>
-                          <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#8a8885' }}>
+                          <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#8a8885', flexWrap: 'wrap' }}>
                             <span>{a.daysSince === 99 ? 'Sin mensajes registrados' : a.daysSince === 0 ? 'Activo hoy' : `Último mensaje hace ${a.daysSince}d`}</span>
                             <span>{a.msgs7d} mensaje{a.msgs7d !== 1 ? 's' : ''} esta semana</span>
+                            {a.sinValorar > 0 && (
+                              <span style={{ color: '#a8691a', fontWeight: 600 }}>📝 {a.sinValorar} sin valorar</span>
+                            )}
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
@@ -338,9 +353,12 @@ export default function EquipoDashboard() {
                                 Últimos mensajes del coach — ¿fueron oportunos?
                               </div>
                               {msgs.map(m => (
-                                <div key={m.id} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                <div key={m.id} style={{ background: '#fff', border: `1px solid ${m.score == null ? '#f3d9a4' : '#e8e6e3'}`, borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0b0a09', marginBottom: 4 }}>{m.descripcion}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                      <span style={{ fontSize: 12, fontWeight: 600, color: '#0b0a09' }}>{m.descripcion}</span>
+                                      {m.score == null && <span style={{ fontSize: 9, fontWeight: 700, color: '#a8691a', background: '#fef6e6', padding: '1px 7px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sin valorar</span>}
+                                    </div>
                                     {m.cuerpo && <div style={{ fontSize: 12, color: '#4a4844', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.cuerpo}</div>}
                                     <div style={{ fontSize: 10, color: '#c8c6c3', marginTop: 4 }}>
                                       {new Date(m.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}

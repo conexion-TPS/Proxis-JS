@@ -68,6 +68,18 @@ export async function GET(req: NextRequest) {
   const msgCount7d: Record<string, number> = {}
   for (const m of recentMsgs ?? []) msgCount7d[m.asesor] = (msgCount7d[m.asesor] ?? 0) + 1
 
+  // Mensajes del coach sin valorar por el supervisor (ventana 30 días)
+  const since30d = new Date(Date.now() - 30 * 86400_000).toISOString()
+  const { data: msgs30 } = await sb
+    .from('message_log').select('id, asesor').in('asesor', asesores).gte('created_at', since30d)
+  const ids30 = (msgs30 ?? []).map(m => m.id)
+  const { data: fbRows } = ids30.length
+    ? await sb.from('feedback').select('message_id').in('message_id', ids30)
+    : { data: [] as { message_id: string }[] }
+  const valorados = new Set((fbRows ?? []).map(f => f.message_id))
+  const sinValorarByAsesor: Record<string, number> = {}
+  for (const m of msgs30 ?? []) if (!valorados.has(m.id)) sinValorarByAsesor[m.asesor] = (sinValorarByAsesor[m.asesor] ?? 0) + 1
+
   const now = Date.now()
   const nodoByAsesor: Record<string, string | null> = {}
   for (const c of creds ?? []) nodoByAsesor[c.asesor] = c.org_nodo_id
@@ -79,7 +91,8 @@ export async function GET(req: NextRequest) {
     const urgency   = daysSince * 3 + Math.max(0, 7 - msgs7d)
     const nodoId    = nodoByAsesor[asesor] ?? null
     const nodoNombre = nodos.find(n => n.id === nodoId)?.nombre ?? null
-    return { asesor, daysSince, msgs7d, urgency, lastMsg: lastMsg ?? null, nodo: nodoNombre, nodo_id: nodoId }
+    const sinValorar = sinValorarByAsesor[asesor] ?? 0
+    return { asesor, daysSince, msgs7d, urgency, sinValorar, lastMsg: lastMsg ?? null, nodo: nodoNombre, nodo_id: nodoId }
   }).sort((a, b) => b.urgency - a.urgency)
 
   return NextResponse.json({ tipo, cargo: cargo ?? 'supervisor', rootId: org_nodo_id ?? null, nodos, supervisores, asesores: resultado })
