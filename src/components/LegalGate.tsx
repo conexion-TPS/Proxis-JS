@@ -28,6 +28,14 @@ export default function LegalGate({ tipo, plataforma, asesor, orgUsuarioId, emai
       .catch(() => setLoading(false))
   }, [tipo])
 
+  // Si el contenido cabe sin scroll (documentos cortos) no se dispara onScroll;
+  // habilitar la aceptación de inmediato en vez de bloquear para siempre.
+  useEffect(() => {
+    if (!doc) return
+    const el = contentRef.current
+    if (el && el.scrollHeight <= el.clientHeight + 20) setScrolledToEnd(true)
+  }, [doc])
+
   function handleScroll() {
     const el = contentRef.current
     if (!el) return
