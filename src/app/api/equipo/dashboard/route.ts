@@ -15,9 +15,12 @@ export async function GET(req: NextRequest) {
     supervisor: 'supervisor', asesor: 'supervisor',
   }
 
-  // IDs de todo el subárbol bajo el nodo del usuario
+  // IDs de los nodos visibles: admin ve todo; el resto, su subárbol
   let subtreeIds: string[] = []
-  if (org_nodo_id) {
+  if (cargo === 'admin') {
+    const { data: allNodos } = await sb.from('org_nodos').select('id').eq('activo', true)
+    subtreeIds = (allNodos ?? []).map(r => r.id)
+  } else if (org_nodo_id) {
     const { data: subtree } = await sb.rpc('org_subtree', { nodo_raiz: org_nodo_id })
     subtreeIds = (subtree ?? []).map((r: { id: string }) => r.id)
   }

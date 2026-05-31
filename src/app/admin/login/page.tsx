@@ -14,7 +14,8 @@ export default function AdminLogin() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (password === ADMIN_PASSWORD) {
-      localStorage.setItem('proxis_admin', JSON.stringify({ name: 'Coach', role: 'admin' }))
+      // `key` se guarda para canjear el token del Portal equipo (la clave ya vive en este bundle cliente).
+      localStorage.setItem('proxis_admin', JSON.stringify({ name: 'Coach', role: 'admin', key: ADMIN_PASSWORD }))
       router.push('/admin/dashboard')
     } else {
       setError('Contraseña incorrecta.')

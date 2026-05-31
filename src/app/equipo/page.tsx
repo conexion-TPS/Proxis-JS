@@ -12,6 +12,7 @@ type AsesorRow = {
 type NodoRow = { id: string; parent_id: string | null; nombre: string; titulo_propio: string | null; cargo_nombre: string | null }
 type SupRow  = { id: string; nombre: string; org_nodo_id: string | null; cargo: string | null }
 type MensajeRow = { id: string; trigger_id: string | null; descripcion: string; resumen: string; fecha: string; score: number | null }
+type Session = { token: string; nombre?: string; email?: string; usuario_id?: string; cargo?: string; isAdmin?: boolean }
 
 /* ── helpers de árbol ── */
 function childrenOf(nodos: NodoRow[], parentId: string | null) {
@@ -46,30 +47,56 @@ export default function EquipoDashboard() {
   const [token,     setToken]     = useState('')
 
   useEffect(() => {
-    const raw = localStorage.getItem('equipo_session')
-    if (!raw) { router.push('/equipo/login'); return }
-    const session = JSON.parse(raw)
-    setNombre(session.nombre ?? '')
-    setEmail(session.email ?? '')
-    setUsuarioId(session.usuario_id ?? '')
-    setToken(session.token ?? '')
-    fetch(`/api/legal/check?tipo=terminos_supervisor&org_usuario_id=${session.usuario_id}`)
-      .then(r => r.json())
-      .then(d => { if (d.acepto) setLegalOk(true) })
-      .catch(() => setLegalOk(true))
+    function arrancar(session: Session) {
+      setNombre(session.nombre ?? '')
+      setEmail(session.email ?? '')
+      setUsuarioId(session.usuario_id ?? '')
+      setToken(session.token ?? '')
+      // El admin (vista god) no pasa por los términos de supervisor
+      if (session.isAdmin || session.cargo === 'admin') {
+        setLegalOk(true)
+      } else {
+        fetch(`/api/legal/check?tipo=terminos_supervisor&org_usuario_id=${session.usuario_id}`)
+          .then(r => r.json())
+          .then(d => { if (d.acepto) setLegalOk(true) })
+          .catch(() => setLegalOk(true))
+      }
+      fetch('/api/equipo/dashboard', {
+        headers: { Authorization: `Bearer ${session.token}` },
+      }).then(async r => {
+        if (r.status === 401) { localStorage.removeItem('equipo_session'); router.push('/equipo/login'); return }
+        const json = await r.json()
+        setTipo(json.tipo ?? 'supervisor')
+        setAsesores(json.asesores ?? [])
+        setNodos(json.nodos ?? [])
+        setSups(json.supervisores ?? [])
+        setRootId(json.rootId ?? null)
+        setLoading(false)
+      }).catch(() => { setError('Error al cargar datos'); setLoading(false) })
+    }
 
-    fetch('/api/equipo/dashboard', {
-      headers: { Authorization: `Bearer ${session.token}` },
-    }).then(async r => {
-      if (r.status === 401) { localStorage.removeItem('equipo_session'); router.push('/equipo/login'); return }
-      const json = await r.json()
-      setTipo(json.tipo ?? 'supervisor')
-      setAsesores(json.asesores ?? [])
-      setNodos(json.nodos ?? [])
-      setSups(json.supervisores ?? [])
-      setRootId(json.rootId ?? null)
-      setLoading(false)
-    }).catch(() => { setError('Error al cargar datos'); setLoading(false) })
+    const raw = localStorage.getItem('equipo_session')
+    if (raw) { arrancar(JSON.parse(raw)); return }
+
+    // Puente admin → portal equipo: si hay sesión de admin, canjear un token de vista total
+    const adminRaw = localStorage.getItem('proxis_admin')
+    if (adminRaw) {
+      const admin = JSON.parse(adminRaw)
+      fetch('/api/equipo/admin-token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: admin.key }),
+      })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(j => {
+          const session: Session = { token: j.token, nombre: j.nombre, email: j.email, usuario_id: j.usuario_id, cargo: j.cargo, isAdmin: true }
+          localStorage.setItem('equipo_session', JSON.stringify(session))
+          arrancar(session)
+        })
+        .catch(() => router.push('/equipo/login'))
+      return
+    }
+
+    router.push('/equipo/login')
   }, [router])
 
   function salir() {
