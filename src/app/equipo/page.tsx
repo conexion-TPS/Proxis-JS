@@ -6,26 +6,44 @@ import LegalGate from '@/components/LegalGate'
 
 type AsesorRow = {
   asesor: string; daysSince: number; msgs7d: number
-  signals7d: number; urgency: number; lastMsg: string | null; nodo: string | null
+  signals7d: number; urgency: number; lastMsg: string | null
+  nodo: string | null; nodo_id: string | null
 }
-type EquipoRow = { nodo: string; nodo_id: string; total: number; urgenciaPromedio: number }
+type NodoRow = { id: string; parent_id: string | null; nombre: string; titulo_propio: string | null; cargo_nombre: string | null }
+type SupRow  = { id: string; nombre: string; org_nodo_id: string | null; cargo: string | null }
 type MensajeRow = { id: string; trigger_id: string | null; descripcion: string; resumen: string; fecha: string; score: number | null }
+
+/* ── helpers de árbol ── */
+function childrenOf(nodos: NodoRow[], parentId: string | null) {
+  return nodos.filter(n => n.parent_id === parentId)
+}
+function descendants(nodos: NodoRow[], id: string): NodoRow[] {
+  const direct = childrenOf(nodos, id)
+  return direct.flatMap(n => [n, ...descendants(nodos, n.id)])
+}
+function subtreeIds(nodos: NodoRow[], id: string) {
+  return new Set([id, ...descendants(nodos, id).map(n => n.id)])
+}
 
 export default function EquipoDashboard() {
   const router = useRouter()
-  const [nombre,      setNombre]      = useState('')
-  const [email,       setEmail]       = useState('')
-  const [usuarioId,   setUsuarioId]   = useState('')
-  const [legalOk,     setLegalOk]     = useState(false)
-  const [tipo,        setTipo]        = useState<'supervisor' | 'director'>('supervisor')
-  const [asesores,   setAsesores]   = useState<AsesorRow[]>([])
-  const [equipos,    setEquipos]    = useState<EquipoRow[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState('')
-  const [expanded,   setExpanded]   = useState<string | null>(null)
-  const [mensajes,   setMensajes]   = useState<Record<string, MensajeRow[]>>({})
-  const [loadingMsg, setLoadingMsg] = useState<string | null>(null)
-  const [token,      setToken]      = useState('')
+  const [nombre,    setNombre]    = useState('')
+  const [email,     setEmail]     = useState('')
+  const [usuarioId, setUsuarioId] = useState('')
+  const [legalOk,   setLegalOk]   = useState(false)
+  const [tipo,      setTipo]      = useState<'supervisor' | 'director'>('supervisor')
+  const [asesores,  setAsesores]  = useState<AsesorRow[]>([])
+  const [nodos,     setNodos]     = useState<NodoRow[]>([])
+  const [sups,      setSups]      = useState<SupRow[]>([])
+  const [rootId,    setRootId]    = useState<string | null>(null)
+  const [selNode,   setSelNode]   = useState<string | null>(null)   // null = todo el equipo
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState('')
+  const [expanded,  setExpanded]  = useState<string | null>(null)
+  const [mensajes,  setMensajes]  = useState<Record<string, MensajeRow[]>>({})
+  const [loadingMsg,setLoadingMsg]= useState<string | null>(null)
+  const [token,     setToken]     = useState('')
 
   useEffect(() => {
     const raw = localStorage.getItem('equipo_session')
@@ -35,7 +53,6 @@ export default function EquipoDashboard() {
     setEmail(session.email ?? '')
     setUsuarioId(session.usuario_id ?? '')
     setToken(session.token ?? '')
-    // Check if supervisor accepted terms
     fetch(`/api/legal/check?tipo=terminos_supervisor&org_usuario_id=${session.usuario_id}`)
       .then(r => r.json())
       .then(d => { if (d.acepto) setLegalOk(true) })
@@ -48,7 +65,9 @@ export default function EquipoDashboard() {
       const json = await r.json()
       setTipo(json.tipo ?? 'supervisor')
       setAsesores(json.asesores ?? [])
-      setEquipos(json.equipos ?? [])
+      setNodos(json.nodos ?? [])
+      setSups(json.supervisores ?? [])
+      setRootId(json.rootId ?? null)
       setLoading(false)
     }).catch(() => { setError('Error al cargar datos'); setLoading(false) })
   }, [router])
@@ -83,6 +102,14 @@ export default function EquipoDashboard() {
     })
   }
 
+  function toggleCollapse(id: string) {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafaf7' }}>
       <span style={{ color: '#8a8885', fontSize: 14 }}>Cargando tu equipo…</span>
@@ -90,20 +117,36 @@ export default function EquipoDashboard() {
   )
 
   if (!legalOk) return (
-    <LegalGate
-      tipo="terminos_supervisor"
-      plataforma="equipo"
-      orgUsuarioId={usuarioId}
-      email={email}
-      onAceptado={() => setLegalOk(true)}
-    />
+    <LegalGate tipo="terminos_supervisor" plataforma="equipo" orgUsuarioId={usuarioId} email={email} onAceptado={() => setLegalOk(true)} />
   )
+
+  // ¿Hay sub-equipos que navegar? (el nodo del usuario tiene hijos)
+  const hasTree = childrenOf(nodos, rootId).length > 0
+
+  // Asesores visibles según nodo seleccionado
+  const visibles = selNode
+    ? (() => { const ids = subtreeIds(nodos, selNode); return asesores.filter(a => a.nodo_id && ids.has(a.nodo_id)) })()
+    : asesores
+
+  // Estadística por nodo (para los badges del árbol)
+  function nodeStats(nodeId: string) {
+    const ids = subtreeIds(nodos, nodeId)
+    const m = asesores.filter(a => a.nodo_id && ids.has(a.nodo_id))
+    return { total: m.length, avg: m.length ? Math.round(m.reduce((s, x) => s + x.urgency, 0) / m.length) : 0 }
+  }
+
+  // Migas de pan del nodo seleccionado
+  const breadcrumb: NodoRow[] = []
+  if (selNode) {
+    let cur: NodoRow | undefined = nodos.find(n => n.id === selNode)
+    while (cur) { breadcrumb.unshift(cur); cur = cur.parent_id ? nodos.find(n => n.id === cur!.parent_id) : undefined }
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#fafaf7' }}>
       {/* Header */}
       <div style={{ background: '#0b0a09', padding: '0 32px' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
+        <div style={{ maxWidth: hasTree ? 1180 : 900, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ color: '#cbf135', fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Proxis</span>
             <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>/</span>
@@ -119,135 +162,201 @@ export default function EquipoDashboard() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px' }}>
+      <div style={{ maxWidth: hasTree ? 1180 : 900, margin: '0 auto', padding: '32px 24px' }}>
         {error && <div style={{ background: '#fde8e8', border: '1px solid #f5c6c6', borderRadius: 10, padding: '12px 16px', color: '#b03a3a', fontSize: 13, marginBottom: 20 }}>{error}</div>}
 
         <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 4 }}>
           {tipo === 'director' ? 'Vista de dirección' : 'Mi equipo hoy'}
         </h1>
-        <p style={{ fontSize: 13, color: '#8a8885', marginBottom: 28 }}>
-          {tipo === 'director'
-            ? 'Tus equipos ordenados por urgencia promedio'
+        <p style={{ fontSize: 13, color: '#8a8885', marginBottom: 24 }}>
+          {hasTree
+            ? 'Elige un equipo en el árbol para ver sus asesores, o revisa todos juntos.'
             : 'Asesores ordenados por quién necesita más atención ahora'}
         </p>
 
-        {/* Director: equipo summary cards */}
-        {tipo === 'director' && equipos.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 28 }}>
-            {equipos.map(eq => (
-              <div key={eq.nodo_id} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: '16px 18px' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{eq.nodo}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: urgColor(eq.urgenciaPromedio), marginBottom: 2 }}>
-                  {eq.urgenciaPromedio}
-                  <span style={{ fontSize: 11, fontWeight: 500, color: '#8a8885', marginLeft: 4 }}>urgencia</span>
-                </div>
-                <div style={{ fontSize: 11, color: '#8a8885' }}>{eq.total} asesor{eq.total !== 1 ? 'es' : ''}</div>
+        <div style={{ display: hasTree ? 'grid' : 'block', gridTemplateColumns: hasTree ? '320px 1fr' : undefined, gap: 24, alignItems: 'start' }}>
+          {/* ── Navegador de árbol ── */}
+          {hasTree && (
+            <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: '14px 12px', position: 'sticky', top: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '0 6px 10px' }}>Equipos</div>
+              {/* Todo mi equipo */}
+              <button onClick={() => setSelNode(null)} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                padding: '8px 10px', marginBottom: 4, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
+                border: `1px solid ${selNode === null ? 'rgba(203,241,53,0.6)' : 'transparent'}`,
+                background: selNode === null ? 'rgba(203,241,53,0.14)' : 'transparent',
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#0b0a09' }}>Todo mi equipo</span>
+                <span style={{ fontSize: 11, color: '#8a8885' }}>{asesores.length}</span>
+              </button>
+              {childrenOf(nodos, rootId).map(n => (
+                <TeamNode key={n.id} nodo={n} depth={0} nodos={nodos} sups={sups}
+                  selNode={selNode} onSelect={setSelNode}
+                  collapsed={collapsed} onToggle={toggleCollapse} stats={nodeStats} />
+              ))}
+            </div>
+          )}
+
+          {/* ── Lista de asesores ── */}
+          <div>
+            {hasTree && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14, fontSize: 13, color: '#8a8885', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, color: '#0b0a09' }}>Viendo:</span>
+                {selNode === null
+                  ? <span>Todo mi equipo</span>
+                  : breadcrumb.map((b, i) => (
+                      <span key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {i > 0 && <span style={{ color: '#c8c6c3' }}>›</span>}
+                        <button onClick={() => setSelNode(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: i === breadcrumb.length - 1 ? '#0b0a09' : '#1a56c4', fontWeight: i === breadcrumb.length - 1 ? 700 : 500, padding: 0 }}>{b.nombre}</button>
+                      </span>
+                    ))}
+                <span style={{ marginLeft: 6, color: '#c8c6c3' }}>· {visibles.length} asesor{visibles.length !== 1 ? 'es' : ''}</span>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {/* Advisor list */}
-        {asesores.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885', fontSize: 14 }}>
-            Sin asesores asignados a tu equipo todavía.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {asesores.map((a, i) => {
-              const level = a.urgency > 30 ? 'alta' : a.urgency > 15 ? 'media' : 'baja'
-              const levelColor = level === 'alta' ? '#b03a3a' : level === 'media' ? '#a8691a' : '#1f6f56'
-              const levelBg    = level === 'alta' ? '#fde8e8' : level === 'media' ? '#fef3cd' : '#e6f3ed'
-              const isOpen = expanded === a.asesor
-              const msgs   = mensajes[a.asesor] ?? []
-              return (
-                <div key={a.asesor} style={{ background: '#fff', border: `1px solid ${isOpen ? 'rgba(203,241,53,0.5)' : '#e8e6e3'}`, borderRadius: 12, overflow: 'hidden' }}>
-                  {/* Fila principal */}
-                  <div onClick={() => toggleAsesor(a.asesor)} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#f5f3ef', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#8a8885', flexShrink: 0 }}>
-                      {i + 1}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14 }}>{a.asesor}</span>
-                        {a.nodo && <span style={{ fontSize: 10, color: '#8a8885', background: '#f5f3ef', padding: '2px 7px', borderRadius: 20 }}>{a.nodo}</span>}
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: levelBg, color: levelColor }}>
-                          {level === 'alta' ? '⚠ Atención alta' : level === 'media' ? '◉ Atención media' : '✓ Al día'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#8a8885' }}>
-                        <span>{a.daysSince === 99 ? 'Sin mensajes registrados' : a.daysSince === 0 ? 'Activo hoy' : `Último mensaje hace ${a.daysSince}d`}</span>
-                        <span>{a.msgs7d} mensaje{a.msgs7d !== 1 ? 's' : ''} esta semana</span>
-                        {a.signals7d > 0 && <span style={{ color: '#a8691a' }}>{a.signals7d} señal{a.signals7d !== 1 ? 'es' : ''} pendientes</span>}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: urgColor(a.urgency) }}>{a.urgency}</div>
-                        <div style={{ fontSize: 9, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.06em' }}>urgencia</div>
-                      </div>
-                      <span style={{ fontSize: 12, color: '#c8c6c3' }}>{isOpen ? '▲' : '▼'}</span>
-                    </div>
-                  </div>
-
-                  {/* Panel expandible — últimos mensajes */}
-                  {isOpen && (
-                    <div style={{ borderTop: '1px solid #f5f3ef', background: '#fafaf7', padding: '12px 20px' }}>
-                      {loadingMsg === a.asesor ? (
-                        <div style={{ fontSize: 12, color: '#8a8885', padding: '8px 0' }}>Cargando mensajes…</div>
-                      ) : msgs.length === 0 ? (
-                        <div style={{ fontSize: 12, color: '#8a8885', padding: '8px 0' }}>Sin mensajes enviados aún.</div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
-                            Últimos mensajes del coach — ¿fueron oportunos?
+            {visibles.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#8a8885', fontSize: 14 }}>
+                {asesores.length === 0 ? 'Sin asesores asignados a tu equipo todavía.' : 'Este equipo no tiene asesores asignados.'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {visibles.map((a, i) => {
+                  const level = a.urgency > 30 ? 'alta' : a.urgency > 15 ? 'media' : 'baja'
+                  const levelColor = level === 'alta' ? '#b03a3a' : level === 'media' ? '#a8691a' : '#1f6f56'
+                  const levelBg    = level === 'alta' ? '#fde8e8' : level === 'media' ? '#fef3cd' : '#e6f3ed'
+                  const isOpen = expanded === a.asesor
+                  const msgs   = mensajes[a.asesor] ?? []
+                  return (
+                    <div key={a.asesor} style={{ background: '#fff', border: `1px solid ${isOpen ? 'rgba(203,241,53,0.5)' : '#e8e6e3'}`, borderRadius: 12, overflow: 'hidden' }}>
+                      <div onClick={() => toggleAsesor(a.asesor)} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#f5f3ef', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#8a8885', flexShrink: 0 }}>
+                          {i + 1}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <span style={{ fontWeight: 700, fontSize: 14 }}>{a.asesor}</span>
+                            {a.nodo && <span style={{ fontSize: 10, color: '#8a8885', background: '#f5f3ef', padding: '2px 7px', borderRadius: 20 }}>{a.nodo}</span>}
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: levelBg, color: levelColor }}>
+                              {level === 'alta' ? '⚠ Atención alta' : level === 'media' ? '◉ Atención media' : '✓ Al día'}
+                            </span>
                           </div>
-                          {msgs.map(m => (
-                            <div key={m.id} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: '#0b0a09', marginBottom: 2 }}>{m.descripcion}</div>
-                                {m.resumen && <div style={{ fontSize: 11, color: '#8a8885', lineHeight: 1.5 }}>{m.resumen}</div>}
-                                <div style={{ fontSize: 10, color: '#c8c6c3', marginTop: 4 }}>
-                                  {new Date(m.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#8a8885' }}>
+                            <span>{a.daysSince === 99 ? 'Sin mensajes registrados' : a.daysSince === 0 ? 'Activo hoy' : `Último mensaje hace ${a.daysSince}d`}</span>
+                            <span>{a.msgs7d} mensaje{a.msgs7d !== 1 ? 's' : ''} esta semana</span>
+                            {a.signals7d > 0 && <span style={{ color: '#a8691a' }}>{a.signals7d} señal{a.signals7d !== 1 ? 'es' : ''} pendientes</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 22, fontWeight: 800, color: urgColor(a.urgency) }}>{a.urgency}</div>
+                            <div style={{ fontSize: 9, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.06em' }}>urgencia</div>
+                          </div>
+                          <span style={{ fontSize: 12, color: '#c8c6c3' }}>{isOpen ? '▲' : '▼'}</span>
+                        </div>
+                      </div>
+
+                      {isOpen && (
+                        <div style={{ borderTop: '1px solid #f5f3ef', background: '#fafaf7', padding: '12px 20px' }}>
+                          {loadingMsg === a.asesor ? (
+                            <div style={{ fontSize: 12, color: '#8a8885', padding: '8px 0' }}>Cargando mensajes…</div>
+                          ) : msgs.length === 0 ? (
+                            <div style={{ fontSize: 12, color: '#8a8885', padding: '8px 0' }}>Sin mensajes enviados aún.</div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
+                                Últimos mensajes del coach — ¿fueron oportunos?
+                              </div>
+                              {msgs.map(m => (
+                                <div key={m.id} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0b0a09', marginBottom: 2 }}>{m.descripcion}</div>
+                                    {m.resumen && <div style={{ fontSize: 11, color: '#8a8885', lineHeight: 1.5 }}>{m.resumen}</div>}
+                                    <div style={{ fontSize: 10, color: '#c8c6c3', marginTop: 4 }}>
+                                      {new Date(m.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    </div>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                    <button onClick={() => darFeedback(a.asesor, m.id, 1)}
+                                      style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
+                                        background: m.score === 1 ? '#e6f3ed' : '#fff',
+                                        borderColor: m.score === 1 ? '#1f6f56' : '#e8e6e3',
+                                        color: m.score === 1 ? '#1f6f56' : '#8a8885' }}>
+                                      ✓ Oportuno
+                                    </button>
+                                    <button onClick={() => darFeedback(a.asesor, m.id, -1)}
+                                      style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
+                                        background: m.score === -1 ? '#fde8e8' : '#fff',
+                                        borderColor: m.score === -1 ? '#b03a3a' : '#e8e6e3',
+                                        color: m.score === -1 ? '#b03a3a' : '#8a8885' }}>
+                                      ✗ No era el momento
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                                <button onClick={() => darFeedback(a.asesor, m.id, 1)}
-                                  style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
-                                    background: m.score === 1 ? '#e6f3ed' : '#fff',
-                                    borderColor: m.score === 1 ? '#1f6f56' : '#e8e6e3',
-                                    color: m.score === 1 ? '#1f6f56' : '#8a8885' }}>
-                                  ✓ Oportuno
-                                </button>
-                                <button onClick={() => darFeedback(a.asesor, m.id, -1)}
-                                  style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
-                                    background: m.score === -1 ? '#fde8e8' : '#fff',
-                                    borderColor: m.score === -1 ? '#b03a3a' : '#e8e6e3',
-                                    color: m.score === -1 ? '#b03a3a' : '#8a8885' }}>
-                                  ✗ No era el momento
-                                </button>
-                              </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+                  )
+                })}
+              </div>
+            )}
 
-        <div style={{ marginTop: 32, fontSize: 11, color: '#c8c6c3', textAlign: 'center' }}>
-          Urgencia = días sin mensaje (×3) + señales sin procesar (×2) + actividad semanal baja<br/>
-          Actualizado al {new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            <div style={{ marginTop: 32, fontSize: 11, color: '#c8c6c3', textAlign: 'center' }}>
+              Urgencia = días sin mensaje (×3) + señales sin procesar (×2) + actividad semanal baja<br/>
+              Actualizado al {new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function urgColor(u: number) {
-  return u > 30 ? '#b03a3a' : u > 15 ? '#a8691a' : '#1f6f56'
+// ── Nodo del navegador de árbol (recursivo) ──────────────────────────────────
+function TeamNode({ nodo, depth, nodos, sups, selNode, onSelect, collapsed, onToggle, stats }: {
+  nodo: NodoRow; depth: number; nodos: NodoRow[]; sups: SupRow[]
+  selNode: string | null; onSelect: (id: string) => void
+  collapsed: Set<string>; onToggle: (id: string) => void
+  stats: (id: string) => { total: number; avg: number }
+}) {
+  const children   = childrenOf(nodos, nodo.id)
+  const holder     = sups.find(s => s.org_nodo_id === nodo.id)
+  const isCol      = collapsed.has(nodo.id)
+  const isSel      = selNode === nodo.id
+  const { total, avg } = stats(nodo.id)
+
+  return (
+    <div>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6, padding: '7px 8px', marginLeft: depth * 14, marginBottom: 2,
+        borderRadius: 8, cursor: 'pointer',
+        border: `1px solid ${isSel ? 'rgba(203,241,53,0.6)' : 'transparent'}`,
+        background: isSel ? 'rgba(203,241,53,0.14)' : 'transparent',
+      }} onClick={() => onSelect(nodo.id)}>
+        {children.length > 0
+          ? <span onClick={e => { e.stopPropagation(); onToggle(nodo.id) }} style={{ width: 12, fontSize: 9, color: '#aaa', textAlign: 'center' }}>{isCol ? '▶' : '▼'}</span>
+          : <span style={{ width: 12 }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0b0a09', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nodo.nombre}</div>
+          <div style={{ fontSize: 10, color: '#8a8885', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {holder ? holder.nombre : (nodo.cargo_nombre ? `${nodo.cargo_nombre} · vacante` : 'vacante')}
+          </div>
+        </div>
+        {total > 0 && (
+          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: urgBg(avg), color: urgColor(avg), flexShrink: 0 }}>
+            {total} · {avg}
+          </span>
+        )}
+      </div>
+      {!isCol && children.map(c => (
+        <TeamNode key={c.id} nodo={c} depth={depth + 1} nodos={nodos} sups={sups}
+          selNode={selNode} onSelect={onSelect} collapsed={collapsed} onToggle={onToggle} stats={stats} />
+      ))}
+    </div>
+  )
 }
+
+function urgColor(u: number) { return u > 30 ? '#b03a3a' : u > 15 ? '#a8691a' : '#1f6f56' }
+function urgBg(u: number)    { return u > 30 ? '#fde8e8' : u > 15 ? '#fef3cd' : '#e6f3ed' }
