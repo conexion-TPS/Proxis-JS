@@ -20,6 +20,11 @@ type StRow  = { institucion: string; nivel: number; cargo: string; nodo: string;
 function buildTree(nodos: Nodo[], parentId: string | null) {
   return nodos.filter(n => n.parent_id === parentId && n.activo)
 }
+/** Todos los nodos activos por debajo de `parentId` (recursivo, sin incluir el propio nodo). */
+function descendants(nodos: Nodo[], parentId: string): Nodo[] {
+  const direct = nodos.filter(n => n.parent_id === parentId && n.activo)
+  return direct.flatMap(n => [n, ...descendants(nodos, n.id)])
+}
 function capaLabel(capas: Capa[], capaId: string | null, nodo: Nodo) {
   if (!capaId) return nodo.titulo_propio ?? ''
   return nodo.titulo_propio ?? capas.find(c => c.id === capaId)?.nombre_cargo ?? ''
@@ -605,6 +610,22 @@ export default function JerarquiaPage() {
             {selected && (() => {
               const asesoresEnNodo     = creds.filter(c => c.org_nodo_id === selected.id)
               const asesoresSinAsignar = creds.filter(c => !c.org_nodo_id)
+
+              /* Niveles dependientes: nodos descendientes agrupados por cargo (capa), ordenados por nivel */
+              const subNodos    = descendants(data.nodos, selected.id)
+              const subtreeIds  = new Set([selected.id, ...subNodos.map(n => n.id)])
+              const asesoresSubarbol = creds.filter(c => c.org_nodo_id && subtreeIds.has(c.org_nodo_id))
+              const gruposMap   = new Map<string, { label: string; nivel: number; count: number }>()
+              for (const n of subNodos) {
+                const capa  = n.capa_id ? data.capas.find(c => c.id === n.capa_id) : null
+                const label = capa?.nombre_cargo ?? n.titulo_propio ?? 'Sin cargo'
+                const nivel = capa?.nivel ?? 99
+                const g = gruposMap.get(label)
+                if (g) g.count++
+                else gruposMap.set(label, { label, nivel, count: 1 })
+              }
+              const niveles = [...gruposMap.values()].sort((a, b) => a.nivel - b.nivel)
+
               return (
                 <div style={{ ...panelStyle, borderColor: 'rgba(203,241,53,0.4)', background: 'rgba(203,241,53,0.04)' }}>
                   <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>Nodo seleccionado</div>
@@ -612,8 +633,25 @@ export default function JerarquiaPage() {
                   {selected.titulo_propio && <div style={{ fontSize: 12, color: '#666' }}>{selected.titulo_propio}</div>}
                   <div style={{ fontSize: 11, color: '#aaa', marginTop: 4, marginBottom: 12 }}>ID: {selected.id.slice(0, 8)}…</div>
 
+                  {/* Niveles dependientes (subárbol) */}
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
-                    Asesores ({asesoresEnNodo.length})
+                    Niveles dependientes
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 14 }}>
+                    {niveles.map(g => (
+                      <div key={g.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, padding: '4px 10px', background: '#f9f9f7', borderRadius: 7 }}>
+                        <span style={{ color: '#444' }}>{g.label}</span>
+                        <span style={{ fontWeight: 700, color: '#0b0a09' }}>{g.count}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, padding: '4px 10px', background: 'rgba(203,241,53,0.12)', borderRadius: 7 }}>
+                      <span style={{ color: '#444' }}>Asesores</span>
+                      <span style={{ fontWeight: 700, color: '#0b0a09' }}>{asesoresSubarbol.length}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+                    Asesores en este nodo ({asesoresEnNodo.length})
                   </div>
                   {asesoresEnNodo.length === 0
                     ? <div style={{ fontSize: 12, color: '#bbb', marginBottom: 10 }}>Ninguno — importa desde la pestaña Asesores</div>
