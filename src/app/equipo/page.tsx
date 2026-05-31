@@ -153,15 +153,25 @@ export default function EquipoDashboard() {
   }
 
   async function darFeedback(asesor: string, messageId: string, score: number) {
+    const prevScore = (mensajes[asesor] ?? []).find(m => m.id === messageId)?.score ?? null
     setMensajes(prev => ({
       ...prev,
       [asesor]: (prev[asesor] ?? []).map(m => m.id === messageId ? { ...m, score } : m),
     }))
-    await fetch('/api/equipo/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ message_id: messageId, score }),
-    })
+    try {
+      const r = await fetch('/api/equipo/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message_id: messageId, score }),
+      })
+      if (!r.ok) throw new Error()
+    } catch {
+      // Revertir si no se pudo guardar, para no mostrar confirmación falsa
+      setMensajes(prev => ({
+        ...prev,
+        [asesor]: (prev[asesor] ?? []).map(m => m.id === messageId ? { ...m, score: prevScore } : m),
+      }))
+    }
   }
 
   function toggleCollapse(id: string) {
@@ -336,21 +346,26 @@ export default function EquipoDashboard() {
                                       {new Date(m.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
                                     </div>
                                   </div>
-                                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                                    <button onClick={() => darFeedback(a.asesor, m.id, 1)}
-                                      style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
-                                        background: m.score === 1 ? '#e6f3ed' : '#fff',
-                                        borderColor: m.score === 1 ? '#1f6f56' : '#e8e6e3',
-                                        color: m.score === 1 ? '#1f6f56' : '#8a8885' }}>
-                                      ✓ Oportuno
-                                    </button>
-                                    <button onClick={() => darFeedback(a.asesor, m.id, -1)}
-                                      style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
-                                        background: m.score === -1 ? '#fde8e8' : '#fff',
-                                        borderColor: m.score === -1 ? '#b03a3a' : '#e8e6e3',
-                                        color: m.score === -1 ? '#b03a3a' : '#8a8885' }}>
-                                      ✗ No era el momento
-                                    </button>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                                    <div style={{ display: 'flex', gap: 6 }}>
+                                      <button onClick={() => darFeedback(a.asesor, m.id, 1)}
+                                        style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
+                                          background: m.score === 1 ? '#e6f3ed' : '#fff',
+                                          borderColor: m.score === 1 ? '#1f6f56' : '#e8e6e3',
+                                          color: m.score === 1 ? '#1f6f56' : '#8a8885' }}>
+                                        ✓ Oportuno
+                                      </button>
+                                      <button onClick={() => darFeedback(a.asesor, m.id, -1)}
+                                        style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', fontWeight: 600,
+                                          background: m.score === -1 ? '#fde8e8' : '#fff',
+                                          borderColor: m.score === -1 ? '#b03a3a' : '#e8e6e3',
+                                          color: m.score === -1 ? '#b03a3a' : '#8a8885' }}>
+                                        ✗ No era el momento
+                                      </button>
+                                    </div>
+                                    {m.score != null && (
+                                      <span style={{ fontSize: 10, color: '#1f6f56', fontWeight: 600 }}>✓ ¡Gracias! Tu valoración quedó registrada</span>
+                                    )}
                                   </div>
                                 </div>
                               ))}
