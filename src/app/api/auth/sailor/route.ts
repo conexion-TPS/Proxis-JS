@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     asesor:                cred.asesor,
     email:                 cred.email,
     rol:                   cred.rol,
+    titulo_cargo:          cred.titulo_cargo ?? null,
     terminos_aceptados_at: cred.terminos_aceptados_at ?? null,
   }, { headers: corsHeaders(origin) })
 }

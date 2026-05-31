@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (accion === 'importar_asesores') {
-    const { rows } = body as { rows: { asesor: string; org_nodo_id: string; email?: string; password?: string }[] }
+    const { rows } = body as { rows: { asesor: string; org_nodo_id: string; email?: string; password?: string; titulo_cargo?: string }[] }
     if (!Array.isArray(rows) || rows.length === 0)
       return NextResponse.json({ error: 'rows requerido' }, { status: 400 })
 
@@ -197,10 +197,14 @@ export async function POST(req: NextRequest) {
     const errores: string[] = []
 
     for (const row of rows) {
+      const titulo = row.titulo_cargo?.trim() || null
       const yaExiste = existSet.has(row.asesor.toLowerCase().trim())
       if (yaExiste) {
+        // Solo sobrescribir titulo_cargo si el CSV lo trae (no borrar el existente)
+        const patch: Record<string, unknown> = { org_nodo_id: row.org_nodo_id }
+        if (titulo) patch.titulo_cargo = titulo
         const { error } = await sb.from('asesor_credentials')
-          .update({ org_nodo_id: row.org_nodo_id })
+          .update(patch)
           .eq('asesor', row.asesor)
         if (error) errores.push(`${row.asesor}: ${error.message}`)
         else updated++
@@ -217,6 +221,7 @@ export async function POST(req: NextRequest) {
           password_hash,
           rol:          'asesor',
           org_nodo_id:  row.org_nodo_id,
+          titulo_cargo: titulo,
           activo:       true,
         })
         if (error) errores.push(`${row.asesor}: ${error.message}`)

@@ -12,7 +12,7 @@ type AsesorCred  = { asesor: string; org_nodo_id: string | null }
 type Data        = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[]; usuarios: OrgUsuario[] }
 
 type Tab    = 'arbol' | 'asesores' | 'supervisores'
-type AsRow  = { csv_asesor: string; csv_equipo: string; email: string; password: string; asesor: string | null; nodo_id: string | null; exists: boolean; status: 'ok' | 'create' | 'no_nodo' | 'incomplete' }
+type AsRow  = { csv_asesor: string; csv_equipo: string; email: string; password: string; titulo_cargo: string; asesor: string | null; nodo_id: string | null; exists: boolean; status: 'ok' | 'create' | 'no_nodo' | 'incomplete' }
 type SupRow = { nombre: string; email: string; password: string; cargo: string; csv_equipo: string; nodo_id: string | null; exists: boolean; status: 'ok' | 'no_nodo' | 'incomplete' }
 type StRow  = { institucion: string; nivel: number; cargo: string; nodo: string; nodo_padre: string; status: 'ok' | 'sin_padre' | 'incompleto' }
 
@@ -247,7 +247,8 @@ export default function JerarquiaPage() {
     const iI = h.findIndex(x => x.includes('institucion') || x.includes('institución') || x.includes('empresa') || x.includes('compañia') || x.includes('compania'))
     const iM = h.findIndex(x => x.includes('email') || x.includes('correo'))
     const iP = h.findIndex(x => x.includes('password') || x.includes('clave') || x.includes('contrase'))
-    if (iA < 0 || iE < 0) { setAsResult('Columnas requeridas: "asesor" y "equipo". Para crear asesores nuevos: email, password. Opcional: institucion'); return }
+    const iT = h.findIndex(x => x.includes('titulo') || x.includes('título') || x.includes('cargo') || x.includes('puesto'))
+    if (iA < 0 || iE < 0) { setAsResult('Columnas requeridas: "asesor" y "equipo". Para crear asesores nuevos: email, password. Opcional: institucion, titulo (cargo a mostrar en la app)'); return }
     const activeNodos = data.nodos.filter(n => n.activo)
     const rows: AsRow[] = lines.slice(1).filter(r => r[iA]?.trim()).map(r => {
       const csv_asesor = r[iA]?.trim() ?? ''
@@ -255,6 +256,7 @@ export default function JerarquiaPage() {
       const csv_inst   = iI >= 0 ? (r[iI]?.trim() ?? '') : ''
       const email      = iM >= 0 ? (r[iM]?.trim().toLowerCase() ?? '') : ''
       const password   = iP >= 0 ? (r[iP]?.trim() ?? '') : ''
+      const titulo_cargo = iT >= 0 ? (r[iT]?.trim() ?? '') : ''
       const credMatch  = creds.find(c => c.asesor.toLowerCase() === csv_asesor.toLowerCase())
       const instMatch  = csv_inst ? data.instituciones.find(i => i.activo && i.nombre.toLowerCase() === csv_inst.toLowerCase()) : null
       const candidatos = instMatch ? activeNodos.filter(n => n.institucion_id === instMatch.id) : activeNodos
@@ -266,7 +268,7 @@ export default function JerarquiaPage() {
       else if (email && password) status = 'create' // nuevo con credenciales → crear
       else                  status = 'incomplete'   // nuevo sin email/password
       return {
-        csv_asesor, csv_equipo, email, password,
+        csv_asesor, csv_equipo, email, password, titulo_cargo,
         asesor:  credMatch?.asesor ?? csv_asesor,
         nodo_id: nodoMatch?.id ?? null,
         exists,
@@ -368,7 +370,7 @@ export default function JerarquiaPage() {
     setAsImporting(true)
     const r = await fetch('/api/admin/org', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accion: 'importar_asesores', rows: valid.map(r => ({ asesor: r.asesor!, org_nodo_id: r.nodo_id!, email: r.email, password: r.password })) }),
+      body: JSON.stringify({ accion: 'importar_asesores', rows: valid.map(r => ({ asesor: r.asesor!, org_nodo_id: r.nodo_id!, email: r.email, password: r.password, titulo_cargo: r.titulo_cargo })) }),
     })
     const j = await r.json()
     setAsImporting(false)
@@ -654,8 +656,8 @@ export default function JerarquiaPage() {
       {tab === 'asesores' && (
         <CsvSection
           title="Importar asesores desde CSV"
-          description="Carga la nómina de asesores. Si el asesor ya existe, se asigna a su equipo; si es nuevo, se crea con su email y password (mínimo necesario para acceder a Sailor). La columna 'institucion' resuelve ambigüedad si dos empresas tienen nodos con el mismo nombre."
-          templateContent={'asesor,email,password,institucion,equipo\nJuan Pérez,jperez@zurich.com,clave123,Zurich,Equipo Sur\nMaría González,mgonzalez@zurich.com,clave456,Zurich,Equipo Norte\nPedro Silva,psilva@consorcio.com,clave789,Consorcio,Equipo Sur'}
+          description="Carga la nómina de asesores. Si el asesor ya existe, se asigna a su equipo; si es nuevo, se crea con su email y password (mínimo necesario para acceder a Sailor). La columna 'institucion' resuelve ambigüedad si dos empresas tienen nodos con el mismo nombre. La columna opcional 'titulo' define cómo se nombra su cargo en la app (Asesor, Asesora, Agente de Ventas, Ejecutivo Comercial…)."
+          templateContent={'asesor,email,password,institucion,equipo,titulo\nJuan Pérez,jperez@zurich.com,clave123,Zurich,Equipo Sur,Ejecutivo Comercial\nMaría González,mgonzalez@zurich.com,clave456,Zurich,Equipo Norte,Asesora\nPedro Silva,psilva@consorcio.com,clave789,Consorcio,Equipo Sur,Agente de Ventas'}
           templateName="plantilla_asesores.csv"
           text={asText} setText={t => { setAsText(t); setAsRows([]); setAsResult('') }}
           onPreview={parseAsRows} result={asResult}
