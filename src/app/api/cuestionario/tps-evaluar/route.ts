@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
       rasgos_comerciales:    rasgosComer,
       backup_style_activo:   backupStyleActivo,
       deseabilidad_social:   deseabilidadSocial,
+      tps_progress:          100,
       updated_at:            new Date().toISOString(),
     },
     { onConflict: 'asesor' }
