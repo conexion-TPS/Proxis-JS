@@ -6,13 +6,17 @@ import LegalGate from '@/components/LegalGate'
 
 type AsesorRow = {
   asesor: string; daysSince: number; msgs7d: number
-  signals7d: number; urgency: number; lastMsg: string | null
+  urgency: number; lastMsg: string | null
   nodo: string | null; nodo_id: string | null
 }
 type NodoRow = { id: string; parent_id: string | null; nombre: string; titulo_propio: string | null; cargo_nombre: string | null }
 type SupRow  = { id: string; nombre: string; org_nodo_id: string | null; cargo: string | null }
 type MensajeRow = { id: string; trigger_id: string | null; descripcion: string; cuerpo: string; fecha: string; score: number | null }
 type Session = { token: string; nombre?: string; email?: string; usuario_id?: string; cargo?: string; isAdmin?: boolean }
+type ObsOpcion = { texto: string; perfil_hint: string }
+type ObsItem = { dimension: string | null; stem: string; basis: string | null; opciones: ObsOpcion[]; deduction_id: string | null }
+type Frecuencia = 'una_vez' | 'a_veces' | 'casi_siempre'
+const FREQ_LABEL: Record<Frecuencia, string> = { una_vez: 'Lo vi una vez', a_veces: 'A veces', casi_siempre: 'Casi siempre' }
 
 /* ── helpers de árbol ── */
 function childrenOf(nodos: NodoRow[], parentId: string | null) {
@@ -45,6 +49,12 @@ export default function EquipoDashboard() {
   const [mensajes,  setMensajes]  = useState<Record<string, MensajeRow[]>>({})
   const [loadingMsg,setLoadingMsg]= useState<string | null>(null)
   const [token,     setToken]     = useState('')
+  // Observación del supervisor (lectura de primera mano que afina el perfil)
+  const [observacion, setObservacion] = useState<Record<string, ObsItem | null>>({})
+  const [obsLoading,  setObsLoading]  = useState<string | null>(null)
+  const [obsDone,     setObsDone]     = useState<Record<string, boolean>>({})
+  const [obsSel,      setObsSel]      = useState<number | null>(null)
+  const [obsFreq,     setObsFreq]     = useState<Frecuencia>('a_veces')
 
   useEffect(() => {
     function arrancar(session: Session) {
@@ -107,14 +117,39 @@ export default function EquipoDashboard() {
   async function toggleAsesor(asesor: string) {
     if (expanded === asesor) { setExpanded(null); return }
     setExpanded(asesor)
-    if (mensajes[asesor]) return
-    setLoadingMsg(asesor)
-    const res = await fetch(`/api/equipo/mensajes?asesor=${encodeURIComponent(asesor)}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    setObsSel(null); setObsFreq('a_veces')
+
+    if (!mensajes[asesor]) {
+      setLoadingMsg(asesor)
+      fetch(`/api/equipo/mensajes?asesor=${encodeURIComponent(asesor)}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(json => setMensajes(prev => ({ ...prev, [asesor]: json.mensajes ?? [] })))
+        .finally(() => setLoadingMsg(null))
+    }
+
+    if (observacion[asesor] === undefined && !obsDone[asesor]) {
+      setObsLoading(asesor)
+      fetch(`/api/equipo/observacion?asesor=${encodeURIComponent(asesor)}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(json => setObservacion(prev => ({ ...prev, [asesor]: json.item ?? null })))
+        .catch(() => setObservacion(prev => ({ ...prev, [asesor]: null })))
+        .finally(() => setObsLoading(null))
+    }
+  }
+
+  async function enviarObservacion(asesor: string) {
+    const item = observacion[asesor]
+    if (!item || obsSel === null) return
+    const opcion = item.opciones[obsSel]
+    setObsDone(prev => ({ ...prev, [asesor]: true }))
+    await fetch('/api/equipo/observacion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        asesor, dimension: item.dimension, opcion_texto: opcion.texto,
+        perfil_hint: opcion.perfil_hint, frecuencia: obsFreq, deduction_id: item.deduction_id, stem: item.stem,
+      }),
     })
-    const json = await res.json()
-    setMensajes(prev => ({ ...prev, [asesor]: json.mensajes ?? [] }))
-    setLoadingMsg(null)
   }
 
   async function darFeedback(asesor: string, messageId: string, score: number) {
@@ -270,7 +305,6 @@ export default function EquipoDashboard() {
                           <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#8a8885' }}>
                             <span>{a.daysSince === 99 ? 'Sin mensajes registrados' : a.daysSince === 0 ? 'Activo hoy' : `Último mensaje hace ${a.daysSince}d`}</span>
                             <span>{a.msgs7d} mensaje{a.msgs7d !== 1 ? 's' : ''} esta semana</span>
-                            {a.signals7d > 0 && <span style={{ color: '#a8691a' }}>{a.signals7d} señal{a.signals7d !== 1 ? 'es' : ''} pendientes</span>}
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
@@ -322,6 +356,59 @@ export default function EquipoDashboard() {
                               ))}
                             </div>
                           )}
+
+                          {/* Tu lectura del supervisor — afina el perfil */}
+                          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed #e0ddd8' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                              Tu lectura de {a.asesor.split(' ')[0]}
+                              <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: '#c8c6c3' }}> · revisable, no es un test</span>
+                            </div>
+                            {obsDone[a.asesor] ? (
+                              <div style={{ fontSize: 12, color: '#1f6f56' }}>Gracias — tu lectura entra al perfil de {a.asesor.split(' ')[0]} como una pista más (no concluyente).</div>
+                            ) : obsLoading === a.asesor ? (
+                              <div style={{ fontSize: 12, color: '#8a8885' }}>Preparando una observación…</div>
+                            ) : !observacion[a.asesor] ? (
+                              <div style={{ fontSize: 12, color: '#c8c6c3' }}>Sin observación sugerida por ahora.</div>
+                            ) : (
+                              <div>
+                                {observacion[a.asesor]!.basis && (
+                                  <div style={{ fontSize: 11, color: '#a8691a', marginBottom: 6 }}>{observacion[a.asesor]!.basis}</div>
+                                )}
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#0b0a09', marginBottom: 10 }}>{observacion[a.asesor]!.stem}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                                  {observacion[a.asesor]!.opciones.map((op, idx) => (
+                                    <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                                      border: `1px solid ${obsSel === idx ? 'rgba(203,241,53,0.7)' : '#e8e6e3'}`, background: obsSel === idx ? 'rgba(203,241,53,0.12)' : '#fff' }}>
+                                      <input type="radio" name={`obs-${a.asesor}`} checked={obsSel === idx} onChange={() => setObsSel(idx)} />
+                                      <span style={{ fontSize: 12.5, color: '#0b0a09' }}>{op.texto}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                                {obsSel !== null && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 12, color: '#8a8885', flexWrap: 'wrap' }}>
+                                    <span>¿Qué tan seguido lo has visto?</span>
+                                    {(['una_vez', 'a_veces', 'casi_siempre'] as Frecuencia[]).map(f => (
+                                      <button key={f} onClick={() => setObsFreq(f)} style={{ padding: '4px 11px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 600,
+                                        border: `1px solid ${obsFreq === f ? '#1f6f56' : '#e8e6e3'}`, background: obsFreq === f ? '#e6f3ed' : '#fff', color: obsFreq === f ? '#1f6f56' : '#8a8885' }}>
+                                        {FREQ_LABEL[f]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button onClick={() => enviarObservacion(a.asesor)} disabled={obsSel === null}
+                                    style={{ padding: '7px 16px', borderRadius: 8, border: 'none', cursor: obsSel === null ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700,
+                                      background: '#0b0a09', color: '#fff', opacity: obsSel === null ? 0.4 : 1 }}>
+                                    Aportar lectura
+                                  </button>
+                                  <button onClick={() => setObsDone(prev => ({ ...prev, [a.asesor]: true }))}
+                                    style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e8e6e3', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, background: '#fff', color: '#8a8885' }}>
+                                    No lo he visto
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -331,7 +418,7 @@ export default function EquipoDashboard() {
             )}
 
             <div style={{ marginTop: 32, fontSize: 11, color: '#c8c6c3', textAlign: 'center' }}>
-              Urgencia = días sin mensaje (×3) + señales sin procesar (×2) + actividad semanal baja<br/>
+              Urgencia = días sin mensaje del coach (×3) + actividad semanal baja<br/>
               Actualizado al {new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>

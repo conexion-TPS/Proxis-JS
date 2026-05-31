@@ -68,12 +68,6 @@ export async function GET(req: NextRequest) {
   const msgCount7d: Record<string, number> = {}
   for (const m of recentMsgs ?? []) msgCount7d[m.asesor] = (msgCount7d[m.asesor] ?? 0) + 1
 
-  // Señales conductuales sin procesar
-  const { data: signals } = await sb
-    .from('behavioral_signals').select('asesor').in('asesor', asesores).eq('procesada', false)
-  const signalCount: Record<string, number> = {}
-  for (const s of signals ?? []) signalCount[s.asesor] = (signalCount[s.asesor] ?? 0) + 1
-
   const now = Date.now()
   const nodoByAsesor: Record<string, string | null> = {}
   for (const c of creds ?? []) nodoByAsesor[c.asesor] = c.org_nodo_id
@@ -82,11 +76,10 @@ export async function GET(req: NextRequest) {
     const lastMsg   = lastByAsesor[asesor]
     const daysSince = lastMsg ? Math.floor((now - new Date(lastMsg).getTime()) / 86400_000) : 99
     const msgs7d    = msgCount7d[asesor] ?? 0
-    const signals7d = signalCount[asesor] ?? 0
-    const urgency   = daysSince * 3 + signals7d * 2 + Math.max(0, 7 - msgs7d)
+    const urgency   = daysSince * 3 + Math.max(0, 7 - msgs7d)
     const nodoId    = nodoByAsesor[asesor] ?? null
     const nodoNombre = nodos.find(n => n.id === nodoId)?.nombre ?? null
-    return { asesor, daysSince, msgs7d, signals7d, urgency, lastMsg: lastMsg ?? null, nodo: nodoNombre, nodo_id: nodoId }
+    return { asesor, daysSince, msgs7d, urgency, lastMsg: lastMsg ?? null, nodo: nodoNombre, nodo_id: nodoId }
   }).sort((a, b) => b.urgency - a.urgency)
 
   return NextResponse.json({ tipo, cargo: cargo ?? 'supervisor', rootId: org_nodo_id ?? null, nodos, supervisores, asesores: resultado })
