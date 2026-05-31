@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       id:          m.id,
       trigger_id:  m.trigger_id,
       descripcion: m.trigger_id ? (trigMap[m.trigger_id] ?? m.trigger_id) : 'Mensaje del coach',
-      resumen:     m.body ? (m.body as string).slice(0, 120) + ((m.body as string).length > 120 ? '…' : '') : '',
+      cuerpo:      (m.body as string) ?? '',
       fecha:       m.created_at,
       score:       fbMap[m.id] ?? null,
     })),

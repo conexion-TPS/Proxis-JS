@@ -11,7 +11,7 @@ type AsesorRow = {
 }
 type NodoRow = { id: string; parent_id: string | null; nombre: string; titulo_propio: string | null; cargo_nombre: string | null }
 type SupRow  = { id: string; nombre: string; org_nodo_id: string | null; cargo: string | null }
-type MensajeRow = { id: string; trigger_id: string | null; descripcion: string; resumen: string; fecha: string; score: number | null }
+type MensajeRow = { id: string; trigger_id: string | null; descripcion: string; cuerpo: string; fecha: string; score: number | null }
 type Session = { token: string; nombre?: string; email?: string; usuario_id?: string; cargo?: string; isAdmin?: boolean }
 
 /* ── helpers de árbol ── */
@@ -296,8 +296,8 @@ export default function EquipoDashboard() {
                               {msgs.map(m => (
                                 <div key={m.id} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0b0a09', marginBottom: 2 }}>{m.descripcion}</div>
-                                    {m.resumen && <div style={{ fontSize: 11, color: '#8a8885', lineHeight: 1.5 }}>{m.resumen}</div>}
+                                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0b0a09', marginBottom: 4 }}>{m.descripcion}</div>
+                                    {m.cuerpo && <div style={{ fontSize: 12, color: '#4a4844', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.cuerpo}</div>}
                                     <div style={{ fontSize: 10, color: '#c8c6c3', marginTop: 4 }}>
                                       {new Date(m.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}
                                     </div>
