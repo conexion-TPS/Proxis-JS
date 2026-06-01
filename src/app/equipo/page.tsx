@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import LegalGate from '@/components/LegalGate'
 
@@ -56,6 +56,27 @@ export default function EquipoDashboard() {
   const [obsSel,      setObsSel]      = useState<number | null>(null)
   const [obsFreq,     setObsFreq]     = useState<Frecuencia>('a_veces')
 
+  // FUENTE ÚNICA DE VERDAD del dashboard. Todos los agregados (banner "sin valorar",
+  // badges por asesor, urgencia, conteos del árbol) salen de aquí. Tras cualquier
+  // mutación se vuelve a llamar en modo `silent` para reconciliar con el servidor:
+  // así ningún contador depende de matemática a mano y no se desincroniza.
+  const cargarDashboard = useCallback(async (tok: string, silent = false) => {
+    try {
+      const r = await fetch('/api/equipo/dashboard', { headers: { Authorization: `Bearer ${tok}` } })
+      if (r.status === 401) { localStorage.removeItem('equipo_session'); router.push('/equipo/login'); return }
+      const json = await r.json()
+      setTipo(json.tipo ?? 'supervisor')
+      setAsesores(json.asesores ?? [])
+      setNodos(json.nodos ?? [])
+      setSups(json.supervisores ?? [])
+      setRootId(json.rootId ?? null)
+    } catch {
+      if (!silent) setError('Error al cargar datos')
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [router])
+
   useEffect(() => {
     function arrancar(session: Session) {
       setNombre(session.nombre ?? '')
@@ -71,18 +92,7 @@ export default function EquipoDashboard() {
           .then(d => { if (d.acepto) setLegalOk(true) })
           .catch(() => setLegalOk(true))
       }
-      fetch('/api/equipo/dashboard', {
-        headers: { Authorization: `Bearer ${session.token}` },
-      }).then(async r => {
-        if (r.status === 401) { localStorage.removeItem('equipo_session'); router.push('/equipo/login'); return }
-        const json = await r.json()
-        setTipo(json.tipo ?? 'supervisor')
-        setAsesores(json.asesores ?? [])
-        setNodos(json.nodos ?? [])
-        setSups(json.supervisores ?? [])
-        setRootId(json.rootId ?? null)
-        setLoading(false)
-      }).catch(() => { setError('Error al cargar datos'); setLoading(false) })
+      cargarDashboard(session.token)
     }
 
     const raw = localStorage.getItem('equipo_session')
@@ -107,7 +117,7 @@ export default function EquipoDashboard() {
     }
 
     router.push('/equipo/login')
-  }, [router])
+  }, [router, cargarDashboard])
 
   function salir() {
     localStorage.removeItem('equipo_session')
@@ -150,6 +160,8 @@ export default function EquipoDashboard() {
         perfil_hint: opcion.perfil_hint, frecuencia: obsFreq, deduction_id: item.deduction_id, stem: item.stem,
       }),
     })
+    // Reconciliar con el servidor (fuente única) — cualquier agregado se actualiza solo.
+    cargarDashboard(token, true)
   }
 
   async function darFeedback(asesor: string, messageId: string, score: number) {
@@ -172,6 +184,9 @@ export default function EquipoDashboard() {
         body: JSON.stringify({ message_id: messageId, score }),
       })
       if (!r.ok) throw new Error()
+      // Reconciliar el dashboard con el servidor: el optimista de arriba es solo para
+      // la respuesta instantánea; la verdad de los contadores la fija este refetch.
+      cargarDashboard(token, true)
     } catch {
       // Revertir mensaje y contador si no se pudo guardar (sin confirmación falsa)
       setMensajes(prev => ({
