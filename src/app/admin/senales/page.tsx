@@ -11,7 +11,7 @@ type Signal = {
   ageHours: number; kind: string; label: string
 }
 type AsesorNode = {
-  id: string; nombre: string; perfil: string | null; signals: Signal[]; obsDays: number
+  id: string; nombre: string; perfil: string | null; signals: Signal[]; observaciones: Signal[]; obsDays: number
 }
 type Nodo = {
   id: string; nombre: string; supervisor: string | null; supervisorObsDays: number; asesores: AsesorNode[]
@@ -343,31 +343,7 @@ function InstitucionBlock({ inst, expState, toggle, onOpenAsesor }: { inst: Inst
 }
 
 /* ── DetailPanel ───────────────────────────────────────────── */
-function ObsForm({ onSubmit }: { onSubmit: (t: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [txt,  setTxt]  = useState('')
-  if (!open) return (
-    <button onClick={() => setOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: '#8a8885', height: 34, padding: '0 10px', borderRadius: 7, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 13 }}>
-      <Glyph name="plus" size={15} /> Registrar observación
-    </button>
-  )
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
-      <textarea autoFocus value={txt} onChange={e => setTxt(e.target.value)}
-                placeholder="Describe lo observado y el plan acordado…" rows={4}
-                style={{ width: '100%', border: '1px solid #e8e6e3', borderRadius: 7, padding: '10px 12px', fontFamily: 'inherit', fontSize: 13, resize: 'vertical', background: '#fcfcfa', color: '#0b0a09', outline: 'none' }} />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button onClick={() => { setOpen(false); setTxt('') }} style={{ color: '#8a8885', height: 34, padding: '0 10px', borderRadius: 7, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 13 }}>Cancelar</button>
-        <button disabled={!txt.trim()} onClick={() => { onSubmit(txt.trim()); setTxt(''); setOpen(false) }}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', borderRadius: 7, fontSize: 13.5, fontWeight: 500, background: '#cbf135', color: '#16210a', border: 'none', cursor: txt.trim() ? 'pointer' : 'not-allowed', opacity: txt.trim() ? 1 : 0.5, fontFamily: 'inherit' }}>
-          Guardar observación
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function DetailPanel({ asesor, nodo, onClose, onAddObs }: { asesor: AsesorNode | null; nodo: Nodo | null; onClose: () => void; onAddObs: (id: string, txt: string) => void }) {
+function DetailPanel({ asesor, nodo, onClose }: { asesor: AsesorNode | null; nodo: Nodo | null; onClose: () => void }) {
   const open = !!asesor
   const sorted = asesor ? [...asesor.signals].sort((a, b) => {
     if (a.procesada !== b.procesada) return a.procesada ? 1 : -1
@@ -430,9 +406,23 @@ function DetailPanel({ asesor, nodo, onClose, onAddObs }: { asesor: AsesorNode |
               <section style={{ marginBottom: 26 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <h3 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.06em', color: '#8a8885', fontWeight: 600 }}>Observaciones del supervisor</h3>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#8a8885', background: '#f0eee9', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99, display: 'grid', placeItems: 'center' }}>{asesor.observaciones.length}</span>
                 </div>
-                <p style={{ fontSize: 13, color: '#b4b1ac', marginBottom: 12 }}>Las observaciones se registran desde el portal del supervisor.</p>
-                <ObsForm onSubmit={t => onAddObs(asesor.id, t)} />
+                {asesor.observaciones.length === 0 ? (
+                  <p style={{ fontSize: 13, color: '#b4b1ac' }}>Sin observaciones. El supervisor las registra desde su Portal de Equipo.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[...asesor.observaciones].sort((a, b) => b.ageHours - a.ageHours).map(o => (
+                      <div key={o.id} style={{ padding: '11px 12px', border: '1px solid #e8e6e3', borderRadius: 7, background: '#fcfcfa' }}>
+                        <div style={{ fontSize: 13, color: '#0b0a09', lineHeight: 1.5 }}>{o.valor || '—'}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: '#8a8885', marginTop: 5 }}>
+                          <span>{antiguedad(o.ageHours)}</span><span style={{ color: '#b4b1ac' }}>·</span>
+                          <span>{o.procesada ? 'procesada' : 'pendiente de análisis'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             </div>
           </>
@@ -457,6 +447,8 @@ export default function SenalesPage() {
   const [spin,     setSpin]     = useState(false)
   const [stamp,    setStamp]    = useState(new Date())
   const [loading,  setLoading]  = useState(true)
+  const [procesando, setProcesando] = useState(false)
+  const [toast,    setToast]    = useState('')
 
   useEffect(() => { setExpState(loadExp()) }, [])
   useEffect(() => {
@@ -508,7 +500,13 @@ export default function SenalesPage() {
       }
 
       function makeAsesor(nombre: string): AsesorNode {
-        return { id: nombre, nombre, perfil: perfilMap[nombre] ?? null, signals: sigMap[nombre] ?? [], obsDays: Math.round(lastObsMap[nombre] ?? 999) }
+        const all = sigMap[nombre] ?? []
+        return {
+          id: nombre, nombre, perfil: perfilMap[nombre] ?? null,
+          signals:       all.filter(s => s.tipo !== 'observacion_supervisor'), // alertas (excluye observaciones)
+          observaciones: all.filter(s => s.tipo === 'observacion_supervisor'), // input del supervisor (read-only)
+          obsDays: Math.round(lastObsMap[nombre] ?? 999),
+        }
       }
 
       // Build nodo → asesores from credentials
@@ -568,19 +566,23 @@ export default function SenalesPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  const procesar = useCallback(async () => {
+    setProcesando(true)
+    try {
+      const r = await fetch('/api/admin/procesar-senales', { method: 'POST' })
+      const j = await r.json()
+      if (r.ok) { setToast(`Procesado: ${j.asesores} asesor(es) analizados`); await loadData() }
+      else setToast('Error: ' + (j.error ?? 'desconocido'))
+    } catch { setToast('Error de red al procesar') }
+    setProcesando(false)
+    setTimeout(() => setToast(''), 4500)
+  }, [loadData])
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelId(null) }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [])
-
-  const addObs = useCallback(async (aid: string, texto: string) => {
-    await supabase.from('behavioral_signals').insert({
-      asesor: aid, fuente: 'supervisor', tipo: 'observacion_supervisor',
-      valor: texto, confianza_hint: 55, procesada: false,
-    })
-    loadData()
-  }, [loadData])
 
   // resolve selected asesor + nodo
   let selAsesor: AsesorNode | null = null
@@ -614,6 +616,11 @@ export default function SenalesPage() {
           <p style={{ color: '#8a8885', fontSize: 13, marginTop: 3 }}>Centro de alertas · actualizado {hhmm}</p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+          <button onClick={procesar} disabled={procesando} title="Procesa las señales pendientes con el motor IA (genera hipótesis)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', borderRadius: 7, fontSize: 13.5, fontWeight: 600, background: '#0b0a09', color: '#fff', border: 'none', cursor: procesando ? 'default' : 'pointer', fontFamily: 'inherit', opacity: procesando ? 0.6 : 1 }}>
+            <Glyph name="activity" size={15} />
+            {procesando ? 'Procesando…' : 'Procesar ahora'}
+          </button>
           <button onClick={loadData} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', borderRadius: 7, fontSize: 13.5, fontWeight: 500, background: '#fff', border: '1px solid #e8e6e3', cursor: 'pointer', fontFamily: 'inherit' }}>
             <span style={{ display: 'inline-flex', animation: spin ? 'spin .65s linear infinite' : 'none' }}>
               <Glyph name="refresh" size={15} />
@@ -656,7 +663,11 @@ export default function SenalesPage() {
         </>
       )}
 
-      <DetailPanel asesor={selAsesor} nodo={selNodo} onClose={() => setSelId(null)} onAddObs={addObs} />
+      <DetailPanel asesor={selAsesor} nodo={selNodo} onClose={() => setSelId(null)} />
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: '#0b0a09', color: '#fff', fontSize: 13, fontWeight: 500, padding: '10px 22px', borderRadius: 30, zIndex: 999 }}>{toast}</div>
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
