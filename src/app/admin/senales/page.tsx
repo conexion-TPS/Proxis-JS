@@ -440,6 +440,8 @@ export default function SenalesPage() {
   const [stamp,    setStamp]    = useState(new Date())
   const [loading,  setLoading]  = useState(true)
   const [procesando, setProcesando] = useState(false)
+  const [canareando, setCanareando] = useState(false)
+  const [geminiUso, setGeminiUso] = useState<{ hoy: { llamadas: number; tokens: number; fallos: number }; cap_dia: number } | null>(null)
   const [toast,    setToast]    = useState('')
 
   useEffect(() => { setExpState(loadExp()) }, [])
@@ -558,6 +560,14 @@ export default function SenalesPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  const loadGeminiUso = useCallback(async () => {
+    try {
+      const r = await fetch('/api/admin/gemini-uso')
+      if (r.ok) setGeminiUso(await r.json())
+    } catch { /* silencioso */ }
+  }, [])
+  useEffect(() => { loadGeminiUso() }, [loadGeminiUso])
+
   const procesar = useCallback(async () => {
     setProcesando(true)
     try {
@@ -573,6 +583,25 @@ export default function SenalesPage() {
     setProcesando(false)
     setTimeout(() => setToast(''), 4500)
   }, [loadData])
+
+  // Arnés de canarios: auto-test activo del pipeline end-to-end (on-demand).
+  const correrCanarios = useCallback(async () => {
+    setCanareando(true)
+    try {
+      const r = await fetch('/api/admin/canarios', { method: 'POST' })
+      const j = await r.json()
+      if (r.ok) {
+        const fallos  = (j.resultados ?? []).filter((x: any) => !x.ok && !x.skipped).map((x: any) => x.id)
+        const incon   = (j.resultados ?? []).filter((x: any) => x.skipped && x.id !== 'C1').length
+        setToast(j.ok
+          ? `Canarios ✓ ${j.passed} contrato(s) OK${incon ? ` · ${incon} inconcluso(s)` : ''}${j.gemini_ok ? '' : ' · Gemini sin cuota'}`
+          : `Canarios ✗ ${j.failed} fallo(s) de contrato: ${fallos.join(', ')}`)
+      } else setToast('Error: ' + (j.error ?? 'desconocido'))
+    } catch { setToast('Error de red al correr canarios') }
+    setCanareando(false)
+    loadGeminiUso()  // los canarios IA consumen Gemini → refrescar el medidor
+    setTimeout(() => setToast(''), 6500)
+  }, [loadGeminiUso])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelId(null) }
@@ -610,12 +639,29 @@ export default function SenalesPage() {
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-.03em' }}>Señales de comportamiento</h1>
           <p style={{ color: '#8a8885', fontSize: 13, marginTop: 3 }}>Centro de alertas · actualizado {hhmm}</p>
+          {geminiUso && (() => {
+            const { llamadas, tokens, fallos } = geminiUso.hoy
+            const pct = Math.round((llamadas / geminiUso.cap_dia) * 100)
+            const alto = llamadas >= geminiUso.cap_dia * 0.8
+            return (
+              <div title={`Medidor de uso de Gemini (free-tier). Tope conservador ~${geminiUso.cap_dia} llamadas/día. ${tokens.toLocaleString('es-CL')} tokens hoy · ${fallos} fallo(s).`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 8, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 500, background: alto ? '#fdf0e6' : '#f3f2f0', color: alto ? '#9a4a16' : '#6a6864', border: `1px solid ${alto ? '#f0d3bd' : '#e8e6e3'}` }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: alto ? '#e07a3a' : '#9bb89b' }} />
+                Gemini hoy: {llamadas} llamada{llamadas === 1 ? '' : 's'} · {pct}% del tope{fallos > 0 ? ` · ${fallos} fallo${fallos === 1 ? '' : 's'}` : ''}
+              </div>
+            )
+          })()}
         </div>
         <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
           <button onClick={procesar} disabled={procesando} title="Procesa las señales pendientes con el motor IA (genera hipótesis)"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', borderRadius: 7, fontSize: 13.5, fontWeight: 600, background: '#0b0a09', color: '#fff', border: 'none', cursor: procesando ? 'default' : 'pointer', fontFamily: 'inherit', opacity: procesando ? 0.6 : 1 }}>
             <Glyph name="activity" size={15} />
             {procesando ? 'Procesando…' : 'Procesar ahora'}
+          </button>
+          <button onClick={correrCanarios} disabled={canareando} title="Arnés de canarios: siembra datos sintéticos, invoca cada pipeline y verifica su contrato (on-demand, no gasta Gemini en el cron)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', borderRadius: 7, fontSize: 13.5, fontWeight: 500, background: '#fff', border: '1px solid #e8e6e3', cursor: canareando ? 'default' : 'pointer', fontFamily: 'inherit', opacity: canareando ? 0.6 : 1 }}>
+            <Glyph name="activity" size={15} />
+            {canareando ? 'Verificando…' : 'Correr canarios'}
           </button>
           <button onClick={loadData} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', borderRadius: 7, fontSize: 13.5, fontWeight: 500, background: '#fff', border: '1px solid #e8e6e3', cursor: 'pointer', fontFamily: 'inherit' }}>
             <span style={{ display: 'inline-flex', animation: spin ? 'spin .65s linear infinite' : 'none' }}>
