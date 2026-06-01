@@ -154,10 +154,17 @@ export default function EquipoDashboard() {
 
   async function darFeedback(asesor: string, messageId: string, score: number) {
     const prevScore = (mensajes[asesor] ?? []).find(m => m.id === messageId)?.score ?? null
+    // Solo baja el contador si el mensaje pasa de SIN valorar a valorado
+    // (revalorar uno ya valorado no cambia el total).
+    const eraSinValorar = prevScore == null
     setMensajes(prev => ({
       ...prev,
       [asesor]: (prev[asesor] ?? []).map(m => m.id === messageId ? { ...m, score } : m),
     }))
+    if (eraSinValorar) {
+      setAsesores(prev => prev.map(a =>
+        a.asesor === asesor ? { ...a, sinValorar: Math.max(0, (a.sinValorar ?? 0) - 1) } : a))
+    }
     try {
       const r = await fetch('/api/equipo/feedback', {
         method: 'POST',
@@ -166,11 +173,15 @@ export default function EquipoDashboard() {
       })
       if (!r.ok) throw new Error()
     } catch {
-      // Revertir si no se pudo guardar, para no mostrar confirmación falsa
+      // Revertir mensaje y contador si no se pudo guardar (sin confirmación falsa)
       setMensajes(prev => ({
         ...prev,
         [asesor]: (prev[asesor] ?? []).map(m => m.id === messageId ? { ...m, score: prevScore } : m),
       }))
+      if (eraSinValorar) {
+        setAsesores(prev => prev.map(a =>
+          a.asesor === asesor ? { ...a, sinValorar: (a.sinValorar ?? 0) + 1 } : a))
+      }
     }
   }
 
@@ -278,8 +289,8 @@ export default function EquipoDashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fef6e6', border: '1px solid #f3d9a4', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
                 <span style={{ fontSize: 18 }}>📝</span>
                 <div style={{ fontSize: 12.5, color: '#8a6212', lineHeight: 1.5 }}>
-                  Tienes <strong>{totalSinValorar}</strong> mensaje{totalSinValorar !== 1 ? 's' : ''} del coach sin valorar.
-                  <span style={{ color: '#a8691a' }}> Marcar “oportuno / no era el momento” en cada uno enseña al coach cuándo acertar — toma segundos al abrir cada asesor.</span>
+                  Tienes <strong>{totalSinValorar}</strong> mensaje{totalSinValorar !== 1 ? 's' : ''} de Sailor Mentor sin valorar.
+                  <span style={{ color: '#a8691a' }}> Marcar “oportuno / no era el momento” en cada uno me enseña cuándo acerté con tu gente — toma segundos al abrir cada asesor.</span>
                 </div>
               </div>
             )}
@@ -350,7 +361,7 @@ export default function EquipoDashboard() {
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                               <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
-                                Últimos mensajes del coach — ¿fueron oportunos?
+                                Últimos mensajes de Sailor Mentor — ¿fueron oportunos?
                               </div>
                               {msgs.map(m => (
                                 <div key={m.id} style={{ background: '#fff', border: `1px solid ${m.score == null ? '#f3d9a4' : '#e8e6e3'}`, borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
