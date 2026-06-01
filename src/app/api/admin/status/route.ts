@@ -224,9 +224,12 @@ export async function GET() {
   // ── Errores recientes de edge functions y API routes ──────────────────────
   try {
     const since7d = new Date(Date.now() - 7 * 86_400_000).toISOString()
+    // Solo errores REALES (severidad='error'); los 'warning' son transitorios/degradación
+    // (p.ej. 429 de Gemini al abrir el portal) y no deben contar como errores de runtime.
     const { data: errs, count } = await sb
       .from('error_log')
       .select('componente, severidad, mensaje, created_at', { count: 'exact' })
+      .eq('severidad', 'error')
       .gte('created_at', since7d)
       .order('created_at', { ascending: false })
       .limit(10)
