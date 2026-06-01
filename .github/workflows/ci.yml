@@ -25,8 +25,12 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install deps (npm ci)
-        run: npm ci
+      # npm install (no npm ci): el package-lock.json se genera en Windows y queda
+      # incompleto para Linux (faltan sub-deps opcionales de sharp: @emnapi/*), lo que
+      # hace fallar a `npm ci` (estricto) en el runner ubuntu. `npm install` resuelve el
+      # árbol correcto de la plataforma — igual que hace Vercel con este mismo lock.
+      - name: Install deps (npm install)
+        run: npm install --no-audit --no-fund
 
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
