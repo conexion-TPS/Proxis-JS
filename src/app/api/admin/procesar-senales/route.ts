@@ -11,7 +11,12 @@ export async function POST() {
     })
     const j = await r.json().catch(() => ({}))
     if (!r.ok) return NextResponse.json({ error: j.error ?? `HTTP ${r.status}` }, { status: 500 })
-    return NextResponse.json({ ok: true, asesores: j.asesores ?? 0, totalSenales: j.totalSenales ?? j.senalesProcessed ?? 0 })
+    return NextResponse.json({
+      ok: true,
+      asesores:   j.asesores ?? 0,
+      senales:    j.totalSenales ?? 0,
+      hipotesis:  j.totalHipotesis ?? 0,
+    })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Error invocando analyzer' }, { status: 500 })
   }

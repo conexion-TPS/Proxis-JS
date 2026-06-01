@@ -194,12 +194,11 @@ function ProgressBar({ proc, total }: { proc: number; total: number }) {
 
 function SummaryCards({ summary }: { summary: { pendientes: number; nodosCriticos: number; asesoresStale: number } }) {
   const cards = [
-    { n: summary.pendientes,   tone: summary.pendientes > 0   ? 'critico' : 'ok', title: 'Señales pendientes',        sub: 'en todo el sistema',             icon: 'alert' },
+    { n: summary.pendientes,   tone: summary.pendientes > 0   ? 'critico' : 'ok', title: 'Señales pendientes',        sub: 'sin procesar por la IA',         icon: 'alert' },
     { n: summary.nodosCriticos, tone: summary.nodosCriticos > 0 ? 'medio' : 'ok', title: 'Nodos con señales >48 h',   sub: 'sin atender',                    icon: 'clock' },
-    { n: summary.asesoresStale, tone: summary.asesoresStale > 0 ? 'medio' : 'ok', title: 'Asesores sin observación',  sub: 'del supervisor en >7 días',       icon: 'user'  },
   ] as const
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 30 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 16, marginBottom: 30 }}>
       {cards.map((c, i) => (
         <div key={i} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 10, padding: '18px 20px 16px', boxShadow: '0 1px 2px rgba(11,10,9,.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -254,7 +253,6 @@ function AsesorRow({ a, onOpen }: { a: AsesorNode; onOpen: (id: string) => void 
 function NodoRow({ n, expanded, onToggle, onOpenAsesor }: { n: Nodo; expanded: boolean; onToggle: () => void; onOpenAsesor: (id: string) => void }) {
   const status = nodoStatus(n)
   const { proc, total } = nodoProcesadas(n)
-  const stale = n.supervisorObsDays > STALE_OBS
   const asesores = [...n.asesores].sort((a, b) => asesorUrgency(b) - asesorUrgency(a))
   return (
     <div style={{ borderTop: '1px solid #f0eee9' }}>
@@ -275,12 +273,6 @@ function NodoRow({ n, expanded, onToggle, onOpenAsesor }: { n: Nodo; expanded: b
             <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{n.nombre}</span>
             {n.supervisor && <span style={{ fontSize: 12.5, color: '#8a8885', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>· {n.supervisor}</span>}
           </span>
-          {stale && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#b03a3a', fontWeight: 500 }}>
-              <Glyph name="alert" size={12} sw={2} />
-              Sin observación del supervisor hace {n.supervisorObsDays} días
-            </span>
-          )}
         </span>
         <ProgressBar proc={proc} total={total} />
         <span style={{ flexShrink: 0, width: 26, height: 22, borderRadius: 6, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 600, color: '#8a8885', background: '#f0eee9' }}>
@@ -571,8 +563,12 @@ export default function SenalesPage() {
     try {
       const r = await fetch('/api/admin/procesar-senales', { method: 'POST' })
       const j = await r.json()
-      if (r.ok) { setToast(`Procesado: ${j.asesores} asesor(es) analizados`); await loadData() }
-      else setToast('Error: ' + (j.error ?? 'desconocido'))
+      if (r.ok) {
+        setToast(j.senales > 0
+          ? `${j.senales} señal(es) procesadas · ${j.hipotesis} hipótesis generadas`
+          : 'Sin cambios: 0 señales procesadas (posible límite temporal de la IA — reintenta en un momento)')
+        await loadData()
+      } else setToast('Error: ' + (j.error ?? 'desconocido'))
     } catch { setToast('Error de red al procesar') }
     setProcesando(false)
     setTimeout(() => setToast(''), 4500)
