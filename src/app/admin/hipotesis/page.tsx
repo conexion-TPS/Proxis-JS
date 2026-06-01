@@ -198,10 +198,12 @@ export default function HipotesisPage() {
       if (result.successful > 0) {
         showToast('Propuesta generada. Revisa la pestaña Propuestas IA.')
       } else {
-        showToast('Gap marcado. El motor lo procesará en el próximo ciclo.')
+        showToast('No se pudo generar la propuesta ahora (la IA puede estar ocupada). Intenta de nuevo en un momento.', true)
+        await supabase.from('knowledge_gaps').update({ estado: 'detectado' }).eq('id', id)
       }
     } catch {
-      showToast('Gap marcado. El motor lo procesará en el próximo ciclo.')
+      showToast('Error al investigar. Intenta de nuevo en un momento.', true)
+      await supabase.from('knowledge_gaps').update({ estado: 'detectado' }).eq('id', id)
     }
     load()
   }
