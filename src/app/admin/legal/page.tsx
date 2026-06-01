@@ -13,6 +13,7 @@ const TIPOS: Record<string, string> = {
   terminos_supervisor:             'Términos Supervisor',
   dpa_empresa:                     'DPA — Empresas B2B',
   consentimiento_datos_secundarios: 'Consentimiento Uso Secundario',
+  politica_privacidad:             'Política de Privacidad',
 }
 
 export default function LegalPage() {

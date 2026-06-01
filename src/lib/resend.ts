@@ -56,6 +56,37 @@ export async function sendResumenSemanal(params: {
   return resend.emails.send({ from: FROM, to: params.to, subject: asunto, html })
 }
 
+export async function sendEliminacionCuenta(params: {
+  to: string
+  nombre: string
+  eventHash: string
+}) {
+  const nombre = params.nombre.split(' ')[0] || 'Hola'
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f3ef;font-family:sans-serif">
+<div style="max-width:520px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e8e6e3">
+  <div style="background:#0b0a09;padding:24px 28px">
+    <div style="font-size:20px;font-weight:800;color:#fff">Tu cuenta fue eliminada</div>
+  </div>
+  <div style="padding:28px;color:#2b2926;font-size:14px;line-height:1.65">
+    <p style="margin:0 0 16px">Hola ${nombre}, confirmamos que tu cuenta en Proxis fue eliminada de forma permanente.</p>
+    <p style="margin:0 0 8px;font-weight:700">Qué ocurrió con tus datos:</p>
+    <ul style="margin:0 0 16px;padding-left:20px">
+      <li style="margin-bottom:6px"><strong>Datos de identificación</strong> (nombre, correo y datos de contacto): eliminados de forma irreversible.</li>
+      <li style="margin-bottom:6px"><strong>Historial de comportamiento y evaluación TPS</strong>: anonimizados de forma irreversible — desvinculados de tu identidad, sin posibilidad de reasociarlos contigo.</li>
+      <li style="margin-bottom:6px">Los datos anonimizados se usan internamente para mejorar el servicio, investigación y desarrollo. <strong>No se comparten con terceros.</strong></li>
+    </ul>
+    <div style="background:#f5f3ef;border-radius:12px;padding:14px 16px;border-left:3px solid #cbf135;margin-bottom:16px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#8a8885;margin-bottom:4px">ID de evento de auditoría</div>
+      <div style="font-family:monospace;font-size:12px;color:#0b0a09;word-break:break-all">${params.eventHash}</div>
+      <div style="font-size:12px;color:#8a8885;margin-top:6px">Conserva este identificador si deseas verificar el proceso ante nosotros o ante la autoridad.</div>
+    </div>
+    <p style="margin:0;color:#8a8885;font-size:13px">Para cualquier consulta sobre derechos residuales escribe a <a href="mailto:privacidad@theprecisionselling.com" style="color:#1a56c4">privacidad@theprecisionselling.com</a>.</p>
+  </div>
+</div></body></html>`
+  return resend.emails.send({ from: FROM, to: params.to, subject: 'Confirmación de eliminación de tu cuenta Proxis', html })
+}
+
 // ── Fallbacks (solo si la DB no devuelve template) ────────────────────────────
 
 function fallbackNotificacion(nombre: string, preview: string) {

@@ -15,6 +15,8 @@ const NAV_CARDS = [
   { href: '/admin/knowledge',     icon: '🧠', title: 'Base KB',              desc: 'Fichas de contexto libre para enriquecer prompts. Embeddings vectoriales opcionales.',                   badge: 'Contexto' },
   { href: '/admin/sailor',        icon: '⛵', title: 'Sailor App',           desc: 'Feed de mensajes en app móvil. Tokens push, conversaciones y estadísticas de apertura.',                 badge: 'Sailor' },
   { href: '/admin/analytics',     icon: '📊', title: 'Analytics',            desc: 'Mensajes por trigger, feedback por asesor, evolución temporal de métricas.',                            badge: 'Reportes' },
+  { href: '/admin/privacy',       icon: '🛡️', title: 'Privacidad',           desc: 'Centro ARCOP+, monitor de anonimizaciones, informes APDP, consentimientos y brechas (Ley 21.719).',     badge: 'Legal' },
+  { href: '/admin/legal',         icon: '📜', title: 'Documentos Legales',   desc: 'Versiona y publica Términos, DPA, Consentimiento y Política. Registro de aceptaciones.',                 badge: 'Legal' },
 ]
 
 type SbStatus = 'loading' | 'ok' | 'error'
