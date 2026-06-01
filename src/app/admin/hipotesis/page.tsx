@@ -126,25 +126,34 @@ export default function HipotesisPage() {
   }
 
   async function ejecutarAccion(h: Hipotesis) {
-    const now = new Date().toISOString()
-    await supabase.from('deductions_log').update({
-      accion_ejecutada: true,
-      accion_ejecutada_at: now,
-    }).eq('id', h.id)
-
-    if (h.accion_tipo === 'ajuste_dimension' && h.dimension_afectada && h.valor_sugerido) {
-      const campo = dimensionToColumn(h.dimension_afectada)
-      if (campo) {
-        await supabase.from('asesor_perfil').upsert({
-          asesor: h.asesor,
-          [campo]: h.valor_sugerido,
-          updated_at: now,
-        }, { onConflict: 'asesor' })
+    // ajuste_dimension se resuelve aquí mismo (solo escribe el perfil, no envía nada)
+    if (h.accion_tipo === 'ajuste_dimension') {
+      const now = new Date().toISOString()
+      if (h.dimension_afectada && h.valor_sugerido) {
+        const campo = dimensionToColumn(h.dimension_afectada)
+        if (campo) {
+          await supabase.from('asesor_perfil').upsert({ asesor: h.asesor, [campo]: h.valor_sugerido, updated_at: now }, { onConflict: 'asesor' })
+        }
       }
+      await supabase.from('deductions_log').update({ accion_ejecutada: true, accion_ejecutada_at: now }).eq('id', h.id)
+      showToast('Perfil actualizado con el valor sugerido.')
+      load()
+      return
     }
 
-    const label = ACCION_LABEL[h.accion_tipo ?? 'ninguna'] ?? 'Acción'
-    showToast(`${label} marcada como ejecutada. Pendiente validación humana.`)
+    // trigger / escalar_supervisor → ENVÍO REAL vía proxis-accion
+    showToast('Enviando…')
+    try {
+      const r = await fetch('/api/admin/ejecutar-accion', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deduction_id: h.id }),
+      })
+      const j = await r.json()
+      if (r.ok) showToast(`Mensaje enviado a ${j.destinatario} (${j.canal}).`)
+      else showToast('No se pudo enviar: ' + (j.error ?? 'error'), true)
+    } catch {
+      showToast('Error de red al enviar.', true)
+    }
     load()
   }
 
@@ -396,9 +405,21 @@ export default function HipotesisPage() {
                       )}
                     </div>
                     <p style={{ fontSize: 12, color: '#4a4844', lineHeight: 1.5 }}>{h.correccion ?? h.hipotesis}</p>
+                    {h.accion_descripcion && h.accion_tipo && h.accion_tipo !== 'ninguna' && (
+                      <p style={{ fontSize: 11, color: '#8a8885', marginTop: 6 }}>
+                        <strong style={{ color: '#4a4844' }}>Acción:</strong> {h.accion_descripcion}
+                      </p>
+                    )}
                   </div>
-                  <div style={{ fontSize: 11, color: '#8a8885', whiteSpace: 'nowrap' }}>
-                    {h.reviewed_at ? new Date(h.reviewed_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) : '—'}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: '#8a8885', whiteSpace: 'nowrap' }}>
+                      {h.reviewed_at ? new Date(h.reviewed_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' }) : '—'}
+                    </div>
+                    {(h.accion_tipo === 'trigger' || h.accion_tipo === 'escalar_supervisor') && (
+                      h.accion_ejecutada
+                        ? <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: '#e6f3ed', color: '#1f6f56', whiteSpace: 'nowrap' }}>✓ Enviada</span>
+                        : <ActionBtn onClick={() => ejecutarAccion(h)} color="#1a56c4">{h.accion_tipo === 'trigger' ? 'Enviar al asesor' : 'Avisar supervisor'}</ActionBtn>
+                    )}
                   </div>
                 </div>
               ))}
