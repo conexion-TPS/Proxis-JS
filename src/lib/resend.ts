@@ -1,6 +1,9 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_KEY)
+// Fallback en build: el constructor de Resend truena si la key falta (rompe el
+// `next build` cuando no hay env, p.ej. en CI). En runtime Vercel siempre tiene la real.
+// Mismo patrón que src/lib/supabase.ts.
+const resend = new Resend(process.env.RESEND_KEY ?? 're_placeholder')
 
 const FROM = 'Proxis Coach <proxis@theprecisionselling.com>'
 

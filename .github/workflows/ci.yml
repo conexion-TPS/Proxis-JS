@@ -39,8 +39,14 @@ jobs:
         run: npm run build
         env:
           # Placeholders inofensivos: el gate verifica que COMPILA y BUILDEA, no necesita
-          # credenciales reales (las rutas leen las env en runtime, no en build).
+          # credenciales reales. Replican el entorno de Vercel (que SÍ tiene estas env) para
+          # que la recolección de páginas no truene si algún módulo lee env al importar.
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+          RESEND_KEY: re_placeholder
+          GEMINI_KEY: placeholder
+          HUGGINGFACE_TOKEN: placeholder
+          SAILOR_JWT_SECRET: placeholder-jwt-secret
+          ADMIN_PASSWORD: placeholder
           NEXT_TELEMETRY_DISABLED: "1"
