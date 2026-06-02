@@ -11,6 +11,21 @@ function applyVars(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`)
 }
 
+/* Email genérico de cumplimiento legal. Envuelve el cuerpo en el layout estándar. */
+export async function sendLegalEmail(params: { to: string; subject: string; bodyHtml: string }) {
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f3ef;font-family:sans-serif">
+<div style="max-width:520px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e8e6e3">
+  <div style="background:#0b0a09;padding:20px 28px">
+    <div style="font-size:16px;font-weight:800;color:#fff">Proxis · Futura Soluciones Digitales</div>
+  </div>
+  <div style="padding:28px;color:#2b2926;font-size:14px;line-height:1.65">${params.bodyHtml}
+    <p style="margin:20px 0 0;color:#8a8885;font-size:12px">Futura Soluciones Digitales Limitada · RUT 77.662.922-7 · <a href="mailto:privacidad@theprecisionselling.com" style="color:#1a56c4">privacidad@theprecisionselling.com</a></p>
+  </div>
+</div></body></html>`
+  return resend.emails.send({ from: FROM, to: params.to, subject: params.subject, html })
+}
+
 export async function sendNotificacionSailor(params: {
   to: string
   asesor: string

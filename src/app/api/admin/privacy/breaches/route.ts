@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { logLegalEvent } from '@/lib/legal'
+import { sendLegalEmail } from '@/lib/resend'
+
+const ADMIN_ALERT_EMAIL = process.env.PRIVACY_ADMIN_EMAIL ?? 'privacidad@theprecisionselling.com'
 
 /* Módulo E — Registro de brechas de seguridad. Plazo APDP: 72 horas desde detección. */
 export async function GET() {
@@ -36,6 +40,22 @@ export async function POST(req: NextRequest) {
   }).select('id').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Ítem 10 — log + alerta inmediata (contador de 72h corre desde la detección).
+  await logLegalEvent({
+    event_type: 'SECURITY_BREACH_REGISTERED', actor_type: 'ADMIN', affected_entity: 'BREACH',
+    event_summary: `Brecha registrada: ${String(b.descripcion).slice(0, 120)}`, legal_reference: 'Ley 21.719 art.14 (notificación 72h)',
+    risk_level: 'CRITICAL', metadata: { id: data.id, deteccion_at: b.deteccion_at, n_afectados: b.n_afectados ?? null },
+  })
+  try {
+    await sendLegalEmail({
+      to: ADMIN_ALERT_EMAIL, subject: '🔴 Brecha de seguridad registrada — plazo APDP 72h',
+      bodyHtml: `<p><strong>Se registró una brecha de seguridad.</strong></p>
+        <p>${String(b.descripcion)}</p>
+        <p>Detección: ${new Date(b.deteccion_at).toLocaleString('es-CL')}. El plazo para notificar a la APDP es de <strong>72 horas</strong> desde la detección. Gestiona el incidente en el panel de Privacidad → Brechas.</p>`,
+    })
+  } catch { /* no bloquea */ }
+
   return NextResponse.json({ ok: true, id: data.id })
 }
 
@@ -54,5 +74,12 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await sb.from('seguridad_brechas').update(patch).eq('id', b.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (b.estado === 'notificado_apdp') {
+    await logLegalEvent({
+      event_type: 'BREACH_NOTIFIED_APDP', actor_type: 'ADMIN', affected_entity: 'BREACH',
+      event_summary: 'Brecha notificada a la APDP', legal_reference: 'Ley 21.719 art.14', risk_level: 'HIGH', metadata: { id: b.id },
+    })
+  }
   return NextResponse.json({ ok: true })
 }

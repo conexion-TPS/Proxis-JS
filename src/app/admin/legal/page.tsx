@@ -65,13 +65,17 @@ export default function LegalPage() {
   }
 
   async function publicar(doc: Doc) {
-    if (!confirm(`¿Publicar versión ${doc.version}? Todos los usuarios deberán re-aceptar en su próximo acceso.`)) return
-    // Deactivate all versions of this tipo
-    await supabase.from('legal_documentos').update({ activo: false }).eq('tipo', doc.tipo)
-    // Activate this version
-    const { error } = await supabase.from('legal_documentos').update({ activo: true, vigente_desde: new Date().toISOString() }).eq('id', doc.id)
-    if (error) { showToast('Error: ' + error.message); return }
-    showToast(`Versión ${doc.version} publicada`)
+    const resumen = prompt(`Resumen de cambios de la versión ${doc.version} (obligatorio — se notificará a los usuarios):`)
+    if (resumen === null) return
+    if (!resumen.trim()) { showToast('El resumen de cambios es obligatorio'); return }
+    // Vigencia +15 días hábiles + notificación + log (ítem 15) en el servidor
+    const res = await fetch('/api/admin/privacy/publish-terms', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: doc.id, resumen_cambios: resumen.trim() }),
+    })
+    const j = await res.json()
+    if (!res.ok) { showToast('Error: ' + (j.error ?? 'no se pudo publicar')); return }
+    showToast(`v${doc.version} publicada · vigor ${j.vigente_desde} · ${j.notificados} notificados`)
     load()
   }
 

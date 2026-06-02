@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { logLegalEvent, sha256 } from '@/lib/legal'
 
 /* Módulo A — Centro de derechos ARCOP+ (Ley 21.719). Plazo legal: 30 días hábiles.
    La fecha límite se calcula con la función SQL calcular_dias_habiles (excluye
@@ -86,6 +87,12 @@ export async function POST(req: NextRequest) {
   }).select('id').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logLegalEvent({
+    event_type: 'ARCOP_REQUEST_RECEIVED', actor_type: 'ADMIN', actor_id_hash: sha256(b.email),
+    affected_entity: 'ARCOP_REQUEST', event_summary: `Solicitud ARCOP+ recibida: ${b.derecho}`,
+    legal_reference: 'Ley 21.719 ARCOP+', risk_level: 'MEDIUM', metadata: { id: data.id, derecho: b.derecho, fecha_limite: fl, canal: b.canal || 'admin' },
+  })
   return NextResponse.json({ ok: true, id: data.id, fecha_limite: fl })
 }
 
@@ -116,5 +123,19 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await sb.from('derechos_solicitudes').update(patch).eq('id', b.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (b.accion === 'prorrogar') {
+    await logLegalEvent({
+      event_type: 'ARCOP_EXTENSION_GRANTED', actor_type: 'ADMIN', affected_entity: 'ARCOP_REQUEST',
+      event_summary: 'Prórroga de solicitud ARCOP+ otorgada', legal_reference: 'Ley 21.719 ARCOP+', risk_level: 'MEDIUM',
+      metadata: { id: b.id, motivo: b.prorroga_motivo },
+    })
+  } else if (b.accion === 'resolver') {
+    await logLegalEvent({
+      event_type: 'ARCOP_REQUEST_RESOLVED', actor_type: 'ADMIN', affected_entity: 'ARCOP_REQUEST',
+      event_summary: `Solicitud ARCOP+ ${patch.estado === 'rechazado' ? 'rechazada' : 'resuelta'}`, legal_reference: 'Ley 21.719 ARCOP+', risk_level: 'LOW',
+      metadata: { id: b.id, estado: patch.estado },
+    })
+  }
   return NextResponse.json({ ok: true })
 }

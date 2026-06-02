@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { supabaseAdmin } from '@/lib/supabase'
-import { sendEliminacionCuenta } from '@/lib/resend'
+import { sendEliminacionCuenta, sendLegalEmail } from '@/lib/resend'
 import { corsHeaders, handleOptions } from '@/lib/cors'
+import { logLegalEvent, sha256 } from '@/lib/legal'
+
+const ADMIN_ALERT_EMAIL = process.env.PRIVACY_ADMIN_EMAIL ?? 'privacidad@theprecisionselling.com'
 
 export async function OPTIONS(req: Request) { return handleOptions(req) }
 
@@ -54,6 +57,15 @@ export async function POST(req: NextRequest) {
   }
   const email  = cred.email as string
   const nombre = cred.asesor as string
+  const actorHash = sha256(nombre)
+
+  // Ítem 3 (PASO 1) — registro del inicio de la solicitud de eliminación.
+  await logLegalEvent({
+    event_type: 'ACCOUNT_DELETION_REQUESTED', actor_type: canal === 'admin' ? 'ADMIN' : 'USER',
+    actor_id_hash: actorHash, affected_entity: 'USER_ACCOUNT',
+    event_summary: `Solicitud de eliminación de cuenta (${canal})`, legal_reference: 'Ley 21.719 art.2k', risk_level: 'MEDIUM',
+    metadata: { canal },
+  })
 
   // ── Registrar la solicitud (trazabilidad ARCOP+ — cancelación/supresión) ──
   const { data: solicitud } = await sb
@@ -75,12 +87,34 @@ export async function POST(req: NextRequest) {
         .eq('id', solicitud.id)
     }
     // Registro de auditoría del fallo (sin datos personales)
+    const failHash = sha256(nombre + Date.now() + 'ANONYMIZATION')
     await sb.from('anonymization_audit_log').insert({
-      event_hash: 'FAILED-' + Date.now(),
+      event_hash: failHash,
       action_type: 'ACCOUNT_DELETION_ANONYMIZATION',
       records_processed: 0,
       process_status: 'FAILED',
+      reidentification_check: 'FAILED',
     })
+    // Ítems 4/16 — logs de fallo y verificación.
+    await logLegalEvent({
+      event_type: 'ANONYMIZATION_FAILED', actor_type: 'SYSTEM', actor_id_hash: actorHash,
+      affected_entity: 'USER_ACCOUNT', event_summary: 'Fallo en el proceso de anonimización; solicitud marcada PENDING_RETRY',
+      legal_reference: 'Ley 21.719 art.2k', risk_level: 'HIGH', metadata: { event_hash: failHash, error: rpcError?.message ?? 'desconocido' },
+    })
+    await logLegalEvent({
+      event_type: 'VERIFICATION_FAILED', actor_type: 'SYSTEM', actor_id_hash: actorHash,
+      affected_entity: 'USER_ACCOUNT', event_summary: 'Verificación de no-reidentificación no superada', legal_reference: 'Ley 21.719 art.2k', risk_level: 'CRITICAL',
+    })
+    // Ítem 7 — alerta inmediata al administrador.
+    try {
+      await sendLegalEmail({
+        to: ADMIN_ALERT_EMAIL,
+        subject: '⚠️ Fallo de anonimización — requiere reintento',
+        bodyHtml: `<p><strong>Un proceso de anonimización falló.</strong></p>
+          <p>Evento: <code>${failHash}</code><br/>Error: ${rpcError?.message ?? 'desconocido'}</p>
+          <p>La solicitud quedó marcada como <strong>PENDING_RETRY</strong>. Revisa el panel de Privacidad → Anonimizaciones para reintentar.</p>`,
+      })
+    } catch { /* no bloquea */ }
     return NextResponse.json({ error: 'No se pudo completar la eliminación. Intenta nuevamente.' }, { status: 500, headers: cors })
   }
 
@@ -92,6 +126,19 @@ export async function POST(req: NextRequest) {
       .update({ estado: 'completado', respuesta: `Anonimización exitosa. Evento: ${eventHash}`, resuelto_at: new Date().toISOString() })
       .eq('id', solicitud.id)
   }
+
+  // Ítems 16 / 4 — verificación de no-reidentificación y cierre del proceso.
+  await logLegalEvent({
+    event_type: 'VERIFICATION_PASSED', actor_type: 'SYSTEM', actor_id_hash: actorHash,
+    affected_entity: 'USER_ACCOUNT', event_summary: 'Verificación de no-reidentificación superada (cero residuo)',
+    legal_reference: 'Ley 21.719 art.2k', risk_level: 'LOW', metadata: { event_hash: eventHash },
+  })
+  await logLegalEvent({
+    event_type: 'ANONYMIZATION_COMPLETED', actor_type: 'SYSTEM', actor_id_hash: actorHash,
+    affected_entity: 'USER_ACCOUNT', event_summary: 'Anonimización irreversible completada y datos de identidad suprimidos',
+    legal_reference: 'Ley 21.719 art.2k', risk_level: 'MEDIUM',
+    metadata: { event_hash: eventHash, canal, email_confirmacion: true },
+  })
 
   // ── Email de confirmación (best-effort, no bloquea la respuesta) ──────────
   try {

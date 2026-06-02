@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { supabaseAdmin } from '@/lib/supabase'
 import { corsHeaders, handleOptions } from '@/lib/cors'
+import { logLegalEvent, sha256, hashIp } from '@/lib/legal'
+import { sendLegalEmail } from '@/lib/resend'
 
 export async function OPTIONS(req: Request) { return handleOptions(req) }
 
@@ -54,13 +56,39 @@ export async function POST(req: NextRequest) {
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: cors })
 
-  // Flag de estado vigente en asesor_credentials (Opción A = uso secundario principal)
+  // Flag de estado vigente en asesor_credentials (Opción A = uso secundario principal).
+  // Ítem 6b — al revocar, el flag detiene de inmediato el uso en la finalidad revocada.
   if (b.opcion === 'A') {
     await sb.from('asesor_credentials').update({
       consentimiento_secundario: b.estado === 'otorgado',
       consentimiento_secundario_at: b.estado === 'otorgado' ? new Date().toISOString() : null,
       consentimiento_secundario_rev: b.estado === 'revocado' ? new Date().toISOString() : null,
     }).eq('asesor', asesor)
+  }
+
+  const opcionLabel = b.opcion === 'A' ? 'Mejora de modelos, investigación y desarrollo' : 'Analítica agregada'
+
+  // Ítem 2 / 6 — registro auditable (sin PII en texto plano: actor e IP hasheados).
+  await logLegalEvent({
+    event_type: b.estado === 'otorgado' ? 'CONSENT_GRANTED' : 'CONSENT_REVOKED',
+    actor_type: 'USER', actor_id_hash: sha256(asesor),
+    affected_entity: 'CONSENT',
+    event_summary: `${b.estado === 'otorgado' ? 'Otorgamiento' : 'Revocación'} de consentimiento Opción ${b.opcion} (${opcionLabel}) vía ${b.canal ?? 'sailor'}`,
+    legal_reference: 'Ley 21.719 art.12', risk_level: b.estado === 'revocado' ? 'MEDIUM' : 'LOW',
+    metadata: { opcion: b.opcion, accion: b.estado === 'otorgado' ? 'GRANT' : 'REVOKE', version: doc?.version ?? null, canal: b.canal ?? 'sailor', ip_hash: hashIp(req) },
+  })
+
+  // Ítem 6c — email de confirmación de revocación.
+  if (b.estado === 'revocado' && cred?.email) {
+    try {
+      await sendLegalEmail({
+        to: cred.email as string,
+        subject: 'Confirmación de revocación de consentimiento',
+        bodyHtml: `<p>Confirmamos la <strong>revocación</strong> de tu consentimiento para la finalidad "<strong>${opcionLabel}</strong>" (Opción ${b.opcion}).</p>
+          <p>La revocación opera <strong>hacia el futuro</strong> desde hoy. No afecta los tratamientos ya realizados lícitamente antes de esta fecha.</p>
+          <p>Los datos que ya fueron <strong>anonimizados de forma irreversible</strong> no pueden revertirse, dado que por definición legal dejaron de ser datos personales.</p>`,
+      })
+    } catch { /* informativo */ }
   }
 
   return NextResponse.json({ ok: true }, { headers: cors })

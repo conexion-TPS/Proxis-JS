@@ -244,6 +244,16 @@ function ModuloInformes() {
     setRep(r); setLoading(false)
   }
 
+  async function auditReport() {
+    const key = (typeof window !== 'undefined' && localStorage.getItem('proxis_admin')) || ''
+    const qs = new URLSearchParams({ format: 'pdf', ...(desde ? { date_from: desde } : {}), ...(hasta ? { date_to: hasta } : {}) })
+    const r = await fetch(`/api/admin/privacy/audit-report?${qs}`, { headers: { 'x-admin-key': key } })
+    if (!r.ok) { alert('Acceso restringido (ADMIN / PRIVACY_OFFICER).'); return }
+    const html = await r.text()
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close() }
+  }
+
   return (
     <>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 18 }}>
@@ -251,6 +261,7 @@ function ModuloInformes() {
         <Field label="Desde"><input type="date" value={desde} onChange={e => setDesde(e.target.value)} style={input} /></Field>
         <Field label="Hasta"><input type="date" value={hasta} onChange={e => setHasta(e.target.value)} style={input} /></Field>
         <button onClick={generar} style={btnPrimary}>Generar informe</button>
+        <button onClick={auditReport} style={btnOutline}>Informe de auditoría (log legal)</button>
       </div>
       <Guide text="La APDP puede solicitar estos antecedentes ante una supervisión, auditoría o denuncia. Verifica el checklist de contenido mínimo antes de entregar. NO incluyas datos personales de terceros no involucrados. Para PDF usa 'Imprimir' del navegador (Guardar como PDF)." />
 
