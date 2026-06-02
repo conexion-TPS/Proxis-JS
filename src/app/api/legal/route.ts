@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendLegalEmail } from '@/lib/resend'
 import { logLegalEvent, sha256, hashIp } from '@/lib/legal'
+import { corsHeaders, handleOptions } from '@/lib/cors'
+
+export async function OPTIONS(req: Request) { return handleOptions(req) }
 
 const TITULOS: Record<string, string> = {
   terminos_asesor_corporativo: 'Términos de Uso — Asesor (Plan Corporativo)',
@@ -15,8 +18,9 @@ const TITULOS: Record<string, string> = {
 // GET /api/legal?tipo=terminos_asesor_corporativo
 // Returns active document for a given type
 export async function GET(req: NextRequest) {
+  const cors = corsHeaders(req.headers.get('origin'))
   const tipo = req.nextUrl.searchParams.get('tipo')
-  if (!tipo) return NextResponse.json({ error: 'tipo requerido' }, { status: 400 })
+  if (!tipo) return NextResponse.json({ error: 'tipo requerido' }, { status: 400, headers: cors })
 
   const sb = supabaseAdmin()
   const { data, error } = await sb
@@ -26,17 +30,18 @@ export async function GET(req: NextRequest) {
     .eq('activo', true)
     .single()
 
-  if (error || !data) return NextResponse.json({ error: 'documento no encontrado' }, { status: 404 })
-  return NextResponse.json(data)
+  if (error || !data) return NextResponse.json({ error: 'documento no encontrado' }, { status: 404, headers: cors })
+  return NextResponse.json(data, { headers: cors })
 }
 
 // POST /api/legal — register acceptance
 export async function POST(req: NextRequest) {
+  const cors = corsHeaders(req.headers.get('origin'))
   const body = await req.json()
   const { tipo, nombre_completo, email, asesor, org_usuario_id, institucion_id, plataforma } = body
 
   if (!tipo || !nombre_completo || !email || !plataforma)
-    return NextResponse.json({ error: 'faltan campos requeridos' }, { status: 400 })
+    return NextResponse.json({ error: 'faltan campos requeridos' }, { status: 400, headers: cors })
 
   const sb = supabaseAdmin()
 
@@ -48,7 +53,7 @@ export async function POST(req: NextRequest) {
     .eq('activo', true)
     .single()
 
-  if (!doc) return NextResponse.json({ error: 'documento activo no encontrado' }, { status: 404 })
+  if (!doc) return NextResponse.json({ error: 'documento activo no encontrado' }, { status: 404, headers: cors })
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ?? req.headers.get('x-real-ip') ?? null
   const user_agent = req.headers.get('user-agent') ?? null
@@ -83,7 +88,7 @@ export async function POST(req: NextRequest) {
     plataforma,
   })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: cors })
 
   const actorHash = sha256(asesor || org_usuario_id || institucion_id || email)
   // Ítem 14 — si es un supervisor, refrescar su marca de última aceptación.
@@ -103,5 +108,5 @@ export async function POST(req: NextRequest) {
       legal_reference: 'Ley 19.628', risk_level: 'LOW', metadata: { tipo, version: doc.version },
     })
   }
-  return NextResponse.json({ ok: true, version: doc.version })
+  return NextResponse.json({ ok: true, version: doc.version }, { headers: cors })
 }
