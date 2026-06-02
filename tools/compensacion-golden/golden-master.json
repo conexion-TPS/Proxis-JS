@@ -1,0 +1,1896 @@
+{
+  "meta": {
+    "generadoEl": "2026-06-02",
+    "fuente": "compania-z (renta.js + datos.js)",
+    "UF_VAL": 39357,
+    "SUELDO_BASE": 539000
+  },
+  "escenarios": [
+    {
+      "idx": 0,
+      "desc": "Default (BL=1, APV=1, campaña ON, ant 3, persist 92)",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1340387,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 1,
+      "desc": "Default sin campaña",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": false,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 300,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1340387,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 2,
+      "desc": "Solo BL=1, sin APV, campaña ON",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 121.92,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 121.92,
+        "ventas": 1,
+        "comVenta": 63979,
+        "incMant": 63979,
+        "bonoUF": 14.2858,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 562246,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1229204,
+        "metaContactos": 1,
+        "metaProspectos": 9,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 15
+      }
+    },
+    {
+      "idx": 3,
+      "desc": "Mix 1x1x1: BL + AUTO(GI) + SS(salud), campaña ON",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1,
+          "SS": 1
+        },
+        "qtyGI": {
+          "AUTO": 1
+        },
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 173.76,
+        "zGI": 3.84,
+        "zGITopado": false,
+        "zTotal": 177.6,
+        "ventas": 3,
+        "comVenta": 71126,
+        "incMant": 67977,
+        "bonoUF": 23.4643,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 923484,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1601588,
+        "metaContactos": 1,
+        "metaProspectos": 26,
+        "funnelTotContactos": 4,
+        "funnelTotProspectos": 34
+      }
+    },
+    {
+      "idx": 4,
+      "desc": "Mix 1x1x1 sin campaña",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": false,
+        "qty": {
+          "BL": 1,
+          "APV": 1,
+          "SS": 1
+        },
+        "qtyGI": {
+          "AUTO": 1
+        },
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 147.84,
+        "zGI": 3.84,
+        "zGITopado": false,
+        "zTotal": 151.68,
+        "ventas": 3,
+        "comVenta": 71126,
+        "incMant": 67977,
+        "bonoUF": 18.7987,
+        "t5Hab": false,
+        "tope_t5": 300,
+        "fp": 1,
+        "bonoNeto": 739860,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1417964,
+        "metaContactos": 1,
+        "metaProspectos": 26,
+        "funnelTotContactos": 4,
+        "funnelTotProspectos": 34
+      }
+    },
+    {
+      "idx": 5,
+      "desc": "APV con KPI completo (BL+GI+SS) campaña ON",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1,
+          "SS": 1
+        },
+        "qtyGI": {
+          "HOGAR": 1
+        },
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 173.76,
+        "zGI": 4.56,
+        "zGITopado": false,
+        "zTotal": 178.32,
+        "ventas": 3,
+        "comVenta": 71126,
+        "incMant": 67977,
+        "bonoUF": 23.5939,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 928585,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1606689,
+        "metaContactos": 1,
+        "metaProspectos": 26,
+        "funnelTotContactos": 4,
+        "funnelTotProspectos": 34
+      }
+    },
+    {
+      "idx": 6,
+      "desc": "APV sin KPI (solo APV) campaña ON -> 50%",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 18.3,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 18.3,
+        "ventas": 1,
+        "comVenta": 3149,
+        "incMant": 0,
+        "bonoUF": 1.83,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 72023,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 614172,
+        "metaContactos": 1,
+        "metaProspectos": 9,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 15
+      }
+    },
+    {
+      "idx": 7,
+      "desc": "Alta producción: BL=5, PM=3, campaña ON",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 5,
+          "PM": 3,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 249.9,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 249.9,
+        "ventas": 9,
+        "comVenta": 495709,
+        "incMant": 492561,
+        "bonoUF": 27.4963,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 1082172,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 2609442,
+        "metaContactos": 2,
+        "metaProspectos": 78,
+        "funnelTotContactos": 8,
+        "funnelTotProspectos": 82
+      }
+    },
+    {
+      "idx": 8,
+      "desc": "Alta producción sin campaña (topes contrato)",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": false,
+        "qty": {
+          "BL": 5,
+          "PM": 3,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 249.9,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 249.9,
+        "ventas": 9,
+        "comVenta": 495709,
+        "incMant": 492561,
+        "bonoUF": 27.4963,
+        "t5Hab": false,
+        "tope_t5": 300,
+        "fp": 1,
+        "bonoNeto": 1082172,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 2609442,
+        "metaContactos": 2,
+        "metaProspectos": 78,
+        "funnelTotContactos": 8,
+        "funnelTotProspectos": 82
+      }
+    },
+    {
+      "idx": 9,
+      "desc": "Antigüedad 1 mes (sin incentivo mantención)",
+      "inputs": {
+        "ant": 1,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 0,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1276408,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 10,
+      "desc": "Antigüedad 13 meses",
+      "inputs": {
+        "ant": 13,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 11996,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 2000,
+        "fp": 1.2,
+        "bonoNeto": 804337,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1422461,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 11,
+      "desc": "Antigüedad 25 meses",
+      "inputs": {
+        "ant": 25,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 7198,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 99999,
+        "fp": 1.2,
+        "bonoNeto": 804337,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1417662,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 12,
+      "desc": "Antigüedad 50 meses",
+      "inputs": {
+        "ant": 50,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 7198,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 99999,
+        "fp": 1.2,
+        "bonoNeto": 804337,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1417662,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 13,
+      "desc": "Antigüedad 120 meses",
+      "inputs": {
+        "ant": 120,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 7198,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 99999,
+        "fp": 1.2,
+        "bonoNeto": 804337,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1417662,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 14,
+      "desc": "Persistencia 40% (factor 0)",
+      "inputs": {
+        "ant": 3,
+        "persist": 40,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 0,
+        "bonoNeto": 0,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 670106,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 15,
+      "desc": "Persistencia 84% (factor 0.5)",
+      "inputs": {
+        "ant": 3,
+        "persist": 84,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 0.9,
+        "bonoNeto": 603253,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1273359,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 16,
+      "desc": "Persistencia 88% (factor 0.65)",
+      "inputs": {
+        "ant": 3,
+        "persist": 88,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1340387,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 17,
+      "desc": "Persistencia 96% (factor 1.0)",
+      "inputs": {
+        "ant": 3,
+        "persist": 96,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1340387,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 18,
+      "desc": "Persistencia 105% ant>12 (factor 1.2)",
+      "inputs": {
+        "ant": 24,
+        "persist": 105,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 11996,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 2000,
+        "fp": 1.2,
+        "bonoNeto": 804337,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1422461,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 19,
+      "desc": "Persistencia 105% ant<=12 (factor 1.0)",
+      "inputs": {
+        "ant": 6,
+        "persist": 105,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1340387,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 20,
+      "desc": "Tramo 5 habilitado (alta prod + T5 r1 + persist 92)",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 8,
+          "PM": 4,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": true,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 249.9,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 249.9,
+        "ventas": 13,
+        "comVenta": 745201,
+        "incMant": 742053,
+        "bonoUF": 32.4863,
+        "t5Hab": true,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 1278563,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 3304817,
+        "metaContactos": 3,
+        "metaProspectos": 113,
+        "funnelTotContactos": 12,
+        "funnelTotProspectos": 121
+      }
+    },
+    {
+      "idx": 21,
+      "desc": "Tramo 5 NO (alta prod pero sin checks T5)",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 8,
+          "PM": 4,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 249.9,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 249.9,
+        "ventas": 13,
+        "comVenta": 745201,
+        "incMant": 742053,
+        "bonoUF": 27.4963,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 1082172,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 3108426,
+        "metaContactos": 3,
+        "metaProspectos": 113,
+        "funnelTotContactos": 12,
+        "funnelTotProspectos": 121
+      }
+    },
+    {
+      "idx": 22,
+      "desc": "Tramo 5 con campaña (alta prod)",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 8,
+          "PM": 4,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": true,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 249.9,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 249.9,
+        "ventas": 13,
+        "comVenta": 745201,
+        "incMant": 742053,
+        "bonoUF": 32.4863,
+        "t5Hab": true,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 1278563,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 3304817,
+        "metaContactos": 3,
+        "metaProspectos": 113,
+        "funnelTotContactos": 12,
+        "funnelTotProspectos": 121
+      }
+    },
+    {
+      "idx": 23,
+      "desc": "Bono Top20 APE rank #1",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": true,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 905211,
+        "bonoCv": 0,
+        "ingresoTotal": 2245598,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 24,
+      "desc": "Bono Top20 CV rank #5",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": true,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 196785,
+        "ingresoTotal": 1537172,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 25,
+      "desc": "Ambos bonos Top20 rank #10",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": true,
+          "top20cv": true,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 157428,
+        "bonoCv": 78714,
+        "ingresoTotal": 1576529,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 26,
+      "desc": "Aporte APV extra 1000 UF",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 1000,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 190.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 190.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 25.7359,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 1012888,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1682994,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 27,
+      "desc": "APV Flex traspaso 2000 UF",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 2000
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 190.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 190.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 25.7359,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 1012888,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1682994,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 28,
+      "desc": "Futura Renta (RP) 1500 UF",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 1500,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 215.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 215.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 27.4963,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 1082172,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1752278,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 29,
+      "desc": "Solo aportes (sin pólizas VI): RP 1000",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {},
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 1000,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 25,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 25,
+        "ventas": 0,
+        "comVenta": 0,
+        "incMant": 0,
+        "bonoUF": 2.5,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 98393,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 637393,
+        "metaContactos": 1,
+        "metaProspectos": 1,
+        "funnelTotContactos": 0,
+        "funnelTotProspectos": 0
+      }
+    },
+    {
+      "idx": 30,
+      "desc": "Solo GI (Auto+Hogar), sin VI, sin campaña",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": false,
+        "qty": {},
+        "qtyGI": {
+          "AUTO": 1,
+          "HOGAR": 1
+        },
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 0,
+        "zGI": 0,
+        "zGITopado": true,
+        "zTotal": 0,
+        "ventas": 0,
+        "comVenta": 0,
+        "incMant": 0,
+        "bonoUF": 0,
+        "t5Hab": false,
+        "tope_t5": 300,
+        "fp": 1,
+        "bonoNeto": 0,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 539000,
+        "metaContactos": 1,
+        "metaProspectos": 1,
+        "funnelTotContactos": 0,
+        "funnelTotProspectos": 0
+      }
+    },
+    {
+      "idx": 31,
+      "desc": "GI excede tope 25% sin campaña",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": false,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {
+          "AUTO": 4,
+          "HOGAR": 4
+        },
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 8.4,
+        "zGITopado": false,
+        "zTotal": 148.62,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 18.2908,
+        "t5Hab": false,
+        "tope_t5": 300,
+        "fp": 1,
+        "bonoNeto": 719871,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1389977,
+        "metaContactos": 1,
+        "metaProspectos": 17,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 19
+      }
+    },
+    {
+      "idx": 32,
+      "desc": "Mix de prospección distinto (ref3 100%)",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1340387,
+        "metaContactos": 1,
+        "metaProspectos": 4,
+        "funnelTotContactos": 2,
+        "funnelTotProspectos": 10
+      }
+    },
+    {
+      "idx": 33,
+      "desc": "Prospección 100% frío",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 140.22,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 140.22,
+        "ventas": 2,
+        "comVenta": 67127,
+        "incMant": 63979,
+        "bonoUF": 17.0308,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 670281,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1340387,
+        "metaContactos": 1,
+        "metaProspectos": 80,
+        "funnelTotContactos": 0,
+        "funnelTotProspectos": 80
+      }
+    },
+    {
+      "idx": 34,
+      "desc": "Temporal con tope comisión UF10 (TP=2)",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "TP": 2,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 164.58,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 164.58,
+        "ventas": 4,
+        "comVenta": 92694,
+        "incMant": 67814,
+        "bonoUF": 21.1207,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 831247,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1530755,
+        "metaContactos": 1,
+        "metaProspectos": 35,
+        "funnelTotContactos": 4,
+        "funnelTotProspectos": 39
+      }
+    },
+    {
+      "idx": 35,
+      "desc": "Futuro Presente FP=2 (tope comisión UF0.22)",
+      "inputs": {
+        "ant": 3,
+        "persist": 92,
+        "campana": true,
+        "qty": {
+          "BL": 1,
+          "FP": 2,
+          "APV": 1
+        },
+        "qtyGI": {},
+        "aportes": {
+          "rpMonto": 0,
+          "apvEx": 0,
+          "apvFlexEx": 0
+        },
+        "bonos": {
+          "top20ape": false,
+          "top20cv": false,
+          "grati": true
+        },
+        "t5": {
+          "r1": false,
+          "r2": false,
+          "r3": false,
+          "r4": false,
+          "r5": false
+        }
+      },
+      "output": {
+        "zVI": 170.7,
+        "zGI": 0,
+        "zGITopado": false,
+        "zTotal": 170.7,
+        "ventas": 4,
+        "comVenta": 78324,
+        "incMant": 75175,
+        "bonoUF": 22.2223,
+        "t5Hab": false,
+        "tope_t5": 1000,
+        "fp": 1,
+        "bonoNeto": 874603,
+        "bonoApe": 0,
+        "bonoCv": 0,
+        "ingresoTotal": 1567102,
+        "metaContactos": 1,
+        "metaProspectos": 35,
+        "funnelTotContactos": 4,
+        "funnelTotProspectos": 39
+      }
+    }
+  ]
+}
