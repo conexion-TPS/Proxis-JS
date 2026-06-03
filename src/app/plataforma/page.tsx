@@ -22,12 +22,14 @@ export default function PlataformaPage() {
       const v = Date.now()
       // v= cache-buster: forces fresh load of public JS files on every page load
       loadScript('/plataforma-core.js?v='+v, () =>
-        loadScript('/compensacion/compania-z/datos.js?v='+v, () =>
-          loadScript('/compensacion/compania-z/perfil.js?v='+v, () =>
-            loadScript('/compensacion/compania-z/nodos.js?v='+v, () =>
-              loadScript('/compensacion/compania-z/renta.js?v='+v, () =>
-                loadScript('/signal-capture.js?v='+v, () =>
-                  loadScript('/cuestionario-player.js?v='+v)
+        loadScript('/compensacion/nucleo/embudo.js?v='+v, () =>
+          loadScript('/compensacion/compania-z/datos.js?v='+v, () =>
+            loadScript('/compensacion/compania-z/perfil.js?v='+v, () =>
+              loadScript('/compensacion/compania-z/nodos.js?v='+v, () =>
+                loadScript('/compensacion/compania-z/renta.js?v='+v, () =>
+                  loadScript('/signal-capture.js?v='+v, () =>
+                    loadScript('/cuestionario-player.js?v='+v)
+                  )
                 )
               )
             )

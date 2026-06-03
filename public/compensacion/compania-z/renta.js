@@ -254,15 +254,24 @@ function simRender(){
   // alert
   const diff=total-ss.meta;
   const mc=total>=ss.meta?'ok':'ng';
-  // Calculate meta contactos from funnel
-  const metaContactos=Math.max(1,Math.round(
-    SIM_METODOS.filter(m=>m.esNodo).reduce((a,m)=>{const pct=(ss.pcts[m.id]||0)/100;return a+(pct>0?Math.ceil(ventas*pct):0)},0)/4
-  ));
-  const metaProspectos=Math.max(1,Math.round(
-    SIM_METODOS.reduce((a,m)=>{const pct=(ss.pcts[m.id]||0)/100;if(pct===0)return a;
-      const prosp=m.esNodo?Math.round(ventas*pct*(m.cadena?m.cadena[1].n:5)):Math.round(ventas*pct*m.cPV);
-      return a+prosp;},0)
-  ));
+  // Calculate meta contactos/prospectos from funnel.
+  // Fase 2b: usa el núcleo genérico (NucleoEmbudo) si está disponible; si no,
+  // cae al cálculo inline original (idéntico, verificado 36/36). Fallback = Zurich no se rompe.
+  let metaContactos, metaProspectos;
+  if (typeof NucleoEmbudo !== 'undefined' && NucleoEmbudo && NucleoEmbudo.calcEmbudo) {
+    const _emb = NucleoEmbudo.calcEmbudo(ss.pcts, ventas);
+    metaContactos = _emb.metaContactos;
+    metaProspectos = _emb.metaProspectos;
+  } else {
+    metaContactos=Math.max(1,Math.round(
+      SIM_METODOS.filter(m=>m.esNodo).reduce((a,m)=>{const pct=(ss.pcts[m.id]||0)/100;return a+(pct>0?Math.ceil(ventas*pct):0)},0)/4
+    ));
+    metaProspectos=Math.max(1,Math.round(
+      SIM_METODOS.reduce((a,m)=>{const pct=(ss.pcts[m.id]||0)/100;if(pct===0)return a;
+        const prosp=m.esNodo?Math.round(ventas*pct*(m.cadena?m.cadena[1].n:5)):Math.round(ventas*pct*m.cPV);
+        return a+prosp;},0)
+    ));
+  }
   const alertHtml = Math.abs(diff)<30000
     ?`<div class="ib gn" style="text-align:center"><strong>Meta prácticamente alcanzada.</strong> Ingreso: ${fmt(total)} · Asesor: ${ss.asesor}</div>`
     :diff>=0?`<div class="ib gn" style="text-align:center"><strong>Meta alcanzable.</strong> Ingreso: ${fmt(total)} · Excedente: ${fmt(diff)}</div>`
