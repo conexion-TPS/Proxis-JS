@@ -282,6 +282,20 @@ function simRender(){
   // Store for save function
   window._simMeta = {asesor:ss.asesor, meta_contactos_semana:metaContactos, meta_prospectos_mes:metaProspectos, meta_ventas_mes:ventas, meta_ingresos:Math.round(total)};
 
+  // ── Fase 5 (shadow): el MOTOR GENÉRICO corre en paralelo y verifica paridad.
+  // NO cambia lo que se muestra (Zurich usa su cálculo). Solo loguea diferencias.
+  // Envuelto en try/catch: pase lo que pase, no afecta el simulador.
+  try {
+    if (typeof NucleoMotor!=='undefined' && typeof COMP_SPEC_ZURICH!=='undefined') {
+      const _m=NucleoMotor.computeCompensation(COMP_SPEC_ZURICH, ss, UF_VAL);
+      const _r=n=>Math.round(n*1e6)/1e6;
+      const _difs=[['AE',_r(zTotal),_m.zTotal],['ventas',ventas,_m.ventas],['bonoUF',_r(bUF),_m.bonoUF],['ingreso',Math.round(total),_m.ingresoTotal],['comision',Math.round(comVenta),_m.comVenta],['incMant',Math.round(incMant),_m.incMant]]
+        .filter(([,a,b])=>Math.abs(a-b)>1e-6);
+      if(_difs.length) console.warn('[motor-shadow] DIFERENCIAS:', _difs.map(([k,a,b])=>`${k}: actual=${a} motor=${b}`).join(' | '));
+      else console.debug('[motor-shadow] paridad OK · AE '+_m.zTotal.toFixed(1)+' · ingreso '+_m.ingresoTotal);
+    }
+  } catch(e){ console.warn('[motor-shadow] error (ignorado):', e&&e.message); }
+
   // btn asesor & print name
   setText('btn-asesor',ss.asesor);
 
