@@ -16,20 +16,23 @@
 'use strict'
 ;(function (root) {
 
-  // Métodos de prospección (genéricos). Copia canónica desde compania-z/datos.js.
+  // Métodos de prospección (genéricos). FUENTE ÚNICA (copia fiel y completa de
+  // la antigua compania-z/datos.js — incluye desc/color/bg que usa el render).
   const SIM_METODOS = [
-    { id:'ref1', nombre:'Contacto/Nodo — nombre dado', tasa:'25-30%', cPV:5,   esNodo:true,
-      cadena:[{n:1,l:'contacto/\nnodo'},{n:5,l:'nombres\ndados'},{n:2,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:true}] },
-    { id:'ref2', nombre:'Contacto/Nodo — presentado con patrocinio', tasa:'40-50%', cPV:2.5, esNodo:true,
-      cadena:[{n:1,l:'contacto/\nnodo'},{n:5,l:'referidos\navisados'},{n:3,l:'con\nreunión'},{n:2,l:'cierres\nest.',hi:true}] },
-    { id:'ref3', nombre:'Contacto/Nodo — transferencia en vivo', tasa:'55-70%', cPV:1.5, esNodo:true,
-      cadena:[{n:1,l:'contacto/\nnodo'},{n:2,l:'presentes\nen vivo'},{n:1,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:true}] },
-    { id:'ref4', nombre:'Referidos tras cierre o entrega de póliza', tasa:'20-25%', cPV:5, esNodo:true, esPostCierre:true,
-      cadena:[{n:1,l:'cliente\ntras cierre'},{n:5,l:'prospectos\nentregados'},{n:2,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:true}] },
-    { id:'dig',  nombre:'Leads digitales de alta intención', tasa:'10-15%', cPV:7,  esNodo:false,
-      cadena:[{n:'—',l:'sin\nnodo'},{n:7,l:'leads\nrecibidos'},{n:4,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:'blue'}] },
-    { id:'frio', nombre:'Prospección en frío', tasa:'2-4%', cPV:40, esNodo:false,
-      cadena:[{n:'—',l:'sin\nnodo'},{n:40,l:'contactos\nfríos'},{n:10,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:'amber'}] },
+    // Con contacto/nodo activo — 3 niveles de patrocinio
+    {id:'ref1',nombre:'Contacto/Nodo — nombre dado',desc:'El contacto/nodo da un nombre y teléfono. El asesor llega con referencia pero sin presentación activa.',tasa:'25-30%',cPV:5,reunRate:0.40,cierreRate:0.40,nPorNodo:5,color:'#1D9E75',bg:'#E1F5EE',esNodo:true,
+     cadena:[{n:1,l:'contacto/\nnodo'},{n:5,l:'nombres\ndados'},{n:2,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:true}]},
+    {id:'ref2',nombre:'Contacto/Nodo — presentado con patrocinio',desc:'El nodo hace una introducción activa. El prospecto espera el contacto del asesor. Mayor credibilidad.',tasa:'40-50%',cPV:2.5,reunRate:0.60,cierreRate:0.67,nPorNodo:5,color:'#0F6E56',bg:'#E1F5EE',esNodo:true,
+     cadena:[{n:1,l:'contacto/\nnodo'},{n:5,l:'referidos\navisados'},{n:3,l:'con\nreunión'},{n:2,l:'cierres\nest.',hi:true}]},
+    {id:'ref3',nombre:'Contacto/Nodo — transferencia en vivo',desc:'El nodo presenta en persona, llamada o videollamada en ese momento. Máxima credibilidad.',tasa:'55-70%',cPV:1.5,reunRate:0.50,cierreRate:1.0,nPorNodo:2,color:'#5DCAA5',bg:'#E1F5EE',esNodo:true,
+     cadena:[{n:1,l:'contacto/\nnodo'},{n:2,l:'presentes\nen vivo'},{n:1,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:true}]},
+    {id:'ref4',nombre:'Referidos tras cierre o entrega de póliza',desc:'Pre-calificados por clientes actuales tras el cierre, transferidos en vivo.',tasa:'20-25%',cPV:5,reunRate:0.50,cierreRate:0.22,nPorNodo:5,color:'#a8cc1a',bg:'#f5ffcc',esNodo:true,esPostCierre:true,
+     cadena:[{n:1,l:'cliente\ntras cierre'},{n:5,l:'prospectos\nentregados'},{n:2,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:true}]},
+    // Sin contacto/nodo
+    {id:'dig',nombre:'Leads digitales de alta intención',desc:'Leads online (formularios, calculadoras, ads). Ya mostraron interés previo.',tasa:'10-15%',cPV:7,color:'#378ADD',bg:'#E6F1FB',esNodo:false,
+     cadena:[{n:'—',l:'sin\nnodo'},{n:7,l:'leads\nrecibidos'},{n:4,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:'blue'}]},
+    {id:'frio',nombre:'Prospección en frío',desc:'Contacto masivo sin pre-calificación. Alto volumen, baja conversión.',tasa:'2-4%',cPV:40,color:'#BA7517',bg:'#FAEEDA',esNodo:false,
+     cadena:[{n:'—',l:'sin\nnodo'},{n:40,l:'contactos\nfríos'},{n:10,l:'con\nreunión'},{n:1,l:'cierre\nest.',hi:'amber'}]},
   ]
 
   /* Cálculo PURO del embudo. Réplica EXACTA de la lógica actual de Zurich
