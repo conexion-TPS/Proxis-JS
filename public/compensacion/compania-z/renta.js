@@ -140,6 +140,7 @@ function simCalcZ(campana){
     const zF=ppaF*zFactor;
     zVI+=zF;
     det.push({p:{id:'APVFLEX_EX',n:'APV AE Flexible Traspaso Cartera'},qty:1,ppaUF:ppaF,zTotal:zF,comVenta:0,incMant:0,nota:`PPA ${(zFactor*100).toFixed(1)}% (${endosoLbl})`});
+    ventas++; // APV Flex activado cuenta como +1 póliza (embudo + Total VI). NO cambia AE/comisión: endosoCol ya fue calculado arriba.
   }
   // ── APV aporte extraordinario (PPA = 10% monto, factor ENDOSO_Z) ──
   if(ss.apvEx>0){
@@ -155,7 +156,7 @@ function simCalcZ(campana){
     const ppaRP=ss.rpMonto*0.10;
     const z=ppaRP*zFactor;
     zVI+=z;
-    det.push({p:{id:'RPUNI',n:'Futura Renta'},qty:1,ppaUF:ppaRP,zTotal:z,comVenta:0,incMant:0,nota:`${(zFactor*100).toFixed(0)}% (${endosoLbl})`});
+    det.push({p:{id:'RPUNI',n:'Renta Preferente'},qty:1,ppaUF:ppaRP,zTotal:z,comVenta:0,incMant:0,nota:`${(zFactor*100).toFixed(0)}% (${endosoLbl})`});
   }
 
   // ── Pólizas Generales GI ──

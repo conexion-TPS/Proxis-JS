@@ -14,14 +14,13 @@
 const SIM_PRODS=[
   // id, nombre, z:factorAE, c:comVenta(%), q:qty inicial, p:prima inicial, pMax:prima máx
   // incM12/M24/M120: incentivo mantención por tramo antigüedad, cTopeUF: tope comisión en UF
-  {id:'BL',  n:'Vida Empresarial',   z:2.00, c:.32,  q:1, p:200000, pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
-  {id:'PM',  n:'Vida Mujer',        z:2.00, c:.32,  q:0, p:180000, pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
-  {id:'TP',  n:'Seguro Temporal',  z:1.00, c:.16,  q:0, p:80000,  pMax:1500000, cTopeUF:10, incM12:.024, incM24:.024, incM120:.024},
-  {id:'FP',  n:'El Futuro es Hoy AE', z:1.00, c:.056, q:0, p:100000, pMax:1500000, cTopeUF:0.22, incM12:.056, incM12TopeUF:.22, incM24:.024, incM24TopeUF:.10},
-  {id:'AP',  n:'Acc. Personales', z:1.00, c:.08,  q:0, p:30000,  pMax:500000,  incM12:.08, incM24:.08, incM120:.08},
+  {id:'BL',  n:'Business Life',   z:2.00, c:.32,  q:1, p:200000, pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
+  {id:'TP',  n:'Temporal',  z:1.00, c:.16,  q:0, p:80000,  pMax:1500000, cTopeUF:10, incM12:.024, incM24:.024, incM120:.024},
+  {id:'FP',  n:'Futuro Presente', z:1.00, c:.056, q:0, p:100000, pMax:1500000, cTopeUF:0.22, incM12:.056, incM12TopeUF:.22, incM24:.024, incM24TopeUF:.10},
+  {id:'AP',  n:'Accidentes Personales', z:1.00, c:.08,  q:0, p:30000,  pMax:500000,  incM12:.08, incM24:.08, incM120:.08},
   {id:'APV', n:'APV',             z:0.50, cUF:.08,q:1, p:120000, pMax:2000000},
   {id:'SS',  n:'Salud', z:0.50, c:.08,  q:0, p:50000,  pMax:1000000, incM12:.08, incM24:.08, incM120:.08},
-  {id:'BLF', n:'Vida Empresarial Flexible',         z:0.50, c:.32,  q:0, p:80000,  pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
+  {id:'BLF', n:'Business Life Flexible',         z:0.50, c:.32,  q:0, p:80000,  pMax:2000000, incM12:.32, incM24:.06,  incM120:.036},
   // RP y APVF son aportes extraordinarios/traspasos, no productos del mix de pólizas
 ];
 // ── PRODUCTOS GENERALES GI (Auto 50%, Hogar 100%) ──

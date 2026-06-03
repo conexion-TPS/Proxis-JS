@@ -41,7 +41,7 @@ function buildSimulador(){
         style="width:100px;padding:5px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center" placeholder="UF">
       <span style="font-size:11px;color:var(--g400)">UF · <span id="lbl-apvflexex" style="font-family:var(--mono);color:var(--amber)">PPA: 0 UF · 0 AE</span></span>
     </div></div>
-    <div class="fg"><div class="flbl">Futura Renta — Aporte extraordinario (UF) <span style="font-size:10px;font-weight:400;color:var(--g400)">· AE: 5% del monto</span></div>
+    <div class="fg"><div class="flbl">Renta Preferente — Aporte extraordinario (UF) <span style="font-size:10px;font-weight:400;color:var(--g400)">· AE: 5% del monto</span></div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
       <input type="number" id="sl-rp" step="0.1" min="0" max="99999" value="0"
         style="width:100px;padding:5px 8px;border:1.5px solid var(--g200);border-radius:8px;font-family:var(--mono);font-size:13px;text-align:center" placeholder="UF">
