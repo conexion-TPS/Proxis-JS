@@ -78,7 +78,7 @@ const SB = {
 /* ══════════════════════════════════════════════════════════════
    ESTADO
 ══════════════════════════════════════════════════════════════ */
-let G = { usuario:null, rol:null, filaCount:0, chartCache:{}, charts:{} };
+let G = { usuario:null, rol:null, empresa:null, filaCount:0, chartCache:{}, charts:{} };
 
 /* ══════════════════════════════════════════════════════════════
    HELPERS
@@ -153,16 +153,30 @@ function buildLoginSelect(){
 }
 document.getElementById('lp').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
 
-function doLogin(){
-  const n=document.getElementById('ln').value, p=document.getElementById('lp').value;
+async function doLogin(){
+  const n=document.getElementById('ln').value.trim(), p=document.getElementById('lp').value;
   hideMsg('lerr'); hideMsg('lload');
-  if(!n){showMsg('lerr','Selecciona tu nombre.'); return;}
+  if(!n){showMsg('lerr','Ingresa tu nombre o email.'); return;}
   if(!p){showMsg('lerr','Ingresa tu clave.'); return;}
+  // Email => login por BD (Consorcio y empresas nuevas). Nombre => USUARIOS (Zurich).
+  if(n.includes('@')){
+    document.getElementById('lload').style.display='block';
+    try{
+      const r=await fetch('/api/vina/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:n,password:p})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok){ hideMsg('lload'); showMsg('lerr',d.error||'Credenciales incorrectas.'); document.getElementById('lp').value=''; return; }
+      G.usuario=d.asesor; G.rol='asesor'; G.empresa='vina';
+      enterApp();
+    }catch(e){ hideMsg('lload'); showMsg('lerr','No se pudo conectar.'); }
+    return;
+  }
   const u=USUARIOS[n];
   if(!u||u.clave!==p){showMsg('lerr','Credenciales incorrectas.'); document.getElementById('lp').value=''; return;}
   document.getElementById('lload').style.display='block';
-  G.usuario=n; G.rol=u.rol;
-  // Sin rol lector — eliminado (ver plataforma demo separada)
+  G.usuario=n; G.rol=u.rol; G.empresa='zurich';
+  enterApp();
+}
+function enterApp(){
   setTimeout(()=>{
     document.getElementById('screen-login').style.display='none';
     document.getElementById('screen-app').style.display='block';
@@ -172,7 +186,7 @@ function doLogin(){
 }
 function doLogout(){
   localStorage.removeItem('proxis_user');
-  G={usuario:null,rol:null,filaCount:0,chartCache:{}};
+  G={usuario:null,rol:null,empresa:null,filaCount:0,chartCache:{},charts:{}};
   document.getElementById('screen-login').style.display='flex';
   document.getElementById('screen-app').style.display='none';
   document.getElementById('lp').value='';
@@ -870,7 +884,7 @@ async function abrirNuevaSemana(){
   }
 
   try{
-    const result=await SB.post('reportes',{asesor:G.usuario,semana_inicio:fechaReporte,semana_num:semanaNum,confirmado:false});
+    const result=await SB.post('reportes',{asesor:G.usuario,empresa:(G.empresa||'zurich'),semana_inicio:fechaReporte,semana_num:semanaNum,confirmado:false});
     const rep=Array.isArray(result)?result[0]:result;
     if(!rep||!rep.id){ throw new Error('No se recibió ID del reporte. Verifica la conexión con Supabase.'); }
     mostrarFormulario(rep.id,semanaNum,fechaReporte,[]);
@@ -991,7 +1005,7 @@ function checkDuplicadoEnForm(num){
   let dupeNombre=null;
   allInputs.forEach(inp=>{
     if(inp.id===`fn-${num}`) return;
-    const otro=inp.value.trim();
+    const otro=(inp.value||'').trim();
     if(!otro) return;
     const oNorm=normNombre(otro);
     // Match if: fuzzy similar OR one contains the other (e.g. "Hugo Luco" vs "Hugo Luco González")
@@ -1252,7 +1266,7 @@ async function guardarBorrador(rid){
     // Save contacts (deduplicated)
     await SB.del('contactos',`reporte_id=eq.${rid}`);
     for(const c of contactosFinal){
-      await SB.post('contactos',{...c,reporte_id:rid,asesor:G.usuario});
+      await SB.post('contactos',{...c,reporte_id:rid,asesor:G.usuario,empresa:(G.empresa||'zurich')});
     }
 
     // ── CLEANUP ORPHAN NODOS ──
@@ -1656,7 +1670,7 @@ async function registrarActivacion(nodoId,nombreNodo){
     const repActual=reportes.find(r=>r.semana_inicio===lunes);
     if(repActual){
       await SB.post('contactos',{
-        reporte_id:repActual.id, asesor:G.usuario,
+        reporte_id:repActual.id, asesor:G.usuario, empresa:(G.empresa||'zurich'),
         nombre:nombreNodo+'  ✦', vinculo:nodo.vinculo||'Conocido/a',
         tipo_contacto:'activacion_nodo',
         llamo:true, reunion:true, prospectos:prosp
