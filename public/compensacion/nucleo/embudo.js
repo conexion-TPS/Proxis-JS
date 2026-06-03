@@ -70,11 +70,147 @@
     return { metaContactos, metaProspectos, totContactos, totProspectos, activos }
   }
 
-  const api = { SIM_METODOS, calcEmbudo }
+  /* ── Render del embudo (movido desde compania-z: nodos.js + renta.js, verbatim).
+     Genérico → vive en el núcleo. Usa globals de la plataforma (simState, simRender)
+     que existen en runtime al invocarse (tras cargar datos.js/renta.js). Se exponen
+     en window para que compania-z y los onclick inline los encuentren por nombre. ── */
+  function buildSimMetodos(){
+    const g=document.getElementById('sim-metodos-grid');if(!g)return;g.innerHTML='';
+    // Group labels
+    const nodoIds=['ref1','ref2','ref3','ref4'];
+    let addedNodoHdr=false, addedPostCierreHdr=false, addedSinHdr=false;
+    SIM_METODOS.forEach(m=>{
+      if(m.esNodo&&!m.esPostCierre&&!addedNodoHdr){
+        const hdr=document.createElement('div');
+        hdr.className='metodo-group-lbl';hdr.textContent='Con contacto / nodo activo';
+        g.appendChild(hdr);addedNodoHdr=true;
+      }
+      if(m.esNodo&&m.esPostCierre&&!addedPostCierreHdr){
+        const hdr=document.createElement('div');
+        hdr.className='metodo-group-lbl';hdr.style.color='#a8cc1a';hdr.textContent='Referidos tras cierre o entrega de póliza';
+        g.appendChild(hdr);addedPostCierreHdr=true;
+      }
+      if(!m.esNodo&&!addedSinHdr){
+        const hdr=document.createElement('div');
+        hdr.className='metodo-group-lbl metodo-group-sin';hdr.textContent='Sin contacto / nodo';
+        g.appendChild(hdr);addedSinHdr=true;
+      }
+      const pct=simState.pcts[m.id]||0;
+      const row=document.createElement('div');
+      row.className='metodo-row'+(pct>0?' active':'')+(m.esNodo?'':' metodo-sin');
+      // Build cadena HTML
+      const cadena=m.cadena||[];
+      const cadenaHTML=cadena.map((s,i)=>{
+        const hiCls=s.hi===true?'step-hi':s.hi==='blue'?'step-hi-blue':s.hi==='amber'?'step-hi-amber':'';
+        return (i>0?'<span class="step-arr">→</span>':'')+
+          `<div class="step-box ${hiCls}"><div class="step-n">${s.n}</div><div class="step-l">${s.l.replace(/\n/g,'<br>')}</div></div>`;
+      }).join('');
+      const footnote=m.esNodo?'<div class="cadena-note">* Valores aproximados según efectividad del asesor.</div>':'';
+      row.innerHTML=`
+        <div class="metodo-top">
+          <div class="metodo-info">
+            <div class="metodo-name">${m.nombre} <span class="metodo-tasa">${m.tasa}</span></div>
+            <div class="metodo-sub">${m.desc}</div>
+          </div>
+          <div class="mpct-wrap"><button onclick="simChPct('${m.id}',-5)">−</button><div class="mpct-num" id="spct-${m.id}">${pct}%</div><button onclick="simChPct('${m.id}',5)">+</button></div>
+        </div>
+        <div class="cadena-wrap">
+          <div class="cadena-row">${cadenaHTML}</div>
+          ${footnote}
+        </div>`;
+      g.appendChild(row);
+    });
+  }
+  function simChPct(id,delta){
+    const tot=Object.values(simState.pcts).reduce((a,b)=>a+b,0);
+    let nuevo=Math.max(0,Math.min(100,simState.pcts[id]+delta));
+    if(delta>0&&tot+delta>100)nuevo=simState.pcts[id]+(100-tot);
+    nuevo=Math.round(nuevo/5)*5;
+    simState.pcts[id]=nuevo;buildSimMetodos();simRender();
+  }
+  function simTotPct(){return Object.values(simState.pcts).reduce((a,b)=>a+b,0)}
 
-  // Node (tests / golden master)
+  function simRenderFunnel(ventas){
+    const fc=document.getElementById('funnel-content');if(!fc)return;
+    const tot=simTotPct();
+    if(tot===0||ventas===0){fc.innerHTML='<div class="ib am">Asigna porcentajes a al menos un método y define el mix de productos.</div>';return}
+    const activos=SIM_METODOS.map(m=>{
+      const pct=(simState.pcts[m.id]||0)/100;if(pct===0)return null;
+      const vM=ventas*pct;
+      const prospectos=m.esNodo?Math.ceil(vM)*5:Math.round(vM*m.cPV);
+      const contactos=m.esNodo?Math.ceil(vM):0;
+      return{...m,pct,vM,contactos,prospectos};
+    }).filter(Boolean);
+    const totC=activos.filter(m=>m.esNodo).reduce((a,m)=>a+m.contactos,0);
+    simState.totC=totC;
+    const totP=activos.reduce((a,m)=>a+m.prospectos,0);
+    const cSem=totC>0?Math.ceil(totC/4):0;
+    const maxP=Math.max(totP,1);
+
+    // Funnel steps — Opción B: dos grupos separados
+    const totP_nodo=activos.filter(m=>m.esNodo).reduce((a,m)=>a+m.prospectos,0);
+    const totP_frio=totP-totP_nodo;
+    const sep=(lbl,cls)=>`<div style="display:flex;align-items:center;gap:8px;margin:10px 0 6px;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:${cls==='nodo'?'#0F6E56':'var(--g400)'}">`+
+      `<span style="flex:1;border-top:0.5px solid ${cls==='nodo'?'#5DCAA5':'var(--g200)'}"></span>`+
+      `<span>${lbl}</span>`+
+      `<span style="flex:1;border-top:0.5px solid ${cls==='nodo'?'#5DCAA5':'var(--g200)'}"></span></div>`;
+    const fstep=(lbl,val,cls,eq,small)=>`<div class="fstep"${small?' style="opacity:.7"':''}>` +
+      `<div class="fstep-lbl"${small?' style="font-size:11px"':''}>${lbl}</div>` +
+      `<div class="fbar-wrap"><div class="fbar ${cls}" style="width:${Math.round((val/maxP)*100)}%;${small?'background:#E8E7E2;color:#5F5E5A;font-size:11px':''}">${val}</div></div>` +
+      `<div class="fnum"${small?' style="font-size:13px;color:var(--g400)"':''}>${val}</div>` +
+      `<div class="feq"${small?' style="font-size:10px"':''}>${eq}</div></div>`;
+    let html=sep('con contacto / nodo activo','nodo');
+    if(totC>0)html+=fstep('Contactos/Nodos',totC,'bar-c',`${cSem} contacto${cSem===1?'':'s'} por semana`,false);
+    html+=fstep('Prospectos',totP_nodo,'bar-p','5 por contacto',false);
+    html+=sep('sin contacto / nodo','cold');
+    if(totP_frio>0)html+=fstep('Digital + frío',totP_frio,'bar-p',`prospectos adicionales`,true);
+    html+=`<div style="margin-top:10px;padding-top:8px;border-top:.5px solid var(--g200);font-size:11px;color:var(--g400)">` +
+      `Total prospectos del período: <strong style="color:var(--g900)">${totP}</strong> · Ver desglose completo en <em>Origen estimado de prospectos</em></div>`;
+
+    // Gráfico origen de prospectos con separación nodo/sin nodo
+    const nodoActivos=activos.filter(m=>m.esNodo);
+    const sinNodoActivos=activos.filter(m=>!m.esNodo);
+    if(activos.length>0){
+      html+='<div class="orig-chart"><div class="orig-title">Origen estimado de prospectos</div>';
+      if(nodoActivos.length>0){
+        html+='<div class="orig-group-lbl orig-nodo">Con contacto / nodo activo</div>';
+        nodoActivos.forEach(m=>{
+          const pct=totP>0?Math.round(m.prospectos/totP*100):0;
+          const w=totP>0?Math.round(m.prospectos/totP*100):0;
+          html+=`<div class="orig-row"><div class="orig-lbl">${m.nombre.replace('Contacto/Nodo — ','')}</div>
+            <div class="orig-bar-wrap"><div class="orig-bar" style="width:${Math.max(w,2)}%;background:${m.color}">
+              ${m.prospectos>0?`<span class="orig-val">${m.prospectos}</span>`:''}</div>
+              <span class="orig-pct">${pct}%</span></div></div>`;
+        });
+      }
+      if(sinNodoActivos.length>0){
+        html+='<div class="orig-group-lbl orig-sin">Sin contacto / nodo</div>';
+        sinNodoActivos.forEach(m=>{
+          const pct=totP>0?Math.round(m.prospectos/totP*100):0;
+          const w=totP>0?Math.round(m.prospectos/totP*100):0;
+          html+=`<div class="orig-row"><div class="orig-lbl">${m.nombre}</div>
+            <div class="orig-bar-wrap"><div class="orig-bar" style="width:${Math.max(w,2)}%;background:${m.color}">
+              ${m.prospectos>0?`<span class="orig-val">${m.prospectos}</span>`:''}</div>
+              <span class="orig-pct">${pct}%</span></div></div>`;
+        });
+      }
+      html+=`<div class="orig-total">Total: <strong>${totP}</strong> prospectos estimados</div></div>`;
+    }
+    fc.innerHTML=html;
+  }
+
+  const api = { SIM_METODOS, calcEmbudo, buildSimMetodos, simChPct, simTotPct, simRenderFunnel }
+
+  // Node (tests / golden master) — solo se usa calcEmbudo; el render no se invoca.
   if (typeof module !== 'undefined' && module.exports) module.exports = api
-  // Navegador: expone el núcleo + el global SIM_METODOS que hoy usa compania-z
-  if (root) { root.NucleoEmbudo = api; if (typeof root.SIM_METODOS === 'undefined') root.SIM_METODOS = SIM_METODOS }
+  // Navegador: expone el núcleo + globals que hoy usan compania-z y los onclick inline.
+  if (root) {
+    root.NucleoEmbudo = api
+    if (typeof root.SIM_METODOS === 'undefined') root.SIM_METODOS = SIM_METODOS
+    root.buildSimMetodos  = buildSimMetodos
+    root.simChPct         = simChPct
+    root.simTotPct        = simTotPct
+    root.simRenderFunnel  = simRenderFunnel
+  }
 
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this))
