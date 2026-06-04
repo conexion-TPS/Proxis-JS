@@ -24,6 +24,9 @@ admin/_secrets.js
 # Confidencial — modelo de compensación con términos/productos reales (de-ofuscación)
 consorcio-confidencial/
 
+# Supabase CLI (estado local generado, no versionar)
+supabase/.temp/
+
 # OS
 .DS_Store
 Thumbs.db
