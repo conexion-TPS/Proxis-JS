@@ -8,6 +8,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_KEY = Deno.env.get('RESEND_KEY') ?? ''
+// Bearer para llamadas función→función. El SUPABASE_SERVICE_ROLE_KEY inyectado por la
+// plataforma puede NO ser un JWT (formato nuevo sb_secret_…) → las funciones con
+// verify_jwt=true lo rechazan con 401. INTERNAL_SR_JWT guarda el service_role JWT legacy
+// (eyJ…) que el gateway sí valida. Fallback a SB_KEY para no romper si no está seteado.
+const INTERNAL_JWT = Deno.env.get('INTERNAL_SR_JWT') || SB_KEY
 const ADMIN_EMAIL = Deno.env.get('ADMIN_EMAIL') ?? 'hpoblete@imrbrasil.com'
 
 const sb = createClient(SB_URL, SB_KEY)
@@ -29,21 +34,86 @@ async function checkPipelineStall(): Promise<Alerta[]> {
     .from('behavioral_signals')
     .select('*', { count: 'exact', head: true })
     .eq('procesada', false)
-
   const pending = count ?? 0
-  if (pending > 200) {
+
+  // Umbrales RELATIVOS al tamaño del despliegue (antes 50/200 era ciego a pilotos chicos)
+  const { count: activosC } = await sb
+    .from('asesor_credentials').select('*', { count: 'exact', head: true }).eq('activo', true)
+  const activos = activosC ?? 0
+  const warnUmbral = Math.max(10, activos * 5)
+  const critUmbral = Math.max(30, activos * 12)
+
+  if (pending > critUmbral) {
+    alertas.push({ tipo: 'pipeline_stall', severidad: 'critical', mensaje: `${pending} señales sin procesar (umbral ${critUmbral}) — el analyzer puede estar fallando`, valor: pending })
+  } else if (pending > warnUmbral) {
+    alertas.push({ tipo: 'pipeline_stall', severidad: 'warning', mensaje: `${pending} señales pendientes de análisis (umbral ${warnUmbral})`, valor: pending })
+  }
+  return alertas
+}
+
+// CHECK DE RESULTADO (no de latencia): señales que llevan más de un ciclo semanal
+// sin procesar = el analyzer NO está convirtiendo señales en hipótesis. Independiente
+// de la escala — es lo que el cerebro NO detectaba (analyzer muerto reportado "saludable").
+async function checkSenalesEstancadas(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const limite = new Date(Date.now() - 8 * 86_400_000).toISOString()
+  const { count } = await sb
+    .from('behavioral_signals')
+    .select('*', { count: 'exact', head: true })
+    .eq('procesada', false)
+    .lt('created_at', limite)
+  if ((count ?? 0) > 0) {
     alertas.push({
-      tipo: 'pipeline_stall',
+      tipo: 'analyzer_no_procesa',
       severidad: 'critical',
-      mensaje: `${pending} señales sin procesar — el analyzer puede estar fallando`,
-      valor: pending,
+      mensaje: `${count} señal(es) llevan +8 días sin procesar — el proxis-analyzer no está generando hipótesis. Revisar fallos de Gemini en error_log.`,
+      valor: count ?? 0,
     })
-  } else if (pending > 50) {
+  }
+  return alertas
+}
+
+// CHECK DE COHERENCIA: una acción marcada "ejecutada" DEBE tener una entrega real
+// en message_log. Si hay más ejecutadas que entregadas, alguna acción "completó"
+// sin enviar nada (el no-op cosmético que el cerebro no detectaba antes).
+async function checkAccionesNoEntregadas(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const { count: ejecutadas } = await sb
+    .from('deductions_log').select('*', { count: 'exact', head: true })
+    .in('accion_tipo', ['trigger', 'escalar_supervisor']).eq('accion_ejecutada', true)
+  const { count: entregadas } = await sb
+    .from('message_log').select('*', { count: 'exact', head: true })
+    .in('trigger_id', ['hipotesis-accion', 'hipotesis-escalar-supervisor'])
+  const e = ejecutadas ?? 0, d = entregadas ?? 0
+  if (e > d) {
     alertas.push({
-      tipo: 'pipeline_stall',
+      tipo: 'acciones_no_entregadas',
       severidad: 'warning',
-      mensaje: `${pending} señales pendientes de análisis`,
-      valor: pending,
+      mensaje: `${e} acción(es) de hipótesis marcadas ejecutadas pero solo ${d} con entrega en message_log — alguna acción puede estar completando sin enviar`,
+      valor: e - d,
+    })
+  }
+  return alertas
+}
+
+// Fallos de las funciones de IA (analyzer/observacion) registrados en error_log.
+// Ahora que esas funciones LOGUEAN sus fallos (antes eran silenciosos), el cerebro
+// los puede ver sin esperar a que se acumulen cientos de señales.
+async function checkFuncionesIA(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const since48 = new Date(Date.now() - 48 * 3_600_000).toISOString()
+  const { data: errs, count } = await sb
+    .from('error_log')
+    .select('componente', { count: 'exact' })
+    .in('componente', ['proxis-analyzer', 'proxis-observacion', 'proxis-researcher', 'proxis-accion'])
+    .gte('created_at', since48)
+  if ((count ?? 0) > 0) {
+    const comps = [...new Set((errs ?? []).map((e: any) => e.componente))].join(', ')
+    alertas.push({
+      tipo: 'ia_fallos',
+      severidad: 'warning',
+      mensaje: `${count} fallo(s) de IA en 48h (${comps}) — generación de hipótesis/observaciones degradada`,
+      valor: count ?? 0,
     })
   }
   return alertas
@@ -440,7 +510,7 @@ async function checkCronVacio(): Promise<Alerta[]> {
   const pendings = logs.map((l: any) => (l.metricas as any)?.senales_pendientes ?? null)
   // Si los últimos 3 checks muestran el mismo valor alto → analyzer no está reduciendo
   const allSame = pendings.every((v: any) => v !== null && v === pendings[0])
-  if (allSame && (pendings[0] ?? 0) > 30) {
+  if (allSame && (pendings[0] ?? 0) > 8) {
     alertas.push({
       tipo: 'cron_vacio',
       severidad: 'warning',
@@ -508,6 +578,91 @@ async function checkDeploymentLog(): Promise<Alerta[]> {
       tipo:      'sin_deployments',
       severidad: 'warning',
       mensaje:   'No se registran deployments en 14 días — verificar webhook de Vercel',
+    })
+  }
+  return alertas
+}
+
+// ── Check 14: estado de la última corrida de canarios ────────────────────────
+// Los canarios corren BAJO DEMANDA (no en este cron — decisión HP 06-01, para no
+// gastar Gemini automáticamente). Este check pasivo lee su último resultado y lo
+// trae al canal de alertas: si la última corrida tuvo fallos, el cerebro avisa.
+async function checkCanarios(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const { data: last } = await sb
+    .from('canary_log')
+    .select('run_at, failed, gemini_ok, resultados')
+    .order('run_at', { ascending: false })
+    .limit(1)
+    .maybeSingle() as { data: any }
+
+  if (!last) {
+    alertas.push({
+      tipo: 'canarios_nunca',
+      severidad: 'info',
+      mensaje: 'El arnés de canarios nunca se ha corrido — ejecutarlo bajo demanda para verificar el pipeline end-to-end',
+    })
+    return alertas
+  }
+
+  if ((last.failed ?? 0) > 0) {
+    const fallos = (last.resultados ?? [])
+      .filter((r: any) => !r.ok && !r.skipped && r.id !== 'A1')
+      .map((r: any) => `${r.id}/${r.pipeline}`)
+    alertas.push({
+      tipo: 'canarios_fallando',
+      severidad: 'critical',
+      mensaje: `Última corrida de canarios con ${last.failed} fallo(s) de contrato: ${fallos.join(', ')} — un contrato del pipeline está roto`,
+      valor: last.failed,
+    })
+  }
+
+  // Gemini caído en la última corrida → los canarios IA (A3/A4/A5/A7) no se verificaron.
+  // Es informativo (cuota), no un contrato roto.
+  if (last.gemini_ok === false) {
+    alertas.push({
+      tipo: 'canarios_ia_sin_verificar',
+      severidad: 'info',
+      mensaje: 'En la última corrida de canarios Gemini no estaba disponible (429/cuota) — los canarios de IA quedaron sin verificar; re-ejecutar cuando la cuota se enfríe',
+    })
+  }
+
+  const dias = (Date.now() - new Date(last.run_at).getTime()) / 86_400_000
+  if (dias > 14) {
+    alertas.push({
+      tipo: 'canarios_obsoletos',
+      severidad: 'info',
+      mensaje: `Última corrida de canarios hace ${Math.round(dias)} días — re-ejecutar el arnés`,
+      valor: Math.round(dias),
+    })
+  }
+  return alertas
+}
+
+// ── Check 15: medidor PROACTIVO de uso de Gemini ─────────────────────────────
+// Antes solo se detectaba el 429 reactivo. Esto agrega el consumo del día (llamadas
+// + tokens reales de gemini_usage) y avisa al acercarse al tope del free-tier, ANTES
+// de chocar. Tope conservador y editable (no usamos tier pago todavía).
+const GEMINI_FREE_REQ_DIA = 200   // gemini-2.5-flash free ≈ 250 req/día; avisamos antes
+async function checkGeminiUso(): Promise<Alerta[]> {
+  const alertas: Alerta[] = []
+  const hoy0 = new Date(); hoy0.setUTCHours(0, 0, 0, 0)
+  const { data } = await sb
+    .from('gemini_usage')
+    .select('ok, total_tokens')
+    .gte('created_at', hoy0.toISOString())
+  const rows = data ?? []
+  const total  = rows.length
+  if (total === 0) return alertas
+  const fallos = rows.filter((r: any) => r.ok === false).length
+  const tokens = rows.reduce((s: number, r: any) => s + (r.total_tokens ?? 0), 0)
+  const pct = Math.round((total / GEMINI_FREE_REQ_DIA) * 100)
+  if (total >= GEMINI_FREE_REQ_DIA * 0.8) {
+    alertas.push({
+      tipo: 'gemini_uso_alto',
+      severidad: total >= GEMINI_FREE_REQ_DIA ? 'critical' : 'warning',
+      mensaje: `Gemini hoy: ${total} llamadas (${pct}% del tope free-tier ~${GEMINI_FREE_REQ_DIA}/día) · ${tokens.toLocaleString('es-CL')} tokens · ${fallos} fallo(s). Espaciar o pasar a tier pago.`,
+      valor: total,
     })
   }
   return alertas
@@ -643,7 +798,7 @@ async function repararInvocarAnalyzer(tipoAlerta: string): Promise<Reparacion> {
   try {
     const r = await fetch(`${SB_URL}/functions/v1/proxis-analyzer`, {
       method:  'POST',
-      headers: { Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${INTERNAL_JWT}`, 'Content-Type': 'application/json' },
       body:    JSON.stringify({ triggered_by: 'proxis-cerebro-auto-repair' }),
     })
     const data: any = await r.json().catch(() => ({}))
@@ -697,6 +852,7 @@ async function executeRepairs(alertas: Alerta[]): Promise<Reparacion[]> {
     { tipo: 'senales_huerfanas',     fn: repararSenalesHuerfanas },
     { tipo: 'pipeline_stall',        fn: () => repararInvocarAnalyzer('pipeline_stall') },
     { tipo: 'cron_vacio',            fn: () => repararInvocarAnalyzer('cron_vacio') },
+    { tipo: 'analyzer_no_procesa',   fn: () => repararInvocarAnalyzer('analyzer_no_procesa') },
     // gaps_atascados: siempre corre como mantenimiento preventivo diario
     { tipo: '_mantenimiento',        fn: repararGapsAtascados },
   ]
@@ -737,27 +893,27 @@ async function enviarAlertaEmail(alertas: Alerta[], resumen: string): Promise<vo
   const criticas  = alertas.filter(a => a.severidad === 'critical')
   const warnings  = alertas.filter(a => a.severidad === 'warning')
   const asunto    = criticas.length
-    ? `🚨 Proxis: ${criticas.length} alerta(s) crítica(s) — ${new Date().toLocaleDateString('es-CL')}`
-    : `⚠️ Proxis: ${warnings.length} advertencia(s) — ${new Date().toLocaleDateString('es-CL')}`
+    ? `Sailor Mentor · revisión del sistema: ${criticas.length} alerta(s) crítica(s) — ${new Date().toLocaleDateString('es-CL')}`
+    : `Sailor Mentor · revisión del sistema: ${warnings.length} cosa(s) por mirar — ${new Date().toLocaleDateString('es-CL')}`
 
   const cuerpo = [
-    `PROXIS CEREBRO — Reporte diario ${new Date().toISOString().slice(0, 10)}`,
+    `Soy Sailor. Revisé la salud del sistema hoy (${new Date().toISOString().slice(0, 10)}) y esto es lo que encontré:`,
     '',
     resumen,
     '',
-    criticas.length ? `CRÍTICAS (${criticas.length}):` : '',
-    ...criticas.map(a => `  ❌ [${a.tipo}] ${a.mensaje}`),
-    warnings.length ? `\nADVERTENCIAS (${warnings.length}):` : '',
-    ...warnings.map(a => `  ⚠️  [${a.tipo}] ${a.mensaje}`),
+    criticas.length ? `Lo urgente (${criticas.length}):` : '',
+    ...criticas.map(a => `  ❌ ${a.mensaje}`),
+    warnings.length ? `\nPara mirar con calma (${warnings.length}):` : '',
+    ...warnings.map(a => `  ⚠️  ${a.mensaje}`),
     '',
-    'Este mensaje fue generado automáticamente por proxis-cerebro.',
+    'Te aviso apenas veo algo raro. — Sailor Mentor',
   ].filter(l => l !== undefined).join('\n')
 
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from:    'Proxis Cerebro <proxis@theprecisionselling.com>',
+      from:    'Sailor Mentor (Proxis) <proxis@theprecisionselling.com>',
       to:      ADMIN_EMAIL,
       subject: asunto,
       text:    cuerpo,
@@ -765,10 +921,314 @@ async function enviarAlertaEmail(alertas: Alerta[], resumen: string): Promise<vo
   })
 }
 
+/* ── CANARIOS — auto-test activo por pipeline (on-demand) ─────────────────────
+ * El cubo es cerrado: cada función tiene un contrato que definimos. Un canario
+ * SIEMBRA un dato sintético → INVOCA el pipeline → VERIFICA el contrato → LIMPIA.
+ * Caza "corrió pero no produjo" y "funciona mal" (lo que el monitoreo pasivo no ve).
+ *
+ * Convención de seguridad: todo artefacto usa el asesor sintético __canary__
+ * (inactivo, excluido de las pasadas reales de signals/analyzer/monitor por el
+ * filtro `__*`). Los canarios que envían corren en dry-run. Limpieza idempotente
+ * antes y después de cada uno.
+ *
+ * Decisión HP (06-01): viven DENTRO del cerebro y corren SOLO bajo demanda
+ * (invocar con { run_canaries: true }); el cron diario NO los ejecuta → cero gasto
+ * Gemini automático hasta pasar a tier pago. A1 (sonda Gemini barata) hace de
+ * compuerta: si Gemini no responde, se saltan los canarios que lo usan. */
+
+const CANARY = '__canary__'
+
+interface CanaryResult {
+  id:        string   // A1, A2, …
+  pipeline:  string
+  ok:        boolean
+  detalle:   string
+  skipped?:  boolean
+}
+
+async function invokeFn(nameAndQuery: string, body: unknown): Promise<{ status: number; json: any }> {
+  const r = await fetch(`${SB_URL}/functions/v1/${nameAndQuery}`, {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${INTERNAL_JWT}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body ?? {}),
+  })
+  const json = await r.json().catch(() => ({}))
+  return { status: r.status, json }
+}
+
+// ¿Hubo un 429/cuota de Gemini para este componente desde `desdeISO`? Permite a los
+// canarios IA distinguir "Gemini sin cuota" (inconcluso, no es bug) de "contrato roto".
+function esQuota(s: string): boolean {
+  return /429|quota|RESOURCE_EXHAUSTED/i.test(s ?? '')
+}
+async function huboQuota429(componente: string, desdeISO: string): Promise<boolean> {
+  const { data } = await sb
+    .from('error_log')
+    .select('mensaje')
+    .eq('componente', componente)
+    .gte('created_at', desdeISO)
+    .order('created_at', { ascending: false })
+    .limit(5)
+  return (data ?? []).some((e: any) => esQuota(e.mensaje))
+}
+
+// Borra TODOS los artefactos del asesor sintético. Idempotente (corre antes y después).
+async function limpiarCanary(): Promise<void> {
+  const tablas = [
+    'knowledge_proposals', 'knowledge_gaps', 'deductions_log', 'behavioral_signals',
+    'asesor_perfil_historial', 'asesor_perfil', 'tps_perfiles', 'ingresos', 'metas',
+    'message_log', 'sailor_messages', 'asesor_credentials',
+  ]
+  for (const t of tablas)
+    await sb.from(t).delete().eq('asesor', CANARY).then(undefined, () => {})
+}
+
+// ── A1 · Gemini transversal: ¿responde JSON válido no vacío? ──────────────────
+async function canaryGemini(): Promise<CanaryResult> {
+  const id = 'A1', pipeline = 'gemini'
+  const GEMINI_KEY = Deno.env.get('GEMINI_KEY') ?? ''
+  if (!GEMINI_KEY) return { id, pipeline, ok: false, detalle: 'GEMINI_KEY no configurada' }
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Devuelve exactamente este JSON, sin texto extra: {"ok":true}' }] }],
+          generationConfig: { maxOutputTokens: 50, temperature: 0, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } },
+        }),
+      }
+    )
+    if (!res.ok) {
+      await sb.from('gemini_usage').insert({ componente: 'proxis-cerebro', ok: false, status: res.status }).then(undefined, () => {})
+      return { id, pipeline, ok: false, detalle: `Gemini HTTP ${res.status}` }
+    }
+    const data = await res.json()
+    await sb.from('gemini_usage').insert({
+      componente: 'proxis-cerebro', ok: true, status: 200,
+      prompt_tokens: data.usageMetadata?.promptTokenCount ?? null,
+      output_tokens: data.usageMetadata?.candidatesTokenCount ?? null,
+      total_tokens:  data.usageMetadata?.totalTokenCount ?? null,
+    }).then(undefined, () => {})
+    const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim()
+    if (!text) return { id, pipeline, ok: false, detalle: 'Gemini devolvió texto vacío (posible regresión del bug "thinking")' }
+    try { JSON.parse(text) } catch { return { id, pipeline, ok: false, detalle: `Gemini devolvió no-JSON: ${text.slice(0, 60)}` } }
+    return { id, pipeline, ok: true, detalle: 'Gemini responde JSON válido no vacío' }
+  } catch (e: any) {
+    return { id, pipeline, ok: false, detalle: e?.message ?? String(e) }
+  }
+}
+
+// ── A2 · proxis-signals: dada actividad, ¿crea señales? (sin Gemini) ──────────
+async function canarySignals(): Promise<CanaryResult> {
+  const id = 'A2', pipeline = 'proxis-signals'
+  try {
+    await limpiarCanary()
+    const mes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+    // meta_ingresos baja + ingreso por encima → dispara 'meta_ingresos_superada' (determinista)
+    await sb.from('metas').insert({ asesor: CANARY, meta_contactos_semana: 3, meta_prospectos_mes: 15, meta_ingresos: 1000 })
+    await sb.from('ingresos').insert({ asesor: CANARY, mes, ingreso_real: 5000 })
+    const { status, json } = await invokeFn('proxis-signals', { asesor: CANARY })
+    if (status !== 200 || json?.ok !== true)
+      return { id, pipeline, ok: false, detalle: `signals HTTP ${status}: ${json?.error ?? ''}` }
+    const { count } = await sb.from('behavioral_signals').select('*', { count: 'exact', head: true }).eq('asesor', CANARY)
+    const ok = (count ?? 0) >= 1
+    return { id, pipeline, ok, detalle: ok ? `${count} señal(es) generada(s) desde la actividad sembrada` : 'No generó señales pese a la actividad (ingesta muda)' }
+  } catch (e: any) {
+    return { id, pipeline, ok: false, detalle: e?.message ?? String(e) }
+  } finally { await limpiarCanary() }
+}
+
+// ── A3 · proxis-analyzer: señal pendiente → procesada + hipótesis (Gemini) ────
+async function canaryAnalyzer(): Promise<CanaryResult> {
+  const id = 'A3', pipeline = 'proxis-analyzer'
+  try {
+    await limpiarCanary()
+    // Pre-seed tps_perfiles (cols NOT NULL sin default) para que el upsert interno del
+    // analyzer no falle por constraint — el fallo sería de seeding, no de contrato.
+    await sb.from('tps_perfiles').insert({ asesor: CANARY, version_instrumento: '1.0', perfil_base: 'canary', confianza_diagnostico: 'sin_evaluar', puntaje_a: 0, puntaje_b: 0 })
+    await sb.from('asesor_perfil').insert({ asesor: CANARY, perfil_dominante: 'A', identidad_vendedora: 'Asesor sintético del arnés de canarios.' })
+    await sb.from('behavioral_signals').insert({ asesor: CANARY, fuente: 'manual', tipo: 'canary_probe', valor: '3', dimension_target: 'relacion_prospeccion', confianza_hint: 60, procesada: false, contexto: { canary: true } })
+    const t0 = new Date(Date.now() - 5000).toISOString()
+    const { status, json } = await invokeFn('proxis-analyzer', { asesor: CANARY })
+    if (status !== 200 || json?.ok !== true)
+      return { id, pipeline, ok: false, detalle: `analyzer HTTP ${status}: ${json?.error ?? ''}` }
+    const { count: pendientes } = await sb.from('behavioral_signals').select('*', { count: 'exact', head: true }).eq('asesor', CANARY).eq('procesada', false)
+    const { count: hip } = await sb.from('deductions_log').select('*', { count: 'exact', head: true }).eq('asesor', CANARY)
+    const procesada = (pendientes ?? 1) === 0
+    const generoHip = (hip ?? 0) >= 1
+    const ok = procesada && generoHip
+    if (ok) return { id, pipeline, ok: true, detalle: `señal procesada + ${hip} hipótesis generada(s)` }
+    // No cumplió el contrato: ¿fue cuota Gemini (inconcluso) o bug real?
+    if (await huboQuota429('proxis-analyzer', t0))
+      return { id, pipeline, ok: false, skipped: true, detalle: 'Inconcluso: Gemini 429/cuota durante el análisis — reintentar cuando se enfríe' }
+    return { id, pipeline, ok: false, detalle: `procesada=${procesada}, hipótesis=${hip ?? 0} — el analyzer no convierte señales en hipótesis (revisar bug del "thinking")` }
+  } catch (e: any) {
+    return { id, pipeline, ok: false, detalle: e?.message ?? String(e) }
+  } finally { await limpiarCanary() }
+}
+
+// ── A4 · proxis-researcher: gap en_investigacion → propuesta (Gemini) ─────────
+async function canaryResearcher(): Promise<CanaryResult> {
+  const id = 'A4', pipeline = 'proxis-researcher'
+  try {
+    await limpiarCanary()
+    const { data: gap } = await sb.from('knowledge_gaps').insert({
+      asesor: CANARY, dimension: 'relacion_prospeccion',
+      descripcion: 'Canario: vacío sintético para verificar el researcher.',
+      prioridad: 3, estado: 'en_investigacion',
+    }).select('id').single()
+    const gapId = gap?.id
+    if (!gapId) return { id, pipeline, ok: false, detalle: 'No se pudo sembrar el gap canario' }
+    const t0 = new Date(Date.now() - 5000).toISOString()
+    const { status, json } = await invokeFn(`proxis-researcher?gap_id=${gapId}`, {})
+    if (status !== 200 || json?.ok !== true)
+      return { id, pipeline, ok: false, detalle: `researcher HTTP ${status}: ${json?.error ?? ''}` }
+    const { count } = await sb.from('knowledge_proposals').select('*', { count: 'exact', head: true }).eq('asesor', CANARY)
+    if ((count ?? 0) >= 1) return { id, pipeline, ok: true, detalle: 'propuesta de conocimiento generada' }
+    if (await huboQuota429('proxis-researcher', t0))
+      return { id, pipeline, ok: false, skipped: true, detalle: 'Inconcluso: Gemini 429/cuota durante la investigación — reintentar cuando se enfríe' }
+    return { id, pipeline, ok: false, detalle: 'No generó propuesta (revisar bug del "thinking" en researcher)' }
+  } catch (e: any) {
+    return { id, pipeline, ok: false, detalle: e?.message ?? String(e) }
+  } finally { await limpiarCanary() }
+}
+
+// ── A5 · proxis-observacion: perfil → ítem con opciones (Gemini) ──────────────
+async function canaryObservacion(): Promise<CanaryResult> {
+  const id = 'A5', pipeline = 'proxis-observacion'
+  try {
+    await limpiarCanary()
+    await sb.from('asesor_perfil').insert({
+      asesor: CANARY, perfil_dominante: 'R',
+      identidad_vendedora: 'Asesor sintético; prefiere construir vínculo antes de cerrar.',
+      relacion_prospeccion: 'Le cuesta la prospección en frío.',
+    })
+    const { status, json } = await invokeFn('proxis-observacion', { asesor: CANARY })
+    if (status !== 200 || json?.ok !== true)
+      return { id, pipeline, ok: false, detalle: `observacion HTTP ${status}: ${json?.error ?? ''}` }
+    const item = json?.item
+    const tieneItem = !!(item?.stem && Array.isArray(item?.opciones) && item.opciones.length > 0)
+    if (tieneItem) return { id, pipeline, ok: true, detalle: `ítem generado con ${item.opciones.length} opciones` }
+    // Sembramos un perfil base → DEBE producir un ítem. Distinguir causa:
+    //  - 'ia_no_disponible' = Gemini lanzó error (típicamente 429) → INCONCLUSO, no es bug.
+    //  - 'sin_item' = Gemini respondió pero vacío/no parseable → el bug del "thinking" (FALLO real).
+    const motivo = json?.motivo ?? 'desconocido'
+    if (motivo === 'ia_no_disponible')
+      return { id, pipeline, ok: false, skipped: true, detalle: 'Inconcluso: Gemini no disponible (429/cuota) al generar la observación' }
+    return { id, pipeline, ok: false, detalle: `sin ítem (motivo: ${motivo}) pese al perfil sembrado — revisar bug del "thinking"` }
+  } catch (e: any) {
+    return { id, pipeline, ok: false, detalle: e?.message ?? String(e) }
+  } finally { await limpiarCanary() }
+}
+
+// ── A7 · proxis-accion: deducción → entrega real (dry-run, Gemini) ────────────
+async function canaryAccion(): Promise<CanaryResult> {
+  const id = 'A7', pipeline = 'proxis-accion'
+  try {
+    await limpiarCanary()
+    // __canary__ inactivo a propósito (invisible a las pasadas reales); accion dry_run no exige activo.
+    await sb.from('asesor_credentials').insert({ asesor: CANARY, email: 'canary@theprecisionselling.com', password_hash: 'x', activo: false })
+    const { data: d } = await sb.from('deductions_log').insert({
+      asesor: CANARY, hipotesis: 'Canario: hipótesis sintética para verificar la entrega de acciones.',
+      dimension_afectada: 'relacion_prospeccion', confianza: 60,
+      accion_tipo: 'trigger', accion_descripcion: 'Enviar un mensaje breve de aliento sobre prospección.', estado: 'validada',
+    }).select('id').single()
+    const did = d?.id
+    if (!did) return { id, pipeline, ok: false, detalle: 'No se pudo sembrar la deducción canaria' }
+    const { status, json } = await invokeFn('proxis-accion', { deduction_id: did, dry_run: true })
+    if (status !== 200 || json?.ok !== true) {
+      if (esQuota(String(json?.error ?? '')))
+        return { id, pipeline, ok: false, skipped: true, detalle: 'Inconcluso: Gemini 429/cuota al componer el mensaje de la acción' }
+      return { id, pipeline, ok: false, detalle: `accion HTTP ${status}: ${json?.error ?? ''}` }
+    }
+    const ok = !!(json?.dry_run && json?.destinatario && String(json?.mensaje ?? '').trim().length > 0)
+    return { id, pipeline, ok, detalle: ok ? 'entrega resuelta (destinatario + mensaje compuesto)' : 'no resolvió destinatario/mensaje (posible regresión al no-op cosmético)' }
+  } catch (e: any) {
+    return { id, pipeline, ok: false, detalle: e?.message ?? String(e) }
+  } finally { await limpiarCanary() }
+}
+
+// ── A8 · proxis-informes: cada gerente recibe su sub-árbol (dry-run, sin Gemini) ─
+async function canaryInformes(): Promise<CanaryResult> {
+  const id = 'A8', pipeline = 'proxis-informes'
+  try {
+    const { status, json } = await invokeFn('proxis-informes', { dry_run: true })
+    if (status !== 200 || json?.ok !== true)
+      return { id, pipeline, ok: false, detalle: `informes HTTP ${status}: ${json?.error ?? ''}` }
+    const preview = Array.isArray(json?.preview) ? json.preview : null
+    if (!preview) return { id, pipeline, ok: false, detalle: 'dry-run no devolvió preview de informes' }
+    if (preview.length === 0) return { id, pipeline, ok: true, detalle: 'dry-run OK (0 gerentes con informe — sin jerarquía configurada)' }
+    const bienFormados = preview.every((p: any) => p.destinatario && p.email && String(p.cuerpo ?? '').trim().length > 0)
+    return { id, pipeline, ok: bienFormados, detalle: bienFormados ? `${preview.length} informe(s) por gerente bien formado(s)` : 'algún informe sin destinatario/cuerpo' }
+  } catch (e: any) {
+    return { id, pipeline, ok: false, detalle: e?.message ?? String(e) }
+  }
+}
+
+// Orquestador: corre la batería, aplica la compuerta A1 y la cobertura C1.
+async function runCanarios(): Promise<{ resultados: CanaryResult[]; geminiOk: boolean }> {
+  const resultados: CanaryResult[] = []
+
+  // A1 primero — compuerta de frugalidad: si Gemini no responde, saltar los caros.
+  const a1 = await canaryGemini()
+  resultados.push(a1)
+  const geminiOk = a1.ok
+
+  // Canarios sin Gemini: siempre
+  resultados.push(await canarySignals())
+  resultados.push(await canaryInformes())
+
+  // Canarios con Gemini: solo si A1 pasó
+  if (geminiOk) {
+    resultados.push(await canaryAnalyzer())
+    resultados.push(await canaryResearcher())
+    resultados.push(await canaryObservacion())
+    resultados.push(await canaryAccion())
+  } else {
+    const caros: Array<[string, string]> = [
+      ['A3', 'proxis-analyzer'], ['A4', 'proxis-researcher'],
+      ['A5', 'proxis-observacion'], ['A7', 'proxis-accion'],
+    ]
+    for (const [cid, pl] of caros)
+      resultados.push({ id: cid, pipeline: pl, ok: false, skipped: true, detalle: 'Saltado: Gemini no disponible (A1 falló) — reintentar cuando la cuota se enfríe' })
+  }
+
+  // C1 — cobertura (meta): pipelines conocidos sin canario. Honesto sobre los blind spots.
+  const PIPELINES = ['proxis-signals', 'proxis-analyzer', 'proxis-researcher', 'proxis-observacion', 'proxis-accion', 'proxis-monitor', 'proxis-informes']
+  const cubiertos = new Set(resultados.map(r => r.pipeline))
+  for (const p of PIPELINES.filter(p => !cubiertos.has(p)))
+    resultados.push({ id: 'C1', pipeline: p, ok: true, skipped: true, detalle: `Cobertura: ${p} aún no tiene canario (pendiente — p.ej. A6 monitor)` })
+
+  return { resultados, geminiOk }
+}
+
 /* ── Handler principal ──────────────────────────────────────── */
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
   try {
+  // Rama on-demand: ejecutar el arnés de canarios (no corre en el cron diario).
+  const reqBody = await req.json().catch(() => ({})) as { run_canaries?: boolean; triggered_by?: string }
+  if (reqBody?.run_canaries === true) {
+    await limpiarCanary()
+    const { resultados, geminiOk } = await runCanarios()
+    // A1 es la COMPUERTA (sonda Gemini), no un canario de contrato: un 429 transitorio
+    // no debe contar como fallo de pipeline ni marcar el sistema crítico por días.
+    // El tally cuenta solo canarios de contrato que efectivamente corrieron.
+    const contrato = resultados.filter(r => !r.skipped && r.id !== 'A1')
+    const passed = contrato.filter(r => r.ok).length
+    const failed = contrato.filter(r => !r.ok).length
+    const ok = failed === 0
+    await sb.from('canary_log').insert({
+      ok, total: contrato.length, passed, failed, gemini_ok: geminiOk,
+      resultados, triggered_by: reqBody?.triggered_by ?? 'manual',
+    } as never).then(undefined, () => {})
+    const out = { ok, gemini_ok: geminiOk, passed, failed, resultados }
+    console.log(JSON.stringify(out))
+    return new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json' } })
+  }
+
   const now = new Date().toISOString()
 
   const safe = (fn: () => Promise<Alerta[]>): Promise<Alerta[]> =>
@@ -777,6 +1237,7 @@ Deno.serve(async (_req: Request) => {
   const [
     stall, cron, efect, criticos, sinMensajes, errores, deploys,
     integridad, sinPrompt, huerfanas, reportes, reacciones, sailorViejos, geminiQuota, cronVacio,
+    estancadas, iaFallos, accionesNoEntregadas, canarios, geminiUso,
   ] = await Promise.all([
     safe(checkPipelineStall),
     safe(checkCronSalud),
@@ -793,12 +1254,18 @@ Deno.serve(async (_req: Request) => {
     safe(checkSailorMensajesViejos),
     safe(checkGeminiQuota),
     safe(checkCronVacio),
+    safe(checkSenalesEstancadas),
+    safe(checkFuncionesIA),
+    safe(checkAccionesNoEntregadas),
+    safe(checkCanarios),
+    safe(checkGeminiUso),
   ])
 
   const todasAlertas = [
     ...stall, ...cron, ...efect, ...criticos, ...sinMensajes, ...errores, ...deploys,
     ...integridad, ...sinPrompt, ...huerfanas, ...reportes, ...reacciones,
-    ...sailorViejos, ...geminiQuota, ...cronVacio,
+    ...sailorViejos, ...geminiQuota, ...cronVacio, ...estancadas, ...iaFallos, ...accionesNoEntregadas,
+    ...canarios, ...geminiUso,
   ]
   const criticas     = todasAlertas.filter(a => a.severidad === 'critical').length
   const warnings     = todasAlertas.filter(a => a.severidad === 'warning').length
@@ -822,6 +1289,13 @@ Deno.serve(async (_req: Request) => {
     .from('message_log').select('*', { count: 'exact', head: true })
     .gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
 
+  // Uso de Gemini del día (medidor proactivo)
+  const hoy0 = new Date(); hoy0.setUTCHours(0, 0, 0, 0)
+  const { data: usoHoy } = await sb
+    .from('gemini_usage').select('ok, total_tokens').gte('created_at', hoy0.toISOString())
+  const geminiLlamadasHoy = (usoHoy ?? []).length
+  const geminiTokensHoy   = (usoHoy ?? []).reduce((s: number, r: any) => s + (r.total_tokens ?? 0), 0)
+
   const metricas = {
     total_senales:              totalSenales ?? 0,
     senales_pendientes:         pendingSenales ?? 0,
@@ -835,6 +1309,8 @@ Deno.serve(async (_req: Request) => {
     senales_huerfanas:          huerfanas.reduce((s, a) => s + (Number(a.valor) || 0), 0),
     mensajes_sailor_sin_leer:   sailorViejos.reduce((s, a) => s + (Number(a.valor) || 0), 0),
     gemini_quota_errores_24h:   geminiQuota.length,
+    gemini_llamadas_hoy:        geminiLlamadasHoy,
+    gemini_tokens_hoy:          geminiTokensHoy,
   }
 
   const resumenTexto = [
@@ -856,8 +1332,8 @@ Deno.serve(async (_req: Request) => {
     metricas,
   } as never)
 
-  // Enviar email solo si hay alertas críticas o warnings
-  if (todasAlertas.length) {
+  // Enviar email solo si hay alertas críticas o warnings (los 'info' no spamean a diario)
+  if (criticas > 0 || warnings > 0) {
     await enviarAlertaEmail(todasAlertas, resumenTexto).catch(e =>
       console.error('Error enviando alerta:', e)
     )
