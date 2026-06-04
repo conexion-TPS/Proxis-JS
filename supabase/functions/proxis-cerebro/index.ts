@@ -480,14 +480,14 @@ async function checkGeminiQuota(): Promise<Alerta[]> {
     .from('error_log')
     .select('mensaje, created_at')
     .gte('created_at', since24h)
-    .or('mensaje.ilike.%429%,mensaje.ilike.%quota%,mensaje.ilike.%RESOURCE_EXHAUSTED%')
+    .or('mensaje.ilike.%429%,mensaje.ilike.%quota%,mensaje.ilike.%rate%limit%,mensaje.ilike.%Groq%,mensaje.ilike.%OpenRouter%,mensaje.ilike.%RESOURCE_EXHAUSTED%')
     .limit(5)
 
   if (errs?.length) {
     alertas.push({
       tipo: 'gemini_quota',
       severidad: 'critical',
-      mensaje: `Gemini está retornando errores de cuota/rate-limit (${errs.length} ocurrencia(s) en 24h) — los mensajes del coach no se están generando`,
+      mensaje: `La IA (Groq/OpenRouter) está retornando errores de cuota/rate-limit (${errs.length} ocurrencia(s) en 24h) — los mensajes del coach no se están generando`,
       valor: errs.length,
     })
   }
@@ -643,7 +643,7 @@ async function checkCanarios(): Promise<Alerta[]> {
 // Antes solo se detectaba el 429 reactivo. Esto agrega el consumo del día (llamadas
 // + tokens reales de gemini_usage) y avisa al acercarse al tope del free-tier, ANTES
 // de chocar. Tope conservador y editable (no usamos tier pago todavía).
-const GEMINI_FREE_REQ_DIA = 200   // gemini-2.5-flash free ≈ 250 req/día; avisamos antes
+const GROQ_FREE_REQ_DIA = 13000   // tope conservador: Groq free real es 14,400/día, avisamos antes
 async function checkGeminiUso(): Promise<Alerta[]> {
   const alertas: Alerta[] = []
   const hoy0 = new Date(); hoy0.setUTCHours(0, 0, 0, 0)
@@ -656,12 +656,12 @@ async function checkGeminiUso(): Promise<Alerta[]> {
   if (total === 0) return alertas
   const fallos = rows.filter((r: any) => r.ok === false).length
   const tokens = rows.reduce((s: number, r: any) => s + (r.total_tokens ?? 0), 0)
-  const pct = Math.round((total / GEMINI_FREE_REQ_DIA) * 100)
-  if (total >= GEMINI_FREE_REQ_DIA * 0.8) {
+  const pct = Math.round((total / GROQ_FREE_REQ_DIA) * 100)
+  if (total >= GROQ_FREE_REQ_DIA * 0.8) {
     alertas.push({
       tipo: 'gemini_uso_alto',
-      severidad: total >= GEMINI_FREE_REQ_DIA ? 'critical' : 'warning',
-      mensaje: `Gemini hoy: ${total} llamadas (${pct}% del tope free-tier ~${GEMINI_FREE_REQ_DIA}/día) · ${tokens.toLocaleString('es-CL')} tokens · ${fallos} fallo(s). Espaciar o pasar a tier pago.`,
+      severidad: total >= GROQ_FREE_REQ_DIA ? 'critical' : 'warning',
+      mensaje: `IA hoy (Groq): ${total} llamadas (${pct}% del tope free-tier ~${GROQ_FREE_REQ_DIA}/día) · ${tokens.toLocaleString('es-CL')} tokens · ${fallos} fallo(s). Espaciar o pasar a tier pago.`,
       valor: total,
     })
   }
