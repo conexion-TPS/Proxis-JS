@@ -11,28 +11,47 @@ const GEMINI_KEY = Deno.env.get('GEMINI_KEY') ?? ''
 
 const sb = createClient(SB_URL, SB_KEY)
 
+// Medidor de uso de Gemini: cada llamada (éxito o fallo) deja una fila con tokens reales.
+async function logGeminiUso(ok: boolean, status: number, usage: any): Promise<void> {
+  try {
+    await sb.from('gemini_usage').insert({
+      componente: 'proxis-researcher', ok, status,
+      prompt_tokens: usage?.promptTokenCount ?? null,
+      output_tokens: usage?.candidatesTokenCount ?? null,
+      total_tokens:  usage?.totalTokenCount ?? null,
+    })
+  } catch (_) { /* best-effort */ }
+}
+
 /* ── Gemini ─────────────────────────────────────────────────── */
 
 async function callGemini(prompt: string): Promise<string> {
   if (!GEMINI_KEY) throw new Error('GEMINI_KEY no configurada')
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          maxOutputTokens: 3000,
-          temperature: 0.5,
-          responseMimeType: 'application/json'
-        }
-      })
-    }
-  )
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
-  const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+  let lastStatus = 0
+  for (let intento = 0; intento < 4; intento++) {
+    if (intento > 0) await new Promise(r => setTimeout(r, 2000 * intento))
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            maxOutputTokens: 3000,
+            temperature: 0.5,
+            responseMimeType: 'application/json',
+            thinkingConfig: { thinkingBudget: 0 } // sin "thinking" → los tokens van a la respuesta (mismo bug que tenia el analyzer)
+          }
+        })
+      }
+    )
+    if (res.ok) { const data = await res.json(); await logGeminiUso(true, 200, data.usageMetadata); return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}' }
+    lastStatus = res.status
+    if (res.status !== 429 && res.status !== 503) break // solo reintentar transitorios
+  }
+  await logGeminiUso(false, lastStatus, null)
+  throw new Error(`Gemini HTTP ${lastStatus}`)
 }
 
 /* ── Categorías y etapas del ciclo TPS ─────────────────────── */
@@ -136,7 +155,9 @@ Responde ÚNICAMENTE con JSON válido:
     const raw = await callGemini(prompt)
     parsed = JSON.parse(raw)
   } catch (e) {
-    console.error(`[gap ${gap.id}] Error parsing Gemini:`, e)
+    const emsg = e instanceof Error ? e.message : String(e)
+    console.error(`[gap ${gap.id}] Error parsing Gemini:`, emsg)
+    await sb.from('error_log').insert({ componente: 'proxis-researcher', severidad: 'warning', mensaje: `Gemini falló investigando gap ${gap.dimension} (${gap.asesor}): ${emsg}` }).then(undefined, () => {})
     return false
   }
 
@@ -222,7 +243,7 @@ Deno.serve(async (req: Request) => {
       severidad:  'error',
       mensaje:    e?.message ?? String(e),
       detalles:   { stack: e?.stack ?? '', timestamp: new Date().toISOString() },
-    }).catch(() => {})
+    }).then(undefined, () => {})
     return new Response(JSON.stringify({ ok: false, error: e?.message ?? 'Error interno' }), {
       status: 500, headers: { 'Content-Type': 'application/json' }
     })

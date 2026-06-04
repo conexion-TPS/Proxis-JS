@@ -5,9 +5,10 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const SB_URL     = Deno.env.get('SUPABASE_URL')!
-const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const GEMINI_KEY = Deno.env.get('GEMINI_KEY') ?? ''
+import { callAI, callAIJson } from '../_shared/ai-client.ts'
+
+const SB_URL = Deno.env.get('SUPABASE_URL')!
+const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const sb = createClient(SB_URL, SB_KEY)
 
@@ -62,48 +63,6 @@ interface GeminiAnalysis {
   resumen_analisis: string
 }
 
-/* ── Gemini ─────────────────────────────────────────────────── */
-
-async function callGemini(prompt: string): Promise<string> {
-  if (!GEMINI_KEY) throw new Error('GEMINI_KEY no configurada')
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          maxOutputTokens: 4000,
-          temperature: 0.4,
-          responseMimeType: 'application/json'
-        }
-      })
-    }
-  )
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
-  const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
-}
-
-async function callGeminiText(prompt: string): Promise<string> {
-  if (!GEMINI_KEY) throw new Error('GEMINI_KEY no configurada')
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1200, temperature: 0.6 }
-      })
-    }
-  )
-  if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`)
-  const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-}
-
 /* ── Análisis de un asesor ──────────────────────────────────── */
 
 async function analizarAsesor(asesor: string): Promise<{
@@ -121,8 +80,8 @@ async function analizarAsesor(asesor: string): Promise<{
     .order('created_at', { ascending: false })
     .limit(100)
 
-  const seналes: Signal[] = signals ?? []
-  if (!seналes.length) return { hipotesis: 0, gaps: 0, progresion: 0, senalesProcessed: 0 }
+  const senales: Signal[] = signals ?? []
+  if (!senales.length) return { hipotesis: 0, gaps: 0, progresion: 0, senalesProcessed: 0 }
 
   // 2. Perfil actual
   const { data: perfilArr } = await sb
@@ -141,7 +100,7 @@ async function analizarAsesor(asesor: string): Promise<{
     .limit(20)
 
   // 4. Construir prompt analítico
-  const senalesTexto = seналes.map(s =>
+  const senalesTexto = senales.map(s =>
     `[${s.fuente}] ${s.tipo}: ${s.valor ?? '—'} | dimensión: ${s.dimension_target ?? '?'} | perfil_hint: ${s.perfil_hint ?? '?'} | confianza: ${s.confianza_hint ?? '?'}% | fecha: ${s.created_at.slice(0,10)}`
   ).join('\n')
 
@@ -162,7 +121,7 @@ Tu tarea es analizar las señales conductuales de un asesor de seguros y generar
 ## Perfil actual
 ${perfilTexto || '(sin perfil previo)'}
 
-## Señales conductuales recientes (${seналes.length} señales)
+## Señales conductuales recientes (${senales.length} señales)
 ${senalesTexto}
 
 ## Base de conocimiento conductual disponible
@@ -221,14 +180,22 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
   // 5. Llamar a Gemini
   let analysis: GeminiAnalysis
   try {
-    const raw = await callGemini(prompt)
-    analysis = JSON.parse(raw)
+    analysis = await callAIJson<GeminiAnalysis>(prompt, {
+      maxTokens:   4000,
+      temperature: 0.4,
+      componente:  'proxis-analyzer',
+    })
   } catch (e) {
-    console.error(`[${asesor}] Error parsing Gemini response:`, e)
+    const emsg = e instanceof Error ? e.message : String(e)
+    console.error(`[${asesor}] Error parsing Gemini response:`, emsg)
+    await sb.from('error_log').insert({
+      componente: 'proxis-analyzer', severidad: 'warning',
+      mensaje: `Gemini falló para ${asesor}: ${emsg}`,
+    }).then(undefined, () => {})
     return { hipotesis: 0, gaps: 0, progresion: 0, senalesProcessed: 0 }
   }
 
-  const sigIds = seналes.map(s => s.id)
+  const sigIds = senales.map(s => s.id)
 
   // 6. Guardar hipótesis en deductions_log
   let hipotesisCount = 0
@@ -297,7 +264,7 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
   )
 
   // 9. Correlación reacción→mensaje: actualizar trigger_efectividad
-  const reacciones = seналes.filter(s =>
+  const reacciones = senales.filter(s =>
     s.tipo === 'reaccion_positiva' || s.tipo === 'reaccion_negativa'
   )
   for (const reac of reacciones) {
@@ -343,19 +310,12 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
     // Si el upsert fue insert, ya está. Si fue update necesitamos incrementar.
     // Supabase no soporta increment en upsert directamente — usamos RPC o re-query.
     // Solución: update explícito tras upsert
-    if (esPositiva) {
+    try {
       await sb.rpc('incrementar_efectividad' as never, {
         p_trigger_id: msg.trigger_id, p_periodo: periodo,
-        p_positivas: 1, p_negativas: 0,
-      } as never).catch(() => {
-        // RPC puede no existir aún — fallback silencioso, el upsert ya registró la primera
-      })
-    } else {
-      await sb.rpc('incrementar_efectividad' as never, {
-        p_trigger_id: msg.trigger_id, p_periodo: periodo,
-        p_positivas: 0, p_negativas: 1,
-      } as never).catch(() => {})
-    }
+        p_positivas: esPositiva ? 1 : 0, p_negativas: esPositiva ? 0 : 1,
+      } as never)
+    } catch (_) { /* RPC puede no existir aún — fallback silencioso */ }
 
     // Marcar mensaje como evaluado para no doble-contar
     await sb.from('message_log').update({ evaluado: true }).eq('id', msg.id)
@@ -387,7 +347,7 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
     confianza_perfil:       nuevaConfianza,
     nivel_riesgo:           nuevoRiesgo,
     hipotesis_count:        hipotesisCount,
-    senales_procesadas:     seналes.length,
+    senales_procesadas:     senales.length,
     identidad_vendedora:    pf.identidad_vendedora     ?? null,
     relacion_prospeccion:   pf.relacion_prospeccion    ?? null,
     modelos_mentales:       pf.modelos_mentales        ?? null,
@@ -432,7 +392,11 @@ Genera un relato de evolución en texto libre (máx. 250 palabras) que:
 Usa lenguaje preciso, en tercera persona, enfocado en comportamientos observables. No uses bullet points.`
 
     try {
-      const relato = await callGeminiText(relatoPrompt)
+      const relato = await callAI(relatoPrompt, {
+        maxTokens:   1200,
+        temperature: 0.6,
+        componente:  'proxis-analyzer',
+      })
       if (relato) {
         await sb.from('asesor_perfil').upsert(
           { asesor, relato_evolucion: relato, relato_evolucion_at: now, updated_at: now },
@@ -448,26 +412,38 @@ Usa lenguaje preciso, en tercera persona, enfocado en comportamientos observable
     hipotesis:        hipotesisCount,
     gaps:             gapsCount,
     progresion:       nuevaProgresion,
-    senalesProcessed: seналes.length
+    senalesProcessed: senales.length
   }
 }
 
 /* ── Handler principal ──────────────────────────────────────── */
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
   try {
   const results: any[] = []
   let totalHipotesis   = 0
   let totalGaps        = 0
   let totalSenales     = 0
 
-  // Todos los asesores con señales pendientes
-  const { data: pendingArr } = await sb
-    .from('behavioral_signals')
-    .select('asesor')
-    .eq('procesada', false)
+  // Scoping opcional: el canario invoca con { asesor } para procesar SOLO al asesor
+  // sintético (__canary__) sin tocar a los reales (no gasta Gemini en ellos ni muta
+  // sus perfiles). Sin scoping, el cron procesa todos los asesores con señales
+  // pendientes EXCLUYENDO el namespace de canarios (__*).
+  const reqBody = await req.json().catch(() => ({})) as { asesor?: string }
+  const asesorScope = typeof reqBody?.asesor === 'string' ? reqBody.asesor.trim() : ''
 
-  const asesores = [...new Set((pendingArr ?? []).map((r: any) => r.asesor as string))]
+  let asesores: string[]
+  if (asesorScope) {
+    asesores = [asesorScope]
+  } else {
+    // Todos los asesores con señales pendientes (excluyendo el namespace de canarios)
+    const { data: pendingArr } = await sb
+      .from('behavioral_signals')
+      .select('asesor')
+      .eq('procesada', false)
+    asesores = [...new Set((pendingArr ?? []).map((r: any) => r.asesor as string))]
+      .filter(a => !a.startsWith('__'))
+  }
 
   if (!asesores.length) {
     return new Response(
@@ -476,7 +452,8 @@ Deno.serve(async (_req: Request) => {
     )
   }
 
-  for (const asesor of asesores) {
+  for (const [i, asesor] of asesores.entries()) {
+    if (i > 0) await new Promise(r => setTimeout(r, 1000)) // pausa entre asesores
     const item: any = { asesor }
     try {
       const r = await analizarAsesor(asesor)
@@ -515,7 +492,7 @@ Deno.serve(async (_req: Request) => {
       severidad:  'error',
       mensaje:    e?.message ?? String(e),
       detalles:   { stack: e?.stack ?? '', timestamp: new Date().toISOString() },
-    }).catch(() => {})
+    }).then(undefined, () => {})
     return new Response(JSON.stringify({ ok: false, error: e?.message ?? 'Error interno' }), {
       status: 500, headers: { 'Content-Type': 'application/json' }
     })
