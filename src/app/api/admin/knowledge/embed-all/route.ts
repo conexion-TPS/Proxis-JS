@@ -12,6 +12,18 @@ export async function POST(_req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!rows || rows.length === 0) return NextResponse.json({ embedded: 0, message: 'Todo ya está embedeado' })
 
+  // Embeddings deshabilitados en el piloto (búsqueda directa por perfil/categoría).
+  // embedText es un stub que devuelve []. Evitamos marcar todas las filas como 'error'.
+  const EMBEDDINGS_HABILITADOS = false
+  if (!EMBEDDINGS_HABILITADOS) {
+    return NextResponse.json({
+      ok: true,
+      embedded: 0,
+      total: rows?.length ?? 0,
+      skipped: 'Embeddings deshabilitados — la base de conocimiento usa búsqueda directa por perfil/categoría. No es un error.',
+    })
+  }
+
   let count = 0
   const errors: string[] = []
 
