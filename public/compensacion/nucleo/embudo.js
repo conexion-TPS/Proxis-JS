@@ -130,19 +130,22 @@
   }
   function simTotPct(){return Object.values(simState.pcts).reduce((a,b)=>a+b,0)}
 
-  function simRenderFunnel(ventas){
-    const fc=document.getElementById('funnel-content');if(!fc)return;
-    const tot=simTotPct();
-    if(tot===0||ventas===0){fc.innerHTML='<div class="ib am">Asigna porcentajes a al menos un método y define el mix de productos.</div>';return}
+  function simRenderFunnel(ventas, pctsArg){
+    // pctsArg permite pasar los % de cualquier empresa (Consorcio) SIN tocar simState (Zurich).
+    // Si no se pasa, usa simState.pcts (comportamiento original de Zurich, idéntico).
+    const P = pctsArg || (typeof simState!=='undefined' && simState ? simState.pcts : {});
+    const fc=document.getElementById('funnel-content');if(!fc)return {totC:0,totP:0};
+    const tot=Object.values(P).reduce((a,b)=>a+(+b||0),0);
+    if(tot===0||ventas===0){fc.innerHTML='<div class="ib am">Asigna porcentajes a al menos un método y define el mix de productos.</div>';return {totC:0,totP:0}}
     const activos=SIM_METODOS.map(m=>{
-      const pct=(simState.pcts[m.id]||0)/100;if(pct===0)return null;
+      const pct=(P[m.id]||0)/100;if(pct===0)return null;
       const vM=ventas*pct;
       const prospectos=m.esNodo?Math.ceil(vM)*5:Math.round(vM*m.cPV);
       const contactos=m.esNodo?Math.ceil(vM):0;
       return{...m,pct,vM,contactos,prospectos};
     }).filter(Boolean);
     const totC=activos.filter(m=>m.esNodo).reduce((a,m)=>a+m.contactos,0);
-    simState.totC=totC;
+    if(typeof simState!=='undefined' && simState) simState.totC=totC;
     const totP=activos.reduce((a,m)=>a+m.prospectos,0);
     const cSem=totC>0?Math.ceil(totC/4):0;
     const maxP=Math.max(totP,1);
@@ -197,6 +200,7 @@
       html+=`<div class="orig-total">Total: <strong>${totP}</strong> prospectos estimados</div></div>`;
     }
     fc.innerHTML=html;
+    return {totC, totP};
   }
 
   const api = { SIM_METODOS, calcEmbudo, buildSimMetodos, simChPct, simTotPct, simRenderFunnel }

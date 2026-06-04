@@ -24,13 +24,17 @@ export default function PlataformaPage() {
       loadScript('/plataforma-core.js?v='+v, () =>
         loadScript('/compensacion/nucleo/embudo.js?v='+v, () =>
           loadScript('/compensacion/nucleo/motor.js?v='+v, () =>
-            loadScript('/compensacion/compania-z/spec.js?v='+v, () =>
-              loadScript('/compensacion/compania-z/datos.js?v='+v, () =>
-                loadScript('/compensacion/compania-z/perfil.js?v='+v, () =>
-                  loadScript('/compensacion/compania-z/nodos.js?v='+v, () =>
-                    loadScript('/compensacion/compania-z/renta.js?v='+v, () =>
-                      loadScript('/signal-capture.js?v='+v, () =>
-                        loadScript('/cuestionario-player.js?v='+v)
+            loadScript('/compensacion/consorcio/motor.js?v='+v, () =>
+              loadScript('/compensacion/consorcio/sim.js?v='+v, () =>
+                loadScript('/compensacion/compania-z/spec.js?v='+v, () =>
+                  loadScript('/compensacion/compania-z/datos.js?v='+v, () =>
+                    loadScript('/compensacion/compania-z/perfil.js?v='+v, () =>
+                      loadScript('/compensacion/compania-z/nodos.js?v='+v, () =>
+                        loadScript('/compensacion/compania-z/renta.js?v='+v, () =>
+                          loadScript('/signal-capture.js?v='+v, () =>
+                            loadScript('/cuestionario-player.js?v='+v)
+                          )
+                        )
                       )
                     )
                   )

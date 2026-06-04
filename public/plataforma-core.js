@@ -27,6 +27,23 @@ const USUARIOS = {
   'Mauricio Gana':          { clave:'MauGana$2026$$',      rol:'asesor' },
 };
 const ASESORES = Object.entries(USUARIOS).filter(([,v])=>v.rol==='asesor').map(([k])=>k);
+
+/* ── Roster por tenant ──────────────────────────────────────────
+   Zurich usa ASESORES (hardcodeado). Consorcio ('vina') usa el equipo
+   de su supervisora, leído del servidor (vina_credentials, sin hashes).
+   roster() es la única lista que deben iterar las vistas de supervisor. */
+let TEAM_ROSTER = null;
+function roster(){ return (G.empresa==='vina' && TEAM_ROSTER && TEAM_ROSTER.length) ? TEAM_ROSTER : ASESORES; }
+// Sufijo de query: aísla las lecturas de 'vina' en las tablas que tienen columna empresa.
+function empQ(){ return G.empresa==='vina' ? '&empresa=eq.vina' : ''; }
+async function loadRosterVina(){
+  try{
+    const r=await fetch('/api/vina/equipo',{headers:{Authorization:`Bearer ${G.token||''}`}});
+    if(!r.ok){ console.warn('roster vina HTTP',r.status); return; }
+    const d=await r.json();
+    if(Array.isArray(d.asesores)&&d.asesores.length) TEAM_ROSTER=d.asesores;
+  }catch(e){ console.warn('loadRosterVina error:',e); }
+}
 const VINCULOS  = ['Amigo/a','Familiar','Cliente','Conocido/a'];
 const MESES_NOM = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -78,7 +95,7 @@ const SB = {
 /* ══════════════════════════════════════════════════════════════
    ESTADO
 ══════════════════════════════════════════════════════════════ */
-let G = { usuario:null, rol:null, empresa:null, filaCount:0, chartCache:{}, charts:{} };
+let G = { usuario:null, rol:null, empresa:null, token:null, filaCount:0, chartCache:{}, charts:{} };
 
 /* ══════════════════════════════════════════════════════════════
    HELPERS
@@ -165,7 +182,7 @@ async function doLogin(){
       const r=await fetch('/api/vina/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:n,password:p})});
       const d=await r.json().catch(()=>({}));
       if(!r.ok){ hideMsg('lload'); showMsg('lerr',d.error||'Credenciales incorrectas.'); document.getElementById('lp').value=''; return; }
-      G.usuario=d.asesor; G.rol='asesor'; G.empresa='vina';
+      G.usuario=d.asesor; G.rol=(d.rol||'asesor'); G.empresa='vina'; G.token=d.token||null;
       enterApp();
     }catch(e){ hideMsg('lload'); showMsg('lerr','No se pudo conectar.'); }
     return;
@@ -186,7 +203,7 @@ function enterApp(){
 }
 function doLogout(){
   localStorage.removeItem('proxis_user');
-  G={usuario:null,rol:null,empresa:null,filaCount:0,chartCache:{},charts:{}};
+  G={usuario:null,rol:null,empresa:null,token:null,filaCount:0,chartCache:{},charts:{}};
   document.getElementById('screen-login').style.display='flex';
   document.getElementById('screen-app').style.display='none';
   document.getElementById('lp').value='';
@@ -204,15 +221,17 @@ async function fetchUF(){
     UF_VAL=dUF.serie[0].valor;
     try{const dSM=await rSM.json();SUELDO_BASE=dSM.serie[0].valor;}catch{}
     document.getElementById('uf-display').textContent='$'+Math.round(UF_VAL).toLocaleString('es-CL');
-    simRender();
+    if (G.empresa === 'vina' && typeof renderConsorcio === 'function') renderConsorcio(); else simRender();
   }catch{
     document.getElementById('uf-display').textContent='$'+Math.round(UF_VAL).toLocaleString('es-CL')+' (ref.)';
-    simRender();
+    if (G.empresa === 'vina' && typeof renderConsorcio === 'function') renderConsorcio(); else simRender();
   }
 }
 
 /* ══ BUILD APP ══ */
-function buildApp(){
+async function buildApp(){
+  // Consorcio: cargar el roster del equipo ANTES de construir selects y renderers.
+  if(G.empresa==='vina' && G.rol==='supervisor') await loadRosterVina();
   document.getElementById('h-role').innerHTML=
     `${G.usuario} · <strong>${G.rol==='supervisor'?'Supervisora':'Asesor/a'}</strong>`;
   document.getElementById('print-name').textContent=
@@ -239,9 +258,9 @@ function buildApp(){
 
   // Asesor equipo selects
   const ae=document.getElementById('sel-asesor-equipo');
-  if(ae) ae.innerHTML=ASESORES.map((a,i)=>`<option value="${a}"${i===0?' selected':''}>${a}</option>`).join('');
+  if(ae) ae.innerHTML=roster().map((a,i)=>`<option value="${a}"${i===0?' selected':''}>${a}</option>`).join('');
   const ai=document.getElementById('sel-asesor-individual');
-  if(ai) ai.innerHTML=ASESORES.map((a,i)=>`<option value="${a}"${i===0?' selected':''}>${a}</option>`).join('');
+  if(ai) ai.innerHTML=roster().map((a,i)=>`<option value="${a}"${i===0?' selected':''}>${a}</option>`).join('');
   // Also add mes selects for individual
   const mi=document.getElementById('sel-mes-individual');
   if(mi){const meses=last6Meses();mi.innerHTML=meses.map((m,k)=>`<option value="${m}"${k===0?' selected':''}>${getMesLabel(m)}</option>`).join('');}
@@ -252,7 +271,8 @@ function buildApp(){
 
   // Render first view
   if(G.rol==='supervisor'){
-    buildSimulador();
+    if (G.empresa === 'vina' && typeof initConsorcio === 'function') initConsorcio();
+    else buildSimulador();
     fetchUF();
     setTimeout(()=>renderEquipo(), 100);
   } else {
@@ -322,7 +342,7 @@ function switchTrackerTab(id){
 ══════════════════════════════════════════════════════════════ */
 async function getMeta(asesor){
   try{
-    const data=await SB.get('metas',`asesor=eq.${encodeURIComponent(asesor)}`);
+    const data=await SB.get('metas',`asesor=eq.${encodeURIComponent(asesor)}${empQ()}`);
     return data[0]||{meta_contactos_semana:3,meta_prospectos_mes:15,meta_ventas_mes:5,meta_ingresos:2000000};
   }catch{ return {meta_contactos_semana:3,meta_prospectos_mes:15,meta_ventas_mes:5,meta_ingresos:2000000}; }
 }
@@ -333,7 +353,7 @@ async function getReportesMes(asesor,mes){
     const [y,m]=mes.split('-');
     const nextM=parseInt(m)===12?`${parseInt(y)+1}-01`:`${y}-${String(parseInt(m)+1).padStart(2,'0')}`;
     const reportes=await SB.get('reportes',
-      `asesor=eq.${encodeURIComponent(asesor)}&semana_inicio=gte.${mes}-01&semana_inicio=lt.${nextM}-01&order=semana_inicio.asc`);
+      `asesor=eq.${encodeURIComponent(asesor)}&semana_inicio=gte.${mes}-01&semana_inicio=lt.${nextM}-01${empQ()}&order=semana_inicio.asc`);
     for(const r of reportes){
       r.contactos=await SB.get('contactos',`reporte_id=eq.${r.id}&order=created_at.asc`);
     }
@@ -1315,7 +1335,7 @@ async function renderMetas(){
   const cont=document.getElementById('metas-content');
   cont.innerHTML='<div class="ib bl">Cargando metas…</div>';
   const metas={};
-  for(const a of ASESORES) metas[a]=await getMeta(a);
+  for(const a of roster()) metas[a]=await getMeta(a);
 
   cont.innerHTML=`
   <div class="ib am"><strong>Define las metas de prospección para cada asesor.</strong> Estas metas se vinculan automáticamente con el informe de avance. Para mayor precisión, usa el Simulador de Metas primero.</div>
@@ -1323,7 +1343,7 @@ async function renderMetas(){
     <table class="dt">
       <thead><tr><th>Asesor</th><th>Contactos/semana</th><th>Prospectos/mes</th><th>Ventas/mes</th><th>Meta ingresos $</th><th></th></tr></thead>
       <tbody>
-        ${ASESORES.map(a=>`<tr>
+        ${roster().map(a=>`<tr>
           <td><strong>${a}</strong></td>
           <td><input type="number" class="inp-num" id="mc-${a}" value="${metas[a].meta_contactos_semana}" min="1" max="20"></td>
           <td><input type="number" class="inp-num" id="mp-${a}" value="${metas[a].meta_prospectos_mes}" min="1" max="100"></td>
@@ -1345,6 +1365,7 @@ async function guardarMeta(asesor){
     meta_prospectos_mes:  parseInt(document.getElementById(`mp-${asesor}`)?.value||15),
     meta_ventas_mes:      parseInt(document.getElementById(`mv-${asesor}`)?.value||5),
     meta_ingresos:        parseInt(document.getElementById(`mi-${asesor}`)?.value||2000000),
+    empresa:(G.empresa==='vina'?'vina':undefined),
     updated_at:new Date().toISOString()
   };
   try{
@@ -1392,7 +1413,7 @@ async function cargarFilasIngresos(){
   const tbody=document.getElementById('tbody-ing');
   if(!tbody)return;
   tbody.innerHTML='<tr><td colspan="5" style="color:var(--g400);padding:14px">Cargando…</td></tr>';
-  const rows=await Promise.all(ASESORES.map(async a=>{
+  const rows=await Promise.all(roster().map(async a=>{
     const [ing,meta]=await Promise.all([getIngreso(a,mes),getMeta(a)]);
     const pct=meta.meta_ingresos?Math.round(ing/meta.meta_ingresos*100):0;
     return {a,ing,meta,pct};
@@ -1449,7 +1470,7 @@ async function guardarMetasEnTracker(){
     return;
   }
   try{
-    await SB.upsert('metas',{...m, updated_at:new Date().toISOString()},'asesor');
+    await SB.upsert('metas',{...m, empresa:(G.empresa==='vina'?'vina':undefined), updated_at:new Date().toISOString()},'asesor');
     const btn=document.querySelector('[onclick="guardarMetasEnTracker()"]');
     if(btn){btn.textContent='✓ Metas guardadas para '+m.asesor;btn.style.background='var(--teal)';btn.style.color='white';setTimeout(()=>{btn.textContent='💾 Guardar metas de '+m.asesor+' en Tracker';btn.style.background='';btn.style.color='';},3000)}
   }catch(e){alert('Error al guardar metas: '+e.message)}
@@ -1775,9 +1796,9 @@ async function renderEquipo(){
     // BULK LOAD — 3 queries total instead of N×M queries
     const [reportesBulk, metas, ingresosBulk] = await Promise.all([
       // All reportes for all asesores in date range, with contactos
-      SB.get('reportes', `semana_inicio=gte.${mesInicio}&semana_inicio=lt.${mesFin}&order=asesor.asc,semana_num.asc&select=*`),
+      SB.get('reportes', `semana_inicio=gte.${mesInicio}&semana_inicio=lt.${mesFin}${empQ()}&order=asesor.asc,semana_num.asc&select=*`),
       // All metas
-      SB.get('metas', `select=*`),
+      SB.get('metas', `select=*${empQ()}`),
       // All ingresos in range
       SB.get('ingresos', `mes=gte.${meses[0]}&mes=lte.${meses[meses.length-1]}&select=*`)
     ]);
@@ -1803,7 +1824,7 @@ async function renderEquipo(){
     ingresosBulk.forEach(i=>{ if(!ingMap[i.asesor])ingMap[i.asesor]={}; ingMap[i.asesor][i.mes]=(i.ingreso_real||0); });
 
     // Calculate per-asesor stats
-    const asesorStats = ASESORES.map(a=>{
+    const asesorStats = roster().map(a=>{
       const reps = reportesBulk.filter(r=>r.asesor===a);
       const meta = metaMap[a]||{meta_contactos_semana:3,meta_prospectos_mes:15,meta_ventas_mes:5,meta_ingresos:2000000};
       // Para vista supervisor multi-mes, pasamos el mes seleccionado (primer mes del rango)
@@ -1825,7 +1846,7 @@ async function renderEquipo(){
     const teamGapP  = teamP - teamPot;
     const teamPromG = teamC ? +(teamP/teamC).toFixed(1) : 0;
     const teamPromGap = +(teamPromG-5).toFixed(1);
-    const totalPossible = ASESORES.length * meses.length * 4;
+    const totalPossible = roster().length * meses.length * 4;
     const indice = Math.round(
       (Math.min(teamC/Math.max(teamPot/5,1),1)*40)+
       (Math.min(teamPromG/5,1)*40)+
@@ -1834,14 +1855,14 @@ async function renderEquipo(){
     const periodoLabel = periodos===1 ? getMesLabel(mes) : `${getMesLabel(meses[0])} – ${getMesLabel(mes)}`;
 
     // Load team nodos (async, filled in after render)
-    const teamNodosPromise = Promise.all(ASESORES.map(a=>getNodos(a)));
+    const teamNodosPromise = Promise.all(roster().map(a=>getNodos(a)));
 
-    let html=`<div class="ib bl" style="margin-bottom:4px">Período: ${periodoLabel} · ${meses.length} mes${meses.length>1?'es':''} · ${ASESORES.length} asesores · ${repIds.length} reportes cargados</div>`;
+    let html=`<div class="ib bl" style="margin-bottom:4px">Período: ${periodoLabel} · ${meses.length} mes${meses.length>1?'es':''} · ${roster().length} asesores · ${repIds.length} reportes cargados</div>`;
 
     // Row 1: Results KPIs
     html+=`<p style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g400);margin-bottom:8px">Resultados del período</p>
     <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:8px">
-      ${kpiCard('Prospectos reales',teamP,`${meses.length} mes${meses.length>1?'es':''} · ${ASESORES.length} asesores`,'')}
+      ${kpiCard('Prospectos reales',teamP,`${meses.length} mes${meses.length>1?'es':''} · ${roster().length} asesores`,'')}
       ${kpiCard('Contactos totales',teamC,`Potencial de red activada`,'')}
       ${kpiCard('Prom. prosp./contacto',teamPromG,'Meta: 5.0 por contacto',teamPromG>=4?'ok':teamPromG>=2.5?'warn':'bad')}
       <div style="background:var(--teal-lt);border-radius:var(--r);padding:13px 15px" id="team-nodos-kpi">
@@ -1938,16 +1959,16 @@ async function renderEquipo(){
       const el=document.getElementById('team-nodos-val');
       const sub=document.getElementById('team-nodos-sub');
       if(el) el.textContent=totalNodos;
-      if(sub) sub.textContent=`en ${ASESORES.length} asesores`;
+      if(sub) sub.textContent=`en ${roster().length} asesores`;
       // Fill per-asesor nodos cells
-      ASESORES.forEach((a,i)=>{
+      roster().forEach((a,i)=>{
         const nds=allNodos[i]||[];
         const el2=document.getElementById('nodos-eq-'+a.replace(/[\s]/g,'_'));
         if(el2) el2.innerHTML=nds.length>0?`<span class="pill pill-gn">${nds.length}</span>`:'<span style="color:var(--g400)">0</span>';
       });
       // Build team nodos chart with prospectos
       try{
-        const actsPerAsesor=await Promise.all(ASESORES.map(a=>
+        const actsPerAsesor=await Promise.all(roster().map(a=>
           SB.get('activaciones_nodo',`asesor=eq.${encodeURIComponent(a)}&order=semana_inicio.asc&select=semana_inicio,nodo_id,prospectos`)
         ));
         const byMes={};
@@ -2028,7 +2049,7 @@ async function renderEquipo(){
 }
 /* ══ DESEMPEÑO INDIVIDUAL ══ */
 async function renderIndividual(){
-  const asesor=document.getElementById('sel-asesor-individual')?.value||ASESORES[0];
+  const asesor=document.getElementById('sel-asesor-individual')?.value||roster()[0];
   const mes=document.getElementById('sel-mes-individual')?.value||getMesActual();
   const cont=document.getElementById('individual-content');
   if(!cont){return;}

@@ -30,11 +30,12 @@ export async function POST(req: NextRequest) {
   if (!valid)
     return NextResponse.json({ error: 'Credenciales incorrectas' }, { status: 401 })
 
+  const rol = cred.rol ?? 'asesor'
   const token = jwt.sign(
-    { asesor: cred.asesor, email: cred.email, empresa: 'vina' },
+    { asesor: cred.asesor, email: cred.email, empresa: 'vina', rol },
     SECRET,
     { expiresIn: EXPIRES }
   )
 
-  return NextResponse.json({ ok: true, token, asesor: cred.asesor, email: cred.email })
+  return NextResponse.json({ ok: true, token, asesor: cred.asesor, email: cred.email, rol })
 }
