@@ -14,7 +14,8 @@
 | **FASE 0 · Consolidación de datos** | ✅ **COMPLETA** (pasos 0.0–0.6) |
 | ↳ datos reales migrados Viña → proxis_dev | **455 filas** + **18 personas reales** en `persona`, por `persona_id` / `institucion_id`, sin pérdida |
 | ↳ Viña (producción) | **Intacta — nada conmutado** (la conmutación es Fase 3); reversible vía respaldo 0.0 |
-| **Próximo paso** | **Fase 1 — portar a React (`/vina`→`/app`) lo que solo existe en el legacy JS** |
+| **Paso A · Jerarquía organizacional (equipos reales)** | ✅ **COMPLETA** (nodos + supervisoras + 16 asesores conectados; resolución asesor→supervisor verificada) |
+| **Próximo paso** | **Paso B — portar a React (`/vina`→`/app`) lo que solo existe en el legacy JS** |
 
 **Migración a Groq (sesión previa):** todo el sistema corre sobre **Groq (primario) → OpenRouter (fallback)**. Las funciones `proxis-analyzer`, `proxis-monitor`, `proxis-observacion`, `proxis-researcher`, `proxis-accion` y `proxis-cerebro` (su monitoreo) usan `_shared/ai-client.ts`. La capa Next.js usa `src/lib/ai-client.ts` (con `gemini.ts` como puente de compatibilidad). Tabla de log: `gemini_usage` (nombre histórico; ahora registra `modelo='llama-3.3-70b-versatile'`). Secrets `GROQ_KEY`/`OPENROUTER_KEY` en Supabase (edge) y en Vercel `proxis-dev-admin`. **Pendiente:** las keys NO están en el deploy `proxis-js` (el del dominio real) → agregar antes de que la IA opere en producción.
 
@@ -249,6 +250,42 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 
 ---
 
+## 7-ter. PASO A — Jerarquía organizacional de equipos reales — ✅ COMPLETA
+
+**Motivo:** la Fase 0 creó instituciones, capas y personas, pero faltaban los `org_nodos` (el árbol) y conectar las personas reales a él. Sin esto, la resolución asesor→supervisor y los informes por nivel **no funcionaban para los equipos reales** (solo para el demo `Imrbrasil`).
+
+**Cómo resuelve el sistema la jerarquía (verificado en código):**
+- El sistema **NO lee `persona`/`persona_id` todavía** (está "dormida"). Toda la resolución corre por `asesor_credentials.org_nodo_id` (asesores) + `org_usuarios.org_nodo_id` (mando), y el árbol por `org_nodos.parent_id` (RPC `org_subtree`).
+- **Edge functions** (`proxis-monitor`, `proxis-accion`): buscan al supervisor en el **nodo exacto** del asesor (no suben por el árbol).
+- **Dashboard Next.js** (`/api/equipo/dashboard`): recorre el **subárbol completo** (RPC `org_subtree`).
+- **Implicación de diseño:** asesores y su supervisora deben estar en el **MISMO nodo** (como `Imrbrasil`), o las edge functions no encontrarían al supervisor.
+
+**Decisión:** construir la jerarquía sobre el modelo existente (`org_usuarios`/`asesor_credentials` + `org_nodo_id`), **NO sobre `persona`**, porque es el único que el código actual sabe leer. Migrar la jerarquía a `persona_id` es trabajo futuro deliberado.
+
+### A.1 — Nodos creados (proxis_dev)
+Estructura mínima real: hoy la supervisora es la cabeza de cada equipo (sin mando intermedio). Un nodo de nivel supervisor por institución, `parent_id=null` (cuando entre un gerente, su nodo cuelga encima sin rehacer nada).
+
+| Nodo | id | Institución | capa (nivel 4) |
+|---|---|---|---|
+| **Unidad Zurich** | `d73eccd4-f18a-4e74-a3b4-8c1a7fc58abc` | Zurich | Sub Gerente de Unidad (`0f5814aa-aac6-4434-9c2e-ccf9ebb53949`) |
+| **Equipo Consorcio** | `ae1d879e-36b5-4fa7-8086-1552a6e03d8b` | Consorcio | Jefe de Ventas (`c824d871-9920-42fc-9fbe-b4098f41603f`) |
+
+### A.2 — Supervisoras conectadas (`org_usuarios`)
+| Persona | nodo | cargo | login |
+|---|---|---|---|
+| **Valeska Comparini Cruells** | Equipo Consorcio | supervisor | hash real de `vina_credentials`, `acceso_bloqueado=false` (login activo) |
+| **Alejandra Espinoza Morral** | Unidad Zurich | supervisor | `password_hash='LOGIN_PENDIENTE_MIGRACION'`, email placeholder, `acceso_bloqueado=true` (sigue entrando por JS hardcodeado) |
+
+### A.3 — Asesores conectados (`asesor_credentials.org_nodo_id`)
+- **Consorcio (6):** Angela Castillo Guzmán, Carla Ortiz Concha, Ignacio Hidalgo Lazcano, Jaime Caro Navarro, Paula Domínguez, Rocío Concha Silva → nodo Equipo Consorcio, con **hash real de `vina_credentials`** (login intacto).
+- **Zurich (10):** Diego Pérez, Fernanda Grothusen, Francis Arancibia, Marcela Jara, María Francisca Lorenz, Mauricio Gana, Nazaret Johannesen, Oriana Jorquera, Sindy Martínez, Verónica Castillo → nodo Unidad Zurich, con `password_hash='LOGIN_PENDIENTE_MIGRACION'` y email placeholder (`<nombre>@zurich.placeholder`). Siguen entrando por JS hardcodeado.
+
+### A — Verificación final ✅
+- Árbol: Unidad Zurich → 10 asesores + 1 mando; Equipo Consorcio → 6 asesores + 1 mando.
+- Resolución asesor→supervisor probada: Diego Pérez → Alejandra Espinoza Morral; Carla Ortiz Concha → Valeska Comparini Cruells. **La IA ya puede resolver la jerarquía de los equipos reales.**
+
+---
+
 ## 8. Fases siguientes (resumen)
 - **Fase 1** → Portar al React (`/vina`→`/app`) lo que solo existe en legacy: Mi Informe, nodos, simulador de metas, tracker. → paridad funcional.
 - **Fase 2** → Conectar IA a la plataforma React: Sailor FAB en bitácora, cuestionarios dosificados (5 por tanda, cadencia 360° intercalada), captura de señales, informes por nivel de jerarquía.
@@ -283,12 +320,15 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 
 ## 11. Frentes futuros anotados (NO ahora)
 
-### Deudas técnicas concretas (cierre Fase 0 — abordar en fases siguientes)
+### Deudas técnicas concretas (actualizado tras paso A — abordar en fases siguientes)
+- **🔴 Login de Zurich (11 filas):** los 10 asesores + Alejandra tienen `password_hash='LOGIN_PENDIENTE_MIGRACION'` y emails placeholder en proxis_dev; **siguen entrando por el JS hardcodeado** (`public/plataforma-core.js`, donde sus claves están en **texto plano** junto con la **anon key de Viña** → riesgo de seguridad vigente). **Frente de autenticación:** definir/hashear contraseñas reales, quitar `acceso_bloqueado`, reemplazar emails placeholder. **No es deuda estructural** — las filas están bien puestas (nodos/cargo correctos), solo falta activar el login.
+- **`persona` dormida:** ningún código lee `persona`/`persona_id` aún. Cablear `persona_id` como llave de jerarquía/identidad es trabajo de fase posterior (al portar a React / reescribir lógica).
 - **PK por nombre:** `metas` (PK = `asesor`) e `ingresos` (PK = `asesor`,`mes`) en proxis_dev **no tienen `id`** y aún usan el nombre como clave. Migrar a `persona_id` en su momento.
-- **🔴 Login Zurich hardcodeado:** los 10 asesores + Alejandra + sus contraseñas en **texto plano** en `public/plataforma-core.js`, junto con la **anon key de Viña**. RIESGO DE SEGURIDAD. Migrar a tabla/credenciales reales al portar a React (Fase 1/3).
-- **Jerarquía org de Zurich y Consorcio incompleta:** las instituciones existen con capas, pero **falta crear los `org_nodos`** (árbol) y conectar las personas-mando (Alejandra, Valeska) a sus nodos. Necesario para que los informes por nivel funcionen.
-- **Emails Zurich = null:** los 10 asesores + Alejandra no tienen email en `persona`. Completar al unificar autenticación.
+- **RPC `org_subtree`** desplegada en BD pero **NO versionada en el repo** (mismo patrón de divergencia que `proxis-accion`/`proxis-cerebro`). Extraer su definición y versionarla.
+- **Niveles superiores vacíos:** las capas Gerente Zonal/Regional/de Ventas existen pero **sin nodos/personas** (se llenan cuando existan esos cargos). El nodo supervisor tiene `parent_id=null`; un gerente futuro cuelga encima sin rehacer nada.
 - **Consorcio sin `metas`/`nodos`/`ingresos`:** equipo reciente; sembrar/esperar actividad en Fase 2.
+
+> ✅ **Resuelto en paso A** (ya no es deuda): los `org_nodos` de Zurich/Consorcio y la conexión del mando (Alejandra/Valeska) a sus nodos — la resolución asesor→supervisor de los equipos reales ya funciona.
 
 ### Frentes mayores
 - **Anonimización:** los T&C (módulo legal) comprometen anonimizar usuarios al darse de baja. **Aún no en vigor → entra cuando se incorpore la IA a producción.** Existe maquinaria: `anonymized_profiles`, `anonymization_audit_log`. Revisar el flujo antes de que aplique.
@@ -299,4 +339,4 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 
 ---
 
-*Fin. **Fase 0 COMPLETA.** Próximo paso de ejecución: **Fase 1** — portar a React (`/vina`→`/app`) lo que solo existe en el legacy JS: Mi Informe, nodos, simulador de metas, tracker. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
+*Fin. **Fase 0 COMPLETA + Paso A (jerarquía org de equipos reales) COMPLETO.** Próximo paso de ejecución: **Paso B** — portar a React (`/vina`→`/app`) lo que solo existe en el legacy JS: Mi Informe, nodos, simulador de metas, tracker. **Requisito crítico:** el React nuevo lee de **proxis_dev** con el modelo consolidado (`persona_id`/`institucion_id`), NO de Viña ni por nombre. Empezar por la pantalla más simple como piloto. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
