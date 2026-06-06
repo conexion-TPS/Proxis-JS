@@ -13,7 +13,9 @@
 | Migración Gemini → Groq/OpenRouter | ✅ **Completa** (6 edge functions + capa Next.js, verificada en producción) |
 | Fase 0 · 0.0 Respaldo de Viña | ✅ **Ejecutado** |
 | Fase 0 · 0.1 Ordenar origen (Viña) | ✅ **Ejecutado y verificado** |
-| **Próximo paso** | **0.2 — limpiar `proxis_dev`** (toca el OTRO proyecto) |
+| Fase 0 · 0.2 Limpiar `proxis_dev` | ✅ **Ejecutado** |
+| Fase 0 · 0.3.a Crear instituciones + capas | ✅ **Ejecutado** |
+| **Próximo paso** | **0.3.b — diseñar tabla `persona`** (requiere decidir antes su relación con `asesor_credentials` y `org_usuarios`) |
 
 **Migración a Groq (sesión previa):** todo el sistema corre sobre **Groq (primario) → OpenRouter (fallback)**. Las funciones `proxis-analyzer`, `proxis-monitor`, `proxis-observacion`, `proxis-researcher`, `proxis-accion` y `proxis-cerebro` (su monitoreo) usan `_shared/ai-client.ts`. La capa Next.js usa `src/lib/ai-client.ts` (con `gemini.ts` como puente de compatibilidad). Tabla de log: `gemini_usage` (nombre histórico; ahora registra `modelo='llama-3.3-70b-versatile'`). Secrets `GROQ_KEY`/`OPENROUTER_KEY` en Supabase (edge) y en Vercel `proxis-dev-admin`. **Pendiente:** las keys NO están en el deploy `proxis-js` (el del dominio real) → agregar antes de que la IA opere en producción.
 
@@ -50,8 +52,8 @@
 **Decisión: consolidar hacia `instituciones`.** El `empresa` de Viña se traducirá a `institucion_id`.
 
 ### Mapeo de tenants (validado 12/12, cero contaminación)
-- `empresa='zurich'` → institución **Zurich** (equipo Alejandra Espinoza)
-- `empresa='vina'` → institución **Consorcio** (equipo Valeska Comparini) → **ya reclasificado a `consorcio` en 0.1**
+- `empresa='zurich'` → institución **Zurich** (equipo Alejandra Espinoza) — id `16726d00-78ef-4885-9218-02c649244084` (creada en 0.3.a)
+- `empresa='vina'`/`consorcio` → institución **Consorcio** (equipo Valeska Comparini) — id `c05f3883-827d-4ab8-a0b8-4dba6424fcac` (creada en 0.3.a) → **ya reclasificado a `consorcio` en 0.1**
 - `Imrbrasil` (proxis_dev) → tenant **Demo** (se conserva como entorno de pruebas)
 
 ---
@@ -162,14 +164,30 @@ Verificado: 0.
 
 > **Nota de conteos:** tras borrar a Marcela Almonacid, restar de los conteos del respaldo: reportes −4, contactos −10, ingresos −1, metas −1 (+ "Asesor" metas −1). Verificar números finales en la próxima sesión si se necesitan exactos.
 
+### 0.2 Limpiar `proxis_dev` — ✅ EJECUTADO
+- Borrada la institución duplicada muerta **IMR Brasil** (`67a7287b…`, 0 nodos/capas/usuarios = basura). Conservada **Imrbrasil** (`c28fe5f9…`, activa) = tenant **Demo**.
+- Borrados los 3 huérfanos seed **Asesor Test Uno/Dos/Tres**.
+- Resultado: `proxis_dev` queda con una sola institución (`Imrbrasil`), listo para sumar Zurich y Consorcio.
+
+### 0.3.a Crear instituciones + capas (proxis_dev) — ✅ EJECUTADO
+- Creada institución **Zurich** — id `16726d00-78ef-4885-9218-02c649244084`.
+- Creada institución **Consorcio** — id `c05f3883-827d-4ab8-a0b8-4dba6424fcac`.
+- Cada una con **4 capas** (`org_capas`): nivel 1 *Gerente de ventas*, nivel 2 *Gerente Regional*, nivel 3 *Gerente Zonal*, nivel 4 *Supervisor*.
+- Tenants ahora en `proxis_dev`: **Demo** (`Imrbrasil`), **Zurich**, **Consorcio**.
+
+### 0.3.b Diseñar tabla `persona` — ⬜ SIGUIENTE (requiere decisión de modelo)
+- **Decisión abierta antes de crear la tabla:** cómo se relaciona `persona` con **`asesor_credentials`** (camino de asesores) y **`org_usuarios`** (camino de la cadena de mando) — los dos caminos de resolución de tenant (§3/§4). `persona` debe cubrir a TODOS, no solo asesores (caso Valeska/Roberto Matta).
+- Recién resuelto eso se crea `persona` (uuid) y se agregan `institucion_id`+`persona_id` al grupo B.
+
 ---
 
 ### Pasos pendientes de Fase 0
 
 | Paso | Proyecto | Acción | Estado |
 |---|---|---|---|
-| 0.2 | **proxis_dev** | Borrar institución duplicada muerta "IMR Brasil" (`67a7287b…`, 0 nodos/capas/usuarios) + 3 "Asesor Test Uno/Dos/Tres" (huérfanos seed) | ⬜ siguiente |
-| 0.3 | proxis_dev | Crear tabla `persona` (uuid); agregar `institucion_id`+`persona_id` a grupo B; crear instituciones Zurich y Consorcio | ⬜ |
+| 0.2 | **proxis_dev** | Borrar institución duplicada muerta "IMR Brasil" (`67a7287b…`) + 3 "Asesor Test Uno/Dos/Tres" (huérfanos seed) | ✅ hecho |
+| 0.3.a | proxis_dev | Crear instituciones Zurich y Consorcio + 4 capas c/u | ✅ hecho |
+| 0.3.b | proxis_dev | Diseñar/crear tabla `persona` (uuid) + agregar `institucion_id`+`persona_id` a grupo B | ⬜ siguiente (requiere decisión de modelo) |
 | 0.4 | lee Viña → escribe proxis_dev | Copia en espejo con tenant e ids resueltos | ⬜ |
 | 0.5 | (comparación) | Verificación de consistencia fila por fila | ⬜ |
 | 0.6 | — | Punto de control: datos consolidados y verificados, conviviendo con Viña. **Nada conmutado.** | ⬜ |
@@ -218,4 +236,4 @@ Verificado: 0.
 
 ---
 
-*Fin. Próximo paso de ejecución: Fase 0, paso 0.2 — limpiar `proxis_dev` (institución duplicada + Asesor Test). Recordar: ese paso toca el OTRO proyecto.*
+*Fin. Próximo paso de ejecución: Fase 0, paso 0.3.b — diseñar la tabla `persona` (uuid). Requiere decidir primero su relación con `asesor_credentials` y `org_usuarios`.*
