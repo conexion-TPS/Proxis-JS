@@ -11,13 +11,10 @@
 | Hito | Estado |
 |---|---|
 | Migración Gemini → Groq/OpenRouter | ✅ **Completa** (6 edge functions + capa Next.js, verificada en producción) |
-| Fase 0 · 0.0 Respaldo de Viña | ✅ **Ejecutado** |
-| Fase 0 · 0.1 Ordenar origen (Viña) | ✅ **Ejecutado y verificado** |
-| Fase 0 · 0.2 Limpiar `proxis_dev` | ✅ **Ejecutado** |
-| Fase 0 · 0.3.a Crear instituciones + capas | ✅ **Ejecutado** |
-| Fase 0 · 0.3.b–c Tabla `persona` + backfill grupo B (21 tablas) | ✅ **Ejecutado** (modelo **Opción A**, 0 huérfanos) |
-| Fase 0 · 0.4.a Crear las 18 personas reales | ✅ **Ejecutado** (23 personas en total) |
-| **Próximo paso** | **0.4.b — copiar datos de bitácora Viña→proxis_dev** (requiere transformación de esquema; 2 decisiones abiertas) |
+| **FASE 0 · Consolidación de datos** | ✅ **COMPLETA** (pasos 0.0–0.6) |
+| ↳ datos reales migrados Viña → proxis_dev | **455 filas** + **18 personas reales** en `persona`, por `persona_id` / `institucion_id`, sin pérdida |
+| ↳ Viña (producción) | **Intacta — nada conmutado** (la conmutación es Fase 3); reversible vía respaldo 0.0 |
+| **Próximo paso** | **Fase 1 — portar a React (`/vina`→`/app`) lo que solo existe en el legacy JS** |
 
 **Migración a Groq (sesión previa):** todo el sistema corre sobre **Groq (primario) → OpenRouter (fallback)**. Las funciones `proxis-analyzer`, `proxis-monitor`, `proxis-observacion`, `proxis-researcher`, `proxis-accion` y `proxis-cerebro` (su monitoreo) usan `_shared/ai-client.ts`. La capa Next.js usa `src/lib/ai-client.ts` (con `gemini.ts` como puente de compatibilidad). Tabla de log: `gemini_usage` (nombre histórico; ahora registra `modelo='llama-3.3-70b-versatile'`). Secrets `GROQ_KEY`/`OPENROUTER_KEY` en Supabase (edge) y en Vercel `proxis-dev-admin`. **Pendiente:** las keys NO están en el deploy `proxis-js` (el del dominio real) → agregar antes de que la IA opere en producción.
 
@@ -199,23 +196,39 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 
 ### 0.4.a Crear las 18 personas reales — ✅ EJECUTADO
 - **`persona` ahora tiene 23 filas:** 5 demo (`Imrbrasil`, de 0.3.b) + **11 Zurich** + **7 Consorcio**.
-- Las **18 personas reales** se crearon con:
-  - **Consorcio** → `email` poblado (su origen real es `vina_credentials`, con login por BD/bcrypt).
-  - **Zurich** → `email = null` y `origen_* = null`: **no existen en ninguna tabla de credenciales**, viven hardcodeadas en `public/plataforma-core.js` (objeto `USUARIOS`). Por eso `origen_*` se hizo nullable en 0.3.b.
+- **Zurich (11 = 10 asesor + 1 mando):** mando = *Alejandra Espinoza Morral*; asesores = Diego Pérez, Fernanda Grothusen, Francis Arancibia, Marcela Jara, María Francisca Lorenz, Mauricio Gana, Nazaret Johannesen, Oriana Jorquera, Sindy Martínez, Verónica Castillo. → `email = null` y `origen_* = null`: **no existen en ninguna tabla de credenciales**, viven hardcodeados en `public/plataforma-core.js` (objeto `USUARIOS`). Por eso `origen_*` se hizo nullable en 0.3.b.
+- **Consorcio (7 = 6 asesor + 1 mando):** mando = *Valeska Comparini Cruells*; asesores = Angela Castillo Guzmán, Carla Ortiz Concha, Ignacio Hidalgo Lazcano, Jaime Caro Navarro, Paula Domínguez, Rocío Concha Silva. → `email` poblado (origen real `vina_credentials`, login por BD/bcrypt).
 
 > 🔴 **RIESGO DE SEGURIDAD anotado (no resuelto en Fase 0):** `public/plataforma-core.js` expone en **texto plano** en el bundle público las **10 claves de los asesores Zurich** (objeto `USUARIOS`) **y la anon key del proyecto Viña** (`SB_KEY`, líneas ~9-10). Cualquiera con "ver código fuente" en `/plataforma` las obtiene. Login Zurich = validación client-side contra ese objeto (no hay BD para Zurich). **A resolver al portar Zurich a credenciales reales (Fase 1/3), junto con RLS de Viña.**
 
-### 0.4.b Copiar datos de bitácora Viña → proxis_dev — ⬜ SIGUIENTE (requiere transformación de esquema)
+### 0.4.b Copiar datos de bitácora Viña → proxis_dev — ✅ EJECUTADO
 
-**No es copia directa**: el esquema de las 6 tablas de bitácora difiere entre Viña y proxis_dev. Transformaciones identificadas:
-- `semana_inicio`: **`date` (Viña) → `text` (proxis_dev)**.
-- `created_at`: **zona horaria distinta** entre proyectos → normalizar.
-- `sin_actividad` y `empresa`: **existen solo en Viña** (no en el esquema destino).
-- `empresa` (texto `zurich`/`consorcio`) → **traducir a `institucion_id`** (+ `persona_id`) del modelo destino.
+**Método (decisión cerrada): vía staging temporal.** Copia cruda a tablas `stg_*` en proxis_dev → transformar + resolver `persona_id` por **nombre + institución** → insert en la tabla real → drop staging. **El join del backfill SIEMPRE es por nombre + `institucion_id`** (red anti-homónimos), nunca solo por nombre.
 
-**Decisiones pendientes antes de ejecutar 0.4.b:**
-1. **¿Conservar `sin_actividad`?** (agregar la columna en destino vs. descartarla).
-2. **Método de transferencia** (cómo mover las filas Viña→proxis_dev con la transformación aplicada).
+**Decisiones que estaban abiertas, ahora cerradas:**
+1. **`sin_actividad` → CONSERVADO** (se agregó la columna en destino).
+2. **Método → staging temporal** (descrito arriba).
+
+**455 filas migradas:**
+
+| Tabla | Filas | Notas de esquema (transformación aplicada) |
+|---|---|---|
+| reportes | 76 | `semana_inicio` date→text; `created_at` +zona; `sin_actividad` conservado (columna agregada) |
+| contactos | 279 | `created_at` +zona; integridad `reporte_id` verificada (0 huérfanos) |
+| metas | 10 | proxis_dev **SIN columna `id`**; PK = `asesor`; solo Zurich |
+| nodos | 30 | 3 fechas date→text; solo Zurich |
+| activaciones_nodo | 38 | `semana_inicio` date→text; integridad `nodo_id` verificada; solo Zurich |
+| ingresos | 22 | proxis_dev **SIN `id`**; PK = (`asesor`,`mes`); Viña sin `created_at`→null; `ingreso_real` int→numeric; solo Zurich |
+
+- **Consorcio aún no tiene `metas`/`nodos`/`activaciones`/`ingresos`** (equipo reciente) → sembrar en Fase 2.
+
+### 0.5 Verificación de consistencia — ✅ EJECUTADO
+- Conteos en proxis_dev == lo migrado: **76 / 279 / 10 / 30 / 38 / 22**.
+- Integridad por persona verificada: 18 personas; supervisores en 0/0/0 (correcto — no reportan); asesores con datos coherentes. **Cero pérdida.**
+
+### 0.6 Punto de control — ✅ (estado al cierre de Fase 0)
+- Datos reales consolidados en proxis_dev, conectados por `persona_id`, segmentados por `institucion_id`.
+- **Viña intacta como producción. Nada conmutado.** Reversible (respaldo 0.0 vigente). La conmutación es **Fase 3**.
 
 ---
 
@@ -228,9 +241,9 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 | 0.3.b | proxis_dev | Crear y poblar tabla `persona` (uuid, modelo Opción A) | ✅ hecho |
 | 0.3.c | proxis_dev | Agregar `institucion_id`+`persona_id` a las 21 tablas (grupo B) | ✅ hecho (0 huérfanos) |
 | 0.4.a | proxis_dev | Crear las 18 personas reales (Zurich + Consorcio) en `persona` | ✅ hecho (23 en total) |
-| 0.4.b | lee Viña → escribe proxis_dev | Copiar datos de bitácora (6 tablas) con transformación de esquema + `empresa`→`institucion_id`/`persona_id` | ⬜ siguiente (2 decisiones abiertas) |
-| 0.5 | (comparación) | Verificación de consistencia fila por fila | ⬜ |
-| 0.6 | — | Punto de control: datos consolidados y verificados, conviviendo con Viña. **Nada conmutado.** | ⬜ |
+| 0.4.b | lee Viña → escribe proxis_dev | Copiar datos de bitácora (6 tablas, 455 filas) con transformación de esquema + `empresa`→`institucion_id`/`persona_id`, vía staging | ✅ hecho |
+| 0.5 | (comparación) | Verificación de consistencia (conteos + integridad por persona) | ✅ hecho (cero pérdida) |
+| 0.6 | — | Punto de control: datos consolidados y verificados, conviviendo con Viña. **Nada conmutado.** | ✅ **Fase 0 COMPLETA** |
 
 > ⚠️ **A partir del 0.2 se trabaja en `proxis_dev` (mkqgbmwm), NO en Viña.** Verificar SIEMPRE el nombre del proyecto arriba en Supabase antes de ejecutar.
 
@@ -269,6 +282,15 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 ---
 
 ## 11. Frentes futuros anotados (NO ahora)
+
+### Deudas técnicas concretas (cierre Fase 0 — abordar en fases siguientes)
+- **PK por nombre:** `metas` (PK = `asesor`) e `ingresos` (PK = `asesor`,`mes`) en proxis_dev **no tienen `id`** y aún usan el nombre como clave. Migrar a `persona_id` en su momento.
+- **🔴 Login Zurich hardcodeado:** los 10 asesores + Alejandra + sus contraseñas en **texto plano** en `public/plataforma-core.js`, junto con la **anon key de Viña**. RIESGO DE SEGURIDAD. Migrar a tabla/credenciales reales al portar a React (Fase 1/3).
+- **Jerarquía org de Zurich y Consorcio incompleta:** las instituciones existen con capas, pero **falta crear los `org_nodos`** (árbol) y conectar las personas-mando (Alejandra, Valeska) a sus nodos. Necesario para que los informes por nivel funcionen.
+- **Emails Zurich = null:** los 10 asesores + Alejandra no tienen email en `persona`. Completar al unificar autenticación.
+- **Consorcio sin `metas`/`nodos`/`ingresos`:** equipo reciente; sembrar/esperar actividad en Fase 2.
+
+### Frentes mayores
 - **Anonimización:** los T&C (módulo legal) comprometen anonimizar usuarios al darse de baja. **Aún no en vigor → entra cuando se incorpore la IA a producción.** Existe maquinaria: `anonymized_profiles`, `anonymization_audit_log`. Revisar el flujo antes de que aplique.
 - **Autenticación:** login no uniformes, sin recuperar/ver contraseña. Auditar si es Supabase Auth, custom (`asesor_credentials`/`vina_credentials` sugieren custom), o mixto. Proyecto propio.
 - **Visión de largo plazo (no diseñar aún, solo dejar puerta abierta vía `instituciones`):** módulo de marketing (generación + publicación automática en redes), contabilidad/facturación/cobros, todo en un dashboard único.
@@ -277,4 +299,4 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 
 ---
 
-*Fin. Próximo paso de ejecución: Fase 0, paso 0.4.b — copiar los datos de bitácora de Viña a proxis_dev con transformación de esquema. Requiere decidir primero: (1) ¿conservar `sin_actividad`?, (2) método de transferencia.*
+*Fin. **Fase 0 COMPLETA.** Próximo paso de ejecución: **Fase 1** — portar a React (`/vina`→`/app`) lo que solo existe en el legacy JS: Mi Informe, nodos, simulador de metas, tracker. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
