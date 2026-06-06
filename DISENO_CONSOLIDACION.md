@@ -15,7 +15,8 @@
 | Fase 0 · 0.1 Ordenar origen (Viña) | ✅ **Ejecutado y verificado** |
 | Fase 0 · 0.2 Limpiar `proxis_dev` | ✅ **Ejecutado** |
 | Fase 0 · 0.3.a Crear instituciones + capas | ✅ **Ejecutado** |
-| **Próximo paso** | **0.3.b — diseñar tabla `persona`** (requiere decidir antes su relación con `asesor_credentials` y `org_usuarios`) |
+| Fase 0 · 0.3.b Crear y poblar tabla `persona` | ✅ **Ejecutado** (modelo **Opción A**) |
+| **Próximo paso** | **0.3.c — agregar `persona_id`+`institucion_id` a las 21 tablas** (requiere decidir secuencia de backfill) |
 
 **Migración a Groq (sesión previa):** todo el sistema corre sobre **Groq (primario) → OpenRouter (fallback)**. Las funciones `proxis-analyzer`, `proxis-monitor`, `proxis-observacion`, `proxis-researcher`, `proxis-accion` y `proxis-cerebro` (su monitoreo) usan `_shared/ai-client.ts`. La capa Next.js usa `src/lib/ai-client.ts` (con `gemini.ts` como puente de compatibilidad). Tabla de log: `gemini_usage` (nombre histórico; ahora registra `modelo='llama-3.3-70b-versatile'`). Secrets `GROQ_KEY`/`OPENROUTER_KEY` en Supabase (edge) y en Vercel `proxis-dev-admin`. **Pendiente:** las keys NO están en el deploy `proxis-js` (el del dominio real) → agregar antes de que la IA opere en producción.
 
@@ -76,7 +77,7 @@ instituciones (id)              tenant, tabla con id propio
 
 `asesor` es texto libre (nombre). Los nombres NO son únicos — ni entre empresas ni dentro de una (una empresa con 500k asesores tendrá homónimos). ~21 tablas derivan tenant desde el nombre → riesgo de confundir personas.
 
-**Solución (decidida):** identificador `persona_id` / `asesor_id` (**uuid**) propio, inmutable. El nombre pasa a ser atributo. Cubre a TODOS (asesores + mando, por el caso Roberto Matta/Valeska). Hacerlo en Fase 0 mientras los datos son pocos y sin colisiones.
+**Solución (decidida — Opción A, implementada en 0.3.b):** tabla maestra **`persona`** con id propio (**uuid**) inmutable, que apunta a su fila de origen (`origen_tabla`+`origen_id`); el nombre pasa a ser atributo. Cubre a TODOS (asesores + mando, por el caso Roberto Matta/Valeska) consultando los dos caminos, sin alterar `asesor_credentials`/`org_usuarios`. Hacerlo en Fase 0 mientras los datos son pocos y sin colisiones. Las ~21 tablas del grupo B referenciarán `persona_id` (paso 0.3.c).
 
 ---
 
@@ -172,12 +173,24 @@ Verificado: 0.
 ### 0.3.a Crear instituciones + capas (proxis_dev) — ✅ EJECUTADO
 - Creada institución **Zurich** — id `16726d00-78ef-4885-9218-02c649244084`.
 - Creada institución **Consorcio** — id `c05f3883-827d-4ab8-a0b8-4dba6424fcac`.
-- Cada una con **4 capas** (`org_capas`): nivel 1 *Gerente de ventas*, nivel 2 *Gerente Regional*, nivel 3 *Gerente Zonal*, nivel 4 *Supervisor*.
+- Cada una con **4 capas** (`org_capas`): nivel 1 *Gerente de ventas*, nivel 2 *Gerente Regional*, nivel 3 *Gerente Zonal*. **Nivel 4 = nombre configurable por institución** (ilustra el `nombre_cargo` por tenant de §3): en **Zurich** = *Sub Gerente de Unidad*; en **Consorcio** = *Jefe de Ventas*. (El rol estructural `org_usuarios.cargo` sigue siendo el enum global `supervisor`; cambia solo el nombre visible.)
 - Tenants ahora en `proxis_dev`: **Demo** (`Imrbrasil`), **Zurich**, **Consorcio**.
 
-### 0.3.b Diseñar tabla `persona` — ⬜ SIGUIENTE (requiere decisión de modelo)
-- **Decisión abierta antes de crear la tabla:** cómo se relaciona `persona` con **`asesor_credentials`** (camino de asesores) y **`org_usuarios`** (camino de la cadena de mando) — los dos caminos de resolución de tenant (§3/§4). `persona` debe cubrir a TODOS, no solo asesores (caso Valeska/Roberto Matta).
-- Recién resuelto eso se crea `persona` (uuid) y se agregan `institucion_id`+`persona_id` al grupo B.
+### 0.3.b Crear y poblar tabla `persona` — ✅ EJECUTADO (modelo Opción A)
+
+**Decisión de modelo (CERRADA): Opción A — `persona` como tabla maestra que apunta a su fila de origen.**
+Cada persona es una fila en `persona` con un puntero de regreso a la tabla de origen (`origen_tabla` + `origen_id`), en vez de meter un `persona_id` dentro de `asesor_credentials`/`org_usuarios`. Así un único id cubre **ambos caminos** de resolución de tenant (asesores vía `asesor_credentials`, mando vía `org_usuarios`; §3/§4) sin tocar la estructura de esas dos tablas.
+
+**Tabla `persona` creada (con RLS):** columnas
+`id` (uuid, PK) · `nombre` · `email` (único secundario) · `institucion_id` · `tipo` (asesor | mando) · `origen_tabla` · `origen_id` · `activo` · `created_at`.
+
+**Poblada con 5 personas de `Imrbrasil`:** 3 `tipo=asesor` (vía `asesor_credentials`) + 2 `tipo=mando` (vía `org_usuarios`).
+- **`admin` excluido** a propósito: no tiene `org_nodo_id` → no cuelga de la jerarquía, no es una persona-en-un-nodo. **Patrón a recordar** (junto con el de Valeska en 0.1.c: los caminos de resolución no cubren a todos los registros por igual).
+
+### 0.3.c Agregar `persona_id`+`institucion_id` a las 21 tablas — ⬜ SIGUIENTE (requiere decidir secuencia)
+- **Decisión abierta de secuencia:** ¿backfill de los **ficticios** (`Imrbrasil`) ahora, o **traer primero los reales** (espejo Viña→proxis_dev, paso 0.4) y backfillar todo junto?
+  - *Backfill ficticios ahora:* valida el mecanismo contra datos de prueba antes de tocar volumen real.
+  - *Traer reales primero:* evita backfillar dos veces, pero estrena el mecanismo directo sobre datos reales.
 
 ---
 
@@ -187,7 +200,8 @@ Verificado: 0.
 |---|---|---|---|
 | 0.2 | **proxis_dev** | Borrar institución duplicada muerta "IMR Brasil" (`67a7287b…`) + 3 "Asesor Test Uno/Dos/Tres" (huérfanos seed) | ✅ hecho |
 | 0.3.a | proxis_dev | Crear instituciones Zurich y Consorcio + 4 capas c/u | ✅ hecho |
-| 0.3.b | proxis_dev | Diseñar/crear tabla `persona` (uuid) + agregar `institucion_id`+`persona_id` a grupo B | ⬜ siguiente (requiere decisión de modelo) |
+| 0.3.b | proxis_dev | Crear y poblar tabla `persona` (uuid, modelo Opción A) | ✅ hecho |
+| 0.3.c | proxis_dev | Agregar `institucion_id`+`persona_id` a las 21 tablas (grupo B) | ⬜ siguiente (requiere decidir secuencia de backfill) |
 | 0.4 | lee Viña → escribe proxis_dev | Copia en espejo con tenant e ids resueltos | ⬜ |
 | 0.5 | (comparación) | Verificación de consistencia fila por fila | ⬜ |
 | 0.6 | — | Punto de control: datos consolidados y verificados, conviviendo con Viña. **Nada conmutado.** | ⬜ |
@@ -213,6 +227,7 @@ Verificado: 0.
 | Modelo de tenant | tabla `instituciones` (id) |
 | Tenants reales | Zurich, Consorcio (+ Demo = imrbrasil) |
 | Identificador de persona | `uuid` propio; nombre = atributo |
+| Modelo de `persona` | **Opción A**: tabla maestra con puntero al origen (`origen_tabla`+`origen_id`); no se modifica `asesor_credentials`/`org_usuarios` |
 | Dirección de migración | Viña → proxis_dev (la IA no se mueve) |
 | Método | espejo verificado, reversible, sin downtime |
 | Ritmo | bien hecho, sin atajos; una sub-acción → verificar → siguiente |
@@ -236,4 +251,4 @@ Verificado: 0.
 
 ---
 
-*Fin. Próximo paso de ejecución: Fase 0, paso 0.3.b — diseñar la tabla `persona` (uuid). Requiere decidir primero su relación con `asesor_credentials` y `org_usuarios`.*
+*Fin. Próximo paso de ejecución: Fase 0, paso 0.3.c — agregar `persona_id`+`institucion_id` a las 21 tablas del grupo B. Requiere decidir primero la secuencia: backfill de ficticios ahora vs. traer los reales (0.4) primero.*
