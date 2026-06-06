@@ -15,8 +15,9 @@
 | Fase 0 · 0.1 Ordenar origen (Viña) | ✅ **Ejecutado y verificado** |
 | Fase 0 · 0.2 Limpiar `proxis_dev` | ✅ **Ejecutado** |
 | Fase 0 · 0.3.a Crear instituciones + capas | ✅ **Ejecutado** |
-| Fase 0 · 0.3.b Crear y poblar tabla `persona` | ✅ **Ejecutado** (modelo **Opción A**) |
-| **Próximo paso** | **0.3.c — agregar `persona_id`+`institucion_id` a las 21 tablas** (requiere decidir secuencia de backfill) |
+| Fase 0 · 0.3.b–c Tabla `persona` + backfill grupo B (21 tablas) | ✅ **Ejecutado** (modelo **Opción A**, 0 huérfanos) |
+| Fase 0 · 0.4.a Crear las 18 personas reales | ✅ **Ejecutado** (23 personas en total) |
+| **Próximo paso** | **0.4.b — copiar datos de bitácora Viña→proxis_dev** (requiere transformación de esquema; 2 decisiones abiertas) |
 
 **Migración a Groq (sesión previa):** todo el sistema corre sobre **Groq (primario) → OpenRouter (fallback)**. Las funciones `proxis-analyzer`, `proxis-monitor`, `proxis-observacion`, `proxis-researcher`, `proxis-accion` y `proxis-cerebro` (su monitoreo) usan `_shared/ai-client.ts`. La capa Next.js usa `src/lib/ai-client.ts` (con `gemini.ts` como puente de compatibilidad). Tabla de log: `gemini_usage` (nombre histórico; ahora registra `modelo='llama-3.3-70b-versatile'`). Secrets `GROQ_KEY`/`OPENROUTER_KEY` en Supabase (edge) y en Vercel `proxis-dev-admin`. **Pendiente:** las keys NO están en el deploy `proxis-js` (el del dominio real) → agregar antes de que la IA opere en producción.
 
@@ -183,14 +184,38 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 
 **Tabla `persona` creada (con RLS):** columnas
 `id` (uuid, PK) · `nombre` · `email` (único secundario) · `institucion_id` · `tipo` (asesor | mando) · `origen_tabla` · `origen_id` · `activo` · `created_at`.
+- **`origen_tabla`/`origen_id` son NULLABLE** (ajuste hecho al crear las personas reales): los asesores **Zurich no tienen fila de origen** en ninguna tabla de credenciales — viven **hardcodeados en `public/plataforma-core.js`** (ver 0.4.a) → su puntero al origen queda en `null`.
 
-**Poblada con 5 personas de `Imrbrasil`:** 3 `tipo=asesor` (vía `asesor_credentials`) + 2 `tipo=mando` (vía `org_usuarios`).
+**Poblada inicialmente con 5 personas de `Imrbrasil`:** 3 `tipo=asesor` (vía `asesor_credentials`) + 2 `tipo=mando` (vía `org_usuarios`). (Ampliada a 23 en 0.4.a.)
 - **`admin` excluido** a propósito: no tiene `org_nodo_id` → no cuelga de la jerarquía, no es una persona-en-un-nodo. **Patrón a recordar** (junto con el de Valeska en 0.1.c: los caminos de resolución no cubren a todos los registros por igual).
 
-### 0.3.c Agregar `persona_id`+`institucion_id` a las 21 tablas — ⬜ SIGUIENTE (requiere decidir secuencia)
-- **Decisión abierta de secuencia:** ¿backfill de los **ficticios** (`Imrbrasil`) ahora, o **traer primero los reales** (espejo Viña→proxis_dev, paso 0.4) y backfillar todo junto?
-  - *Backfill ficticios ahora:* valida el mecanismo contra datos de prueba antes de tocar volumen real.
-  - *Traer reales primero:* evita backfillar dos veces, pero estrena el mecanismo directo sobre datos reales.
+### 0.3.c Agregar `persona_id`+`institucion_id` a las 21 tablas — ✅ EJECUTADO
+- Las **21 tablas del grupo B** ahora llevan `persona_id` + `institucion_id` explícitos, backfilleados. **0 huérfanos** tras el backfill.
+- Con esto el grupo B deja de depender del `asesor` texto como llave de tenant (§4).
+
+---
+
+## 7-bis. FASE 0.4 — Traer los datos reales (Viña → proxis_dev)
+
+### 0.4.a Crear las 18 personas reales — ✅ EJECUTADO
+- **`persona` ahora tiene 23 filas:** 5 demo (`Imrbrasil`, de 0.3.b) + **11 Zurich** + **7 Consorcio**.
+- Las **18 personas reales** se crearon con:
+  - **Consorcio** → `email` poblado (su origen real es `vina_credentials`, con login por BD/bcrypt).
+  - **Zurich** → `email = null` y `origen_* = null`: **no existen en ninguna tabla de credenciales**, viven hardcodeadas en `public/plataforma-core.js` (objeto `USUARIOS`). Por eso `origen_*` se hizo nullable en 0.3.b.
+
+> 🔴 **RIESGO DE SEGURIDAD anotado (no resuelto en Fase 0):** `public/plataforma-core.js` expone en **texto plano** en el bundle público las **10 claves de los asesores Zurich** (objeto `USUARIOS`) **y la anon key del proyecto Viña** (`SB_KEY`, líneas ~9-10). Cualquiera con "ver código fuente" en `/plataforma` las obtiene. Login Zurich = validación client-side contra ese objeto (no hay BD para Zurich). **A resolver al portar Zurich a credenciales reales (Fase 1/3), junto con RLS de Viña.**
+
+### 0.4.b Copiar datos de bitácora Viña → proxis_dev — ⬜ SIGUIENTE (requiere transformación de esquema)
+
+**No es copia directa**: el esquema de las 6 tablas de bitácora difiere entre Viña y proxis_dev. Transformaciones identificadas:
+- `semana_inicio`: **`date` (Viña) → `text` (proxis_dev)**.
+- `created_at`: **zona horaria distinta** entre proyectos → normalizar.
+- `sin_actividad` y `empresa`: **existen solo en Viña** (no en el esquema destino).
+- `empresa` (texto `zurich`/`consorcio`) → **traducir a `institucion_id`** (+ `persona_id`) del modelo destino.
+
+**Decisiones pendientes antes de ejecutar 0.4.b:**
+1. **¿Conservar `sin_actividad`?** (agregar la columna en destino vs. descartarla).
+2. **Método de transferencia** (cómo mover las filas Viña→proxis_dev con la transformación aplicada).
 
 ---
 
@@ -201,8 +226,9 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 | 0.2 | **proxis_dev** | Borrar institución duplicada muerta "IMR Brasil" (`67a7287b…`) + 3 "Asesor Test Uno/Dos/Tres" (huérfanos seed) | ✅ hecho |
 | 0.3.a | proxis_dev | Crear instituciones Zurich y Consorcio + 4 capas c/u | ✅ hecho |
 | 0.3.b | proxis_dev | Crear y poblar tabla `persona` (uuid, modelo Opción A) | ✅ hecho |
-| 0.3.c | proxis_dev | Agregar `institucion_id`+`persona_id` a las 21 tablas (grupo B) | ⬜ siguiente (requiere decidir secuencia de backfill) |
-| 0.4 | lee Viña → escribe proxis_dev | Copia en espejo con tenant e ids resueltos | ⬜ |
+| 0.3.c | proxis_dev | Agregar `institucion_id`+`persona_id` a las 21 tablas (grupo B) | ✅ hecho (0 huérfanos) |
+| 0.4.a | proxis_dev | Crear las 18 personas reales (Zurich + Consorcio) en `persona` | ✅ hecho (23 en total) |
+| 0.4.b | lee Viña → escribe proxis_dev | Copiar datos de bitácora (6 tablas) con transformación de esquema + `empresa`→`institucion_id`/`persona_id` | ⬜ siguiente (2 decisiones abiertas) |
 | 0.5 | (comparación) | Verificación de consistencia fila por fila | ⬜ |
 | 0.6 | — | Punto de control: datos consolidados y verificados, conviviendo con Viña. **Nada conmutado.** | ⬜ |
 
@@ -251,4 +277,4 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 
 ---
 
-*Fin. Próximo paso de ejecución: Fase 0, paso 0.3.c — agregar `persona_id`+`institucion_id` a las 21 tablas del grupo B. Requiere decidir primero la secuencia: backfill de ficticios ahora vs. traer los reales (0.4) primero.*
+*Fin. Próximo paso de ejecución: Fase 0, paso 0.4.b — copiar los datos de bitácora de Viña a proxis_dev con transformación de esquema. Requiere decidir primero: (1) ¿conservar `sin_actividad`?, (2) método de transferencia.*
