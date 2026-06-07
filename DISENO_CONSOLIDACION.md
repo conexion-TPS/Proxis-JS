@@ -347,7 +347,7 @@ Estructura mínima real: hoy la supervisora es la cabeza de cada equipo (sin man
 ### Desviaciones del calco (constancia — ninguna pasa sin registro)
 Dos desviaciones, ambas en el **header del app-shell**:
 - **A — `.hlogo-wrap` (ancho del bloque del logo):** original `padding: 6px 12px` (inline en el legacy) → actual `padding: 0` ⇒ el cluster del logo quedó **24px más angosto** (12px por lado) y 12px más bajo. **Dejada como está por DECISIÓN DEL USUARIO.**
-- **B — subtítulo "en práctica" (`.hlogo-text span`):** el legacy sobre-escribe la clase con inline → `font-size 10px · opacity .7 · letter-spacing .07em`; el calco usa solo la clase → `9.5px · .55 · .1em`. **Detectada al registrar; NO fue una decisión (calco incompleto).** Recomendación: corregir restaurando el override inline. **Pendiente de decisión del usuario.**
+- **B — subtítulo "en práctica" (`.hlogo-text span`):** el legacy sobre-escribe la clase con inline → `font-size 10px · opacity .7 · letter-spacing .07em`; el calco usaba solo la clase → `9.5px · .55 · .1em`. **Detectada al registrar; NO fue una decisión (calco incompleto). → ✅ CORREGIDA**: se restauró el override inline; ahora rinde `10px · .7 · .07em` igual al legacy.
 
 ---
 

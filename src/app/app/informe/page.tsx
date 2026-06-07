@@ -368,7 +368,7 @@ export default function InformePage() {
             <span style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 18, color: 'white', letterSpacing: '-0.04em' }}>Pro<span style={{ color: '#cbf135' }}>xis</span></span>
           </div>
           <div className="hdiv" />
-          <div className="hlogo-text">Prospección<span>en práctica</span></div>
+          <div className="hlogo-text" style={{ fontSize: 11, fontWeight: 600, color: 'white', lineHeight: 1.3 }}>Prospección<span style={{ display: 'block', fontSize: 10, fontWeight: 400, opacity: .7, letterSpacing: '.07em', textTransform: 'uppercase' }}>en práctica</span></div>
           <span className="huf">UF: <span className="uf-display">{uf}</span></span>
           <div className="hml">
             <div className="hrole">{data?.identidad?.nombre} · <strong>{rolTxt}</strong></div>
