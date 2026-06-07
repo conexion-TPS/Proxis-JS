@@ -15,7 +15,8 @@
 | ↳ datos reales migrados Viña → proxis_dev | **455 filas** + **18 personas reales** en `persona`, por `persona_id` / `institucion_id`, sin pérdida |
 | ↳ Viña (producción) | **Intacta — nada conmutado** (la conmutación es Fase 3); reversible vía respaldo 0.0 |
 | **Paso A · Jerarquía organizacional (equipos reales)** | ✅ **COMPLETA** (nodos + supervisoras + 16 asesores conectados; resolución asesor→supervisor verificada) |
-| **Próximo paso** | **Paso B — portar a React (`/vina`→`/app`) lo que solo existe en el legacy JS** |
+| **Paso B · Piloto Mi Informe (capa de datos)** | ✅ **VALIDADO** (patrón de portado legacy→React probado con datos reales; commit `d497cb1`) |
+| **Próximo paso** | **Diseño/UI de Mi Informe → portar demás pantallas** (nodos, tracker, simulador) |
 
 **Migración a Groq (sesión previa):** todo el sistema corre sobre **Groq (primario) → OpenRouter (fallback)**. Las funciones `proxis-analyzer`, `proxis-monitor`, `proxis-observacion`, `proxis-researcher`, `proxis-accion` y `proxis-cerebro` (su monitoreo) usan `_shared/ai-client.ts`. La capa Next.js usa `src/lib/ai-client.ts` (con `gemini.ts` como puente de compatibilidad). Tabla de log: `gemini_usage` (nombre histórico; ahora registra `modelo='llama-3.3-70b-versatile'`). Secrets `GROQ_KEY`/`OPENROUTER_KEY` en Supabase (edge) y en Vercel `proxis-dev-admin`. **Pendiente:** las keys NO están en el deploy `proxis-js` (el del dominio real) → agregar antes de que la IA opere en producción.
 
@@ -286,6 +287,49 @@ Estructura mínima real: hoy la supervisora es la cabeza de cada equipo (sin man
 
 ---
 
+## 7-quater. PASO B — Piloto Mi Informe (capa de datos) — ✅ VALIDADO
+
+**Objetivo cumplido:** probar que una pantalla React puede leer del modelo consolidado (proxis_dev por `persona_id`/`institucion_id`) en vez del legacy (Viña por nombre). Riesgo mínimo: vista **read-only**. Commit `d497cb1`.
+
+### El cimiento reutilizable: resolución de identidad
+- **`src/lib/identity.ts`** → `resolveIdentity(req)` — la pieza que **TODA la Fase B reutiliza**.
+- **`src/app/api/app/me/route.ts`** → expone la resolución.
+- Verifica el JWT existente (emitido por `/api/vina/login`, firmado con **`SAILOR_JWT_SECRET`** — ojo: ese es el nombre real de la env var en local, no `VINA_JWT_SECRET`).
+- Resolución en proxis_dev (`supabaseAdmin()`, service-role; **cero lecturas a Viña**):
+  - **Primario (Consorcio):** por email → `persona WHERE email` (índice único). `via='email'`.
+  - **Fallback (Zurich):** por nombre + institución → `persona WHERE nombre AND institucion_id`. `via='nombre+institucion'`.
+  - **Match exacto en JS** (NFC + trim + lowercase) tras `ilike`; si quedan ≥2 → **409 anti-homónimos** (falla en vez de adivinar).
+- Output: `{ persona_id, institucion_id, institucion_nombre, nombre, tipo, via }`.
+
+### El endpoint de datos
+- **`src/app/api/app/informe/route.ts`** → resuelve identidad + corre 4 queries por `persona_id` + calcula KPIs **server-side** (portado fiel de `calcIndicadores`, incluye "semanas fantasma"). Devuelve DTO ya calculado → componente React "tonto".
+- Reemplazo exacto del filtrado legacy `asesor=eq.<nombre>&empresa=eq.vina` → `persona_id=eq.<uuid>`.
+- `semana_inicio` es TEXT ISO → comparación por rango como string (válida lexicográficamente).
+
+### El componente
+- **`src/app/app/informe/page.tsx`** → ruta nueva `/app` (destino del diseño, **NO** montado sobre `/vina`). Tarjetas KPI (resumen del mes + correlación ingresos). Reusa el login de `/vina` (token).
+
+### Validación en vivo (ambos caminos de identidad probados)
+- **Test A — Consorcio end-to-end (login real):** *Carla Ortiz* entra con email+clave → resuelve `persona_id` por email → muestra sus KPIs reales (reportes/contactos). `metas`/`ingresos` caen a defaults (Consorcio no tiene esos datos aún). ✅
+- **Test B — capa de datos vía Zurich (token de prueba):** *Diego Pérez* resuelto por fallback nombre+institución → lee `metas` REALES (`meta_ingresos=1647703`) + KPIs calculados. Valida las queries de `metas`/`ingresos`. ✅
+- **Conclusión:** los dos caminos de resolución funcionan; las 4 queries (reportes, contactos, metas, ingresos) leen por `persona_id` desde proxis_dev. **El patrón de toda la Fase B queda probado.**
+
+### Prerrequisito de config detectado y resuelto
+- El login de Consorcio (`/api/vina/login`) requiere `VINA_SUPABASE_URL` + `VINA_SUPABASE_SERVICE_KEY` en `.env.local` (faltaban en local; agregadas). `NEXT_PUBLIC_SUPABASE_URL` apunta a proxis_dev.
+- El servidor local corrió en **puerto 3001** (3000 ocupado).
+
+### Pendientes del piloto (trabajo posterior, NO ahora)
+1. **Diseño/UI de Mi Informe:** la distribución visual difiere del legacy. Diferido a propósito — el piloto validó la capa de datos (lo difícil); el pulido visual es segunda capa. Decidir luego: replicar el look legacy o mejorarlo.
+2. **Chart de nodos en Mi Informe:** diferido del piloto (solo se portaron las tarjetas KPI).
+3. **Tooltips:** el piloto usa `title` nativo en vez del sistema `showTooltip` del legacy.
+
+### Pantallas pendientes de portar (con el patrón ya probado)
+- **Nodos** (chart + conversión) — escribe datos, acoplada (chart vive en Mi Informe, conversión en Tracker).
+- **Tracker / Bitácora** — escritura pesada, mayor blast radius.
+- **Simulador de metas** — cálculo puro (no toca BD), 9 archivos `compensacion/`, tenant-split.
+
+---
+
 ## 8. Fases siguientes (resumen)
 - **Fase 1** → Portar al React (`/vina`→`/app`) lo que solo existe en legacy: Mi Informe, nodos, simulador de metas, tracker. → paridad funcional.
 - **Fase 2** → Conectar IA a la plataforma React: Sailor FAB en bitácora, cuestionarios dosificados (5 por tanda, cadencia 360° intercalada), captura de señales, informes por nivel de jerarquía.
@@ -322,7 +366,8 @@ Estructura mínima real: hoy la supervisora es la cabeza de cada equipo (sin man
 
 ### Deudas técnicas concretas (actualizado tras paso A — abordar en fases siguientes)
 - **🔴 Login de Zurich (11 filas):** los 10 asesores + Alejandra tienen `password_hash='LOGIN_PENDIENTE_MIGRACION'` y emails placeholder en proxis_dev; **siguen entrando por el JS hardcodeado** (`public/plataforma-core.js`, donde sus claves están en **texto plano** junto con la **anon key de Viña** → riesgo de seguridad vigente). **Frente de autenticación:** definir/hashear contraseñas reales, quitar `acceso_bloqueado`, reemplazar emails placeholder. **No es deuda estructural** — las filas están bien puestas (nodos/cargo correctos), solo falta activar el login.
-- **`persona` dormida:** ningún código lee `persona`/`persona_id` aún. Cablear `persona_id` como llave de jerarquía/identidad es trabajo de fase posterior (al portar a React / reescribir lógica).
+- **`persona` ya NO está del todo dormida:** el endpoint de identidad (`identity.ts`, paso B) la lee. Pero la jerarquía/resolución de las **edge functions** aún corre por `asesor_credentials`/`org_usuarios` (no por `persona_id`) — cablear ahí es trabajo de fase posterior.
+- **Refinamientos anotados de `identity.ts`** (no urgentes): mover el mapa `empresa→institución` a config; endurecer el match de email con RPC `lower(btrim())`.
 - **PK por nombre:** `metas` (PK = `asesor`) e `ingresos` (PK = `asesor`,`mes`) en proxis_dev **no tienen `id`** y aún usan el nombre como clave. Migrar a `persona_id` en su momento.
 - **RPC `org_subtree`** desplegada en BD pero **NO versionada en el repo** (mismo patrón de divergencia que `proxis-accion`/`proxis-cerebro`). Extraer su definición y versionarla.
 - **Niveles superiores vacíos:** las capas Gerente Zonal/Regional/de Ventas existen pero **sin nodos/personas** (se llenan cuando existan esos cargos). El nodo supervisor tiene `parent_id=null`; un gerente futuro cuelga encima sin rehacer nada.
@@ -339,4 +384,4 @@ Estructura mínima real: hoy la supervisora es la cabeza de cada equipo (sin man
 
 ---
 
-*Fin. **Fase 0 COMPLETA + Paso A (jerarquía org de equipos reales) COMPLETO.** Próximo paso de ejecución: **Paso B** — portar a React (`/vina`→`/app`) lo que solo existe en el legacy JS: Mi Informe, nodos, simulador de metas, tracker. **Requisito crítico:** el React nuevo lee de **proxis_dev** con el modelo consolidado (`persona_id`/`institucion_id`), NO de Viña ni por nombre. Empezar por la pantalla más simple como piloto. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
+*Fin. **Fase 0 + Paso A + Paso B (piloto Mi Informe, capa de datos) VALIDADOS.** El patrón de portado legacy→React (leer de **proxis_dev** por `persona_id`/`institucion_id`, NO de Viña ni por nombre) está probado con datos reales. Próximo paso de ejecución (a decidir al retomar): terminar el **diseño/UI de Mi Informe**, o portar la siguiente pantalla (nodos / tracker / simulador) con el patrón ya validado. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
