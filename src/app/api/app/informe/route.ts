@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic'
  */
 
 const DEFAULT_META = { meta_contactos_semana: 3, meta_prospectos_mes: 15, meta_ventas_mes: 5, meta_ingresos: 2_000_000 }
+const MESES_NOM = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 function mesActual(): string {
   const d = new Date()
@@ -29,6 +30,7 @@ type Reporte = { id: string; semana_inicio: string; confirmado: boolean; contact
 //    (lunes del mes ya pasados sin reporte) para que semanasCount = paridad con el legacy. ──
 function calcKpis(reportes: Reporte[], mes: string) {
   const _SEM1 = new Date('2026-03-30')
+  const semNum = (fechaISO: string) => Math.round((+new Date(fechaISO) - +_SEM1) / (7 * 24 * 60 * 60 * 1000)) + 1
   function getLunesDelMes(mesISO: string): string[] {
     if (!mesISO) return []
     const [y, m] = mesISO.split('-').map(Number)
@@ -58,18 +60,25 @@ function calcKpis(reportes: Reporte[], mes: string) {
           const esHoySinReporte = f === lunesHoyISO && !repPorFecha[f]
           return esPasado && !esHoySinReporte
         })
-        .map((fecha) => ({ esFantasma: !repPorFecha[fecha], reporte: repPorFecha[fecha] ?? null }))
-    : reportes.map((r) => ({ esFantasma: false, reporte: r }))
+        .map((fecha) => ({ esFantasma: !repPorFecha[fecha], reporte: repPorFecha[fecha] ?? null, fecha }))
+    : reportes.map((r) => ({ esFantasma: false, reporte: r, fecha: r.semana_inicio }))
 
-  const semanas = fuentes.map(({ esFantasma, reporte }) => {
-    if (esFantasma || !reporte) return { contactos: 0, reuniones: 0, prospectos: 0, potencial: 0, vinc: {} as Record<string, number> }
+  const semanas = fuentes.map(({ esFantasma, reporte, fecha }) => {
+    if (esFantasma || !reporte) {
+      return { semana: semNum(fecha), fecha, contactos: 0, reuniones: 0, prospectos: 0, potencial: 0, prom: 0, esFantasma: true, confirmado: false, vinc: {} as Record<string, number> }
+    }
     const cs = reporte.contactos || []
     const contactos = cs.length
     const reuniones = cs.filter((c) => c.reunion).length
     const prospectos = cs.reduce((a, c) => a + (c.prospectos || 0), 0)
     const vinc: Record<string, number> = {}
     cs.forEach((c) => { const v = c.vinculo || '—'; vinc[v] = (vinc[v] || 0) + (c.prospectos || 0) })
-    return { contactos, reuniones, prospectos, potencial: contactos * 5, vinc }
+    return {
+      semana: semNum(reporte.semana_inicio), fecha: reporte.semana_inicio,
+      contactos, reuniones, prospectos, potencial: contactos * 5,
+      prom: contactos ? +(prospectos / contactos).toFixed(1) : 0,
+      esFantasma: false, confirmado: reporte.confirmado, vinc,
+    }
   })
 
   const totC = semanas.reduce((a, s) => a + s.contactos, 0)
@@ -89,6 +98,14 @@ function calcKpis(reportes: Reporte[], mes: string) {
     brecha: totPot - totP,
     prospReu: totR ? +(totP / totR).toFixed(1) : 0,
     mejorV: mejorV as [string, number] | null,
+    // Datos por-semana (tabla "Evolución semanal") y acumulado por vínculo (card "Productividad").
+    // Se EXPONEN tal cual los computa este mismo cálculo; los agregados KPI de arriba no cambian.
+    semanas: semanas.map((s) => ({
+      semana: s.semana, fecha: s.fecha, contactos: s.contactos, reuniones: s.reuniones,
+      prospectos: s.prospectos, potencial: s.potencial, prom: s.prom,
+      esFantasma: s.esFantasma, confirmado: s.confirmado,
+    })),
+    vincAcum,
   }
 }
 
@@ -118,7 +135,7 @@ export async function GET(req: NextRequest) {
     .order('semana_inicio', { ascending: true })
   const reportes = repRows ?? []
 
-  const identidad = { nombre: id.nombre, institucion: id.institucion_nombre, via: id.via }
+  const identidad = { nombre: id.nombre, institucion: id.institucion_nombre, via: id.via, tipo: id.tipo }
 
   if (reportes.length === 0) {
     return NextResponse.json({ mes, hasReportes: false, semanasCount: 0, identidad })
@@ -145,6 +162,61 @@ export async function GET(req: NextRequest) {
     .limit(1)
   const ingreso = ingRows?.[0]?.ingreso_real ?? 0
 
+  // ── NODOS (card "Nodos activos") — datos all-time por persona_id (calco de getNodos + getNodosChartData) ──
+  const { data: nodoRows } = await sb
+    .from('nodos')
+    .select('nombre, activaciones, total_prospectos, fecha_conversion')
+    .eq('persona_id', id.persona_id)
+    .order('activaciones', { ascending: false })
+  const nodoLista = (nodoRows ?? []).map((n) => ({
+    nombre: n.nombre as string,
+    activaciones: (n.activaciones as number) ?? 0,
+    total_prospectos: (n.total_prospectos as number) ?? 0,
+    fecha_conversion: (n.fecha_conversion as string | null) ?? null,
+  }))
+
+  const { data: actRows } = await sb
+    .from('activaciones_nodo')
+    .select('semana_inicio, nodo_id, prospectos')
+    .eq('persona_id', id.persona_id)
+    .order('semana_inicio', { ascending: true })
+
+  // Agregación mensual del gráfico. repByMonth se arma SOLO con los reportes del mes seleccionado
+  // (matiz exacto del legacy: loadNodosEnInforme recibe los reportes del mes).
+  const byMes: Record<string, { nodos: Set<string>; prospNodos: number }> = {}
+  for (const a of actRows ?? []) {
+    const mo = (a.semana_inicio as string | null)?.slice(0, 7); if (!mo) continue
+    if (!byMes[mo]) byMes[mo] = { nodos: new Set(), prospNodos: 0 }
+    byMes[mo].nodos.add(a.nodo_id as string)
+    byMes[mo].prospNodos += (a.prospectos as number) ?? 0
+  }
+  const repByMonth: Record<string, number> = {}
+  for (const r of reportesConContactos) {
+    const mo = r.semana_inicio.slice(0, 7)
+    repByMonth[mo] = (repByMonth[mo] ?? 0) + r.contactos.reduce((s, c) => s + (c.prospectos || 0), 0)
+  }
+  const mesesNodos = Object.keys(byMes).sort()
+  let acumN = 0
+  const nLabels: string[] = [], dAcum: number[] = [], dNuevos: number[] = [], dProspNodos: number[] = [], dProspTotal: number[] = [], dPct: number[] = []
+  for (const mo of mesesNodos) {
+    const nuevos = byMes[mo].nodos.size
+    acumN += nuevos
+    const prospNodos = byMes[mo].prospNodos
+    const prospTotal = repByMonth[mo] ?? 0
+    dAcum.push(acumN); dNuevos.push(nuevos); dProspNodos.push(prospNodos); dProspTotal.push(prospTotal)
+    dPct.push(prospTotal > 0 ? Math.round((prospNodos / prospTotal) * 100) : 0)
+    const [y, mm] = mo.split('-')
+    nLabels.push(MESES_NOM[parseInt(mm) - 1].slice(0, 3) + ' ' + y.slice(2))
+  }
+  const nodos = {
+    count: nodoLista.length,
+    totalActs: nodoLista.reduce((s, n) => s + n.activaciones, 0),
+    totalProsp: nodoLista.reduce((s, n) => s + n.total_prospectos, 0),
+    ultPct: dPct.length ? dPct[dPct.length - 1] : 0,
+    lista: nodoLista,
+    chart: { labels: nLabels, dAcum, dNuevos, dProspNodos, dProspTotal, dPct },
+  }
+
   const k = calcKpis(reportesConContactos, mes)
   const metaP = Math.max(meta.meta_prospectos_mes || 15, 5)
   const avMes = Math.round((k.totP / metaP) * 100)
@@ -165,6 +237,9 @@ export async function GET(req: NextRequest) {
       promG: k.promG, tasaReu: k.tasaReu, efic: k.efic, brecha: k.brecha,
       prospReu: k.prospReu, mejorV: k.mejorV,
     },
+    semanas: k.semanas,
+    vincAcum: k.vincAcum,
+    nodos,
     avances: { avMes, avC, avIng },
   })
 }
