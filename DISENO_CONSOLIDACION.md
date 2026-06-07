@@ -16,7 +16,8 @@
 | ↳ Viña (producción) | **Intacta — nada conmutado** (la conmutación es Fase 3); reversible vía respaldo 0.0 |
 | **Paso A · Jerarquía organizacional (equipos reales)** | ✅ **COMPLETA** (nodos + supervisoras + 16 asesores conectados; resolución asesor→supervisor verificada) |
 | **Paso B · Piloto Mi Informe (capa de datos)** | ✅ **VALIDADO** (patrón de portado legacy→React probado con datos reales; commit `d497cb1`) |
-| **Próximo paso** | **Diseño/UI de Mi Informe → portar demás pantallas** (nodos, tracker, simulador) |
+| **Paso B · Mi Informe portado (calco fiel completo)** | ✅ **COMPLETO** (app-shell + 4 tarjetas + tooltips + gráficos; commit `9d43275`) |
+| **Próximo paso** | **Portar demás pantallas** (Simulador / Nodos / Tracker) o endurecer login Zurich |
 
 **Migración a Groq (sesión previa):** todo el sistema corre sobre **Groq (primario) → OpenRouter (fallback)**. Las funciones `proxis-analyzer`, `proxis-monitor`, `proxis-observacion`, `proxis-researcher`, `proxis-accion` y `proxis-cerebro` (su monitoreo) usan `_shared/ai-client.ts`. La capa Next.js usa `src/lib/ai-client.ts` (con `gemini.ts` como puente de compatibilidad). Tabla de log: `gemini_usage` (nombre histórico; ahora registra `modelo='llama-3.3-70b-versatile'`). Secrets `GROQ_KEY`/`OPENROUTER_KEY` en Supabase (edge) y en Vercel `proxis-dev-admin`. **Pendiente:** las keys NO están en el deploy `proxis-js` (el del dominio real) → agregar antes de que la IA opere en producción.
 
@@ -318,15 +319,35 @@ Estructura mínima real: hoy la supervisora es la cabeza de cada equipo (sin man
 - El login de Consorcio (`/api/vina/login`) requiere `VINA_SUPABASE_URL` + `VINA_SUPABASE_SERVICE_KEY` en `.env.local` (faltaban en local; agregadas). `NEXT_PUBLIC_SUPABASE_URL` apunta a proxis_dev.
 - El servidor local corrió en **puerto 3001** (3000 ocupado).
 
-### Pendientes del piloto (trabajo posterior, NO ahora)
-1. **Diseño/UI de Mi Informe:** la distribución visual difiere del legacy. Diferido a propósito — el piloto validó la capa de datos (lo difícil); el pulido visual es segunda capa. Decidir luego: replicar el look legacy o mejorarlo.
-2. **Chart de nodos en Mi Informe:** diferido del piloto (solo se portaron las tarjetas KPI).
-3. **Tooltips:** el piloto usa `title` nativo en vez del sistema `showTooltip` del legacy.
+### Pendientes del piloto → ✅ TODOS RESUELTOS en el calco fiel (ver §7-quinquies)
+1. ~~**Diseño/UI de Mi Informe**~~ → ✅ calcado 1:1 del legacy.
+2. ~~**Chart de nodos en Mi Informe**~~ → ✅ portado (card "Nodos activos" completa).
+3. ~~**Tooltips** (`title` nativo)~~ → ✅ reemplazado por el modal flotante `#tooltip-modal` exacto.
 
 ### Pantallas pendientes de portar (con el patrón ya probado)
 - **Nodos** (chart + conversión) — escribe datos, acoplada (chart vive en Mi Informe, conversión en Tracker).
 - **Tracker / Bitácora** — escritura pesada, mayor blast radius.
 - **Simulador de metas** — cálculo puro (no toca BD), 9 archivos `compensacion/`, tenant-split.
+
+---
+
+## 7-quinquies. PASO B — Mi Informe portado a React (calco fiel) — ✅ COMPLETO
+
+**Commit `9d43275`.** Mi Informe quedó portado **completo** al destino `/app/informe`, **calco 1:1** del legacy (`renderInforme`/`renderInformeHTML` + app-shell), leyendo de proxis_dev por `persona_id`. **El patrón de Fase B queda probado end-to-end sobre una PANTALLA COMPLETA real** (no solo la capa de datos del piloto).
+
+**Incluye:**
+- **App-shell oscuro:** logo SVG, **UF en vivo** (`mindicador.cl`), rol ("Asesor/a"), "Salir", "← Inicio", module-bar ("📋 Mi actividad"), tabs ("Mi informe" activa + "Bitácora Semanal" presente pero **inerte** — Tracker no portado).
+- **4 tarjetas:** Nodos activos · Resumen del mes (8 tiles + semáforo + ⓘ) · Evolución semanal (tabla `.dt` + 2 gráficos) · Productividad por vínculo.
+- **Tooltips flotantes** `#tooltip-modal` (siguen el mouse, título Title Case + cuerpo literal).
+- **Gráficos Chart.js:** actividad (barras), potencial vs real (línea), y nodos (tri-dataset, ejes y/y2/y3).
+- **DTO** de `/api/app/informe` extendido para exponer **`semanas` + `vincAcum` + `nodos`** — **sin tocar la lógica de KPIs** ya validada (solo se exponen datos que el cálculo ya producía).
+
+**Verificación:** `tsc` + `next build` verdes; revisión visual del usuario (**OK total**); Carla end-to-end (Consorcio); card de nodos **poblada verificada con Diego (Zurich)** y **estado vacío** 🌱 en Consorcio.
+
+### Desviaciones del calco (constancia — ninguna pasa sin registro)
+Dos desviaciones, ambas en el **header del app-shell**:
+- **A — `.hlogo-wrap` (ancho del bloque del logo):** original `padding: 6px 12px` (inline en el legacy) → actual `padding: 0` ⇒ el cluster del logo quedó **24px más angosto** (12px por lado) y 12px más bajo. **Dejada como está por DECISIÓN DEL USUARIO.**
+- **B — subtítulo "en práctica" (`.hlogo-text span`):** el legacy sobre-escribe la clase con inline → `font-size 10px · opacity .7 · letter-spacing .07em`; el calco usa solo la clase → `9.5px · .55 · .1em`. **Detectada al registrar; NO fue una decisión (calco incompleto).** Recomendación: corregir restaurando el override inline. **Pendiente de decisión del usuario.**
 
 ---
 
@@ -384,4 +405,4 @@ Estructura mínima real: hoy la supervisora es la cabeza de cada equipo (sin man
 
 ---
 
-*Fin. **Fase 0 + Paso A + Paso B (piloto Mi Informe, capa de datos) VALIDADOS.** El patrón de portado legacy→React (leer de **proxis_dev** por `persona_id`/`institucion_id`, NO de Viña ni por nombre) está probado con datos reales. Próximo paso de ejecución (a decidir al retomar): terminar el **diseño/UI de Mi Informe**, o portar la siguiente pantalla (nodos / tracker / simulador) con el patrón ya validado. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
+*Fin. **Fase 0 + Paso A + Paso B COMPLETOS** — **Mi Informe portado a React con calco fiel** (commit `9d43275`); el patrón legacy→React (leer de **proxis_dev** por `persona_id`/`institucion_id`, NO de Viña ni por nombre + UI idéntica) está probado **end-to-end sobre una pantalla completa**. Desviaciones del calco registradas en §7-quinquies (A dejada por decisión; B pendiente). Próximo paso (a decidir): portar la siguiente pantalla (**Simulador** / Nodos / Tracker) o endurecer el login de Zurich. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
