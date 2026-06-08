@@ -393,6 +393,7 @@ Dos desviaciones, ambas en el **header del app-shell**:
 - **RPC `org_subtree`** desplegada en BD pero **NO versionada en el repo** (mismo patrón de divergencia que `proxis-accion`/`proxis-cerebro`). Extraer su definición y versionarla.
 - **Niveles superiores vacíos:** las capas Gerente Zonal/Regional/de Ventas existen pero **sin nodos/personas** (se llenan cuando existan esos cargos). El nodo supervisor tiene `parent_id=null`; un gerente futuro cuelga encima sin rehacer nada.
 - **Consorcio sin `metas`/`nodos`/`ingresos`:** equipo reciente; sembrar/esperar actividad en Fase 2.
+- **Simulador Zurich — bloqueo de tenant pendiente (C1):** Header del simulador Zurich hardcodea "Alejandra Espinoza" como supervisora. El bloqueo de tenant (equivalente al split de routing `buildApp` del legacy, `empresa='vina'` → `initConsorcio`) no está implementado. Cuando se implemente, el header reflejará la sesión real y Valeska/Consorcio será enrutada a su propio simulador. El simulador Consorcio se porta en Sección 4.
 
 > ✅ **Resuelto en paso A** (ya no es deuda): los `org_nodos` de Zurich/Consorcio y la conexión del mando (Alejandra/Valeska) a sus nodos — la resolución asesor→supervisor de los equipos reales ya funciona.
 

@@ -1,16 +1,19 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
+import {
+  SIM_PRODS, SIM_PRODS_GI, SIM_METODOS, TOP20_APE_UF, TOP20_CV_UF, ZURICH_ASESORES, ZURICH_SUPERVISORA, SUELDO_BASE_DEFAULT,
+  initialStateZurich, clampQty, nextPct, fmtCLP, labelAnt, labelPersist, labelPPA, labelApvEx, labelApvFlex, labelRp,
+  type SimState,
+} from '@/lib/simulador/calculo'
 
 /*
- * Simulador de Metas — calco fiel del legacy (módulo mod-simulador de plataforma).
- * Construcción por secciones. SECCIÓN 1: scaffold + layout (two-col, PDF, lit-box,
- * shells colapsables, disclaimer, copyright, print-header). SIN contenido dinámico
- * (panel izquierdo = Sección 2; resultados/desgloses = Sección 3).
- * Cálculo puro, NO toca BD (el guardado de metas queda EXCLUIDO por decisión).
+ * Simulador de Metas — calco fiel del legacy (módulo mod-simulador, tenant ZURICH).
+ * SECCIÓN 1: scaffold/layout. SECCIÓN 2: panel izquierdo (inputs Zurich).
+ * Resultados/desgloses (panel derecho) = Sección 3. Cálculo puro (calculo.ts), NO toca BD.
+ * Guardado de metas EXCLUIDO por decisión.
  */
 
 const TOKEN_KEY = 'app_token'
-
 type Identidad = { nombre: string; tipo: string } | null
 
 const CSS = `
@@ -58,6 +61,8 @@ const CSS = `
 .btn{padding:10px 18px;border:none;border-radius:var(--r);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;display:inline-flex;align-items:center;gap:7px;letter-spacing:-0.005em}
 .btn-primary{background:#0b0a09;color:white;box-shadow:0 1px 2px rgba(0,0,0,0.1)}
 .btn-primary:hover{background:#2a2926;transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,0.14)}
+.btn-success{background:var(--teal);color:white;border:1px solid var(--teal)}
+.btn-success:hover{background:#175743}
 
 /* Cards */
 .card{background:white;border:1px solid var(--g200);border-radius:var(--rl);padding:20px 22px;margin-bottom:14px;box-shadow:var(--shadow-1)}
@@ -95,6 +100,70 @@ const CSS = `
 .lit-note strong{font-weight:600;color:var(--g900)}
 
 .copyright{text-align:center;font-size:11px;color:var(--g400);padding:28px 18px;border-top:1px solid var(--g200);margin-top:8px;display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap}
+
+/* Form elements (panel izquierdo) */
+.stitle{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--g600);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--g200);margin-top:22px}
+.stitle:first-child{margin-top:0}
+.fg{margin-bottom:13px}
+.flbl{font-size:12px;font-weight:500;color:var(--g700);display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.flbl span{font-family:var(--mono);font-size:11.5px;font-weight:500;color:#0b0a09;background:white;padding:3px 8px;border-radius:6px;border:1px solid var(--g200);box-shadow:var(--shadow-1);font-feature-settings:"tnum"}
+input[type=range]{width:100%;height:4px;-webkit-appearance:none;appearance:none;background:var(--g200);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#0b0a09;border:2px solid white;box-shadow:0 0 0 1px var(--g300),0 1px 4px rgba(0,0,0,0.14);cursor:pointer;transition:transform .15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.1)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#0b0a09;border:2px solid white;box-shadow:0 0 0 1px var(--g300),0 1px 4px rgba(0,0,0,0.14);cursor:pointer}
+.fsel{width:100%;padding:9px 12px;border:1px solid var(--g200);border-radius:var(--r);font-family:var(--font);font-size:13px;color:var(--g900);background:white;outline:none;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239E9D97' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer;transition:all .15s}
+.fsel:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,10,9,0.08)}
+.toggle-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:6px 0}
+.toggle-lbl{font-size:12px;color:var(--g700);flex:1;line-height:1.5}
+.toggle-sw{position:relative;width:38px;height:22px;cursor:pointer;flex-shrink:0}
+.toggle-sw input{opacity:0;width:0;height:0}
+.toggle-sl{position:absolute;inset:0;background:var(--g300);border-radius:11px;transition:.25s}
+.toggle-sl::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:white;border-radius:50%;transition:.25s;box-shadow:0 1px 3px rgba(0,0,0,0.18)}
+.toggle-sw input:checked+.toggle-sl{background:#0b0a09}
+.toggle-sw input:checked+.toggle-sl::before{transform:translateX(16px)}
+.ib{padding:10px 13px;border-radius:var(--r);font-size:12px;line-height:1.55;margin-bottom:12px;border:1px solid transparent}
+.ib.am{background:var(--amber-lt);color:#7a4d0a;border-color:rgba(168,105,26,0.18)}
+.ib.bl{background:var(--blue-lt);color:var(--blue);border-color:rgba(11,10,9,0.08)}
+.ib strong{font-weight:600}
+.pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:-0.005em;line-height:1.3}
+.pill-gn{background:var(--teal-lt);color:var(--teal)}
+.mix-row{display:grid;grid-template-columns:1fr 96px;gap:8px;align-items:center;background:white;border-radius:var(--r);padding:9px 12px;border:1px solid var(--g200);margin-bottom:5px;transition:all .15s}
+.mix-row.active{border-color:var(--g700);background:var(--g50)}
+.mix-name{font-size:12px;font-weight:600;color:var(--g900)}
+.mix-sub{font-size:11px;color:var(--g400);margin-top:1px}
+.mix-qty{display:flex;align-items:center;gap:2px;justify-content:flex-end;background:var(--g100);padding:2px;border-radius:7px;border:1px solid var(--g200)}
+.mix-qty button{width:24px;height:24px;border-radius:5px;border:none;background:transparent;font-size:14px;cursor:pointer;color:var(--g700);display:flex;align-items:center;justify-content:center;transition:all .12s;line-height:1;font-weight:600}
+.mix-qty button:hover{background:white;color:#0b0a09;box-shadow:var(--shadow-1)}
+.mix-qty-n{font-family:var(--mono);font-size:13px;font-weight:600;color:#0b0a09;min-width:24px;text-align:center;font-feature-settings:"tnum"}
+.mpct-wrap{display:flex;align-items:center;gap:2px;justify-content:flex-end;flex-shrink:0;background:var(--g100);padding:2px;border-radius:7px;border:1px solid var(--g200)}
+.mpct-wrap button{width:22px;height:22px;border-radius:5px;border:none;background:transparent;font-size:13px;cursor:pointer;color:var(--g700);display:flex;align-items:center;justify-content:center;transition:all .12s;line-height:1;font-family:var(--mono);font-weight:600}
+.mpct-wrap button:hover{background:white;color:#0b0a09;box-shadow:var(--shadow-1)}
+.mpct-num{font-family:var(--mono);font-size:13px;font-weight:600;color:#0b0a09;min-width:36px;text-align:center;font-feature-settings:"tnum"}
+.metodo-group-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--lime-dk);display:flex;align-items:center;gap:10px;margin:18px 0 8px;padding:4px 0}
+.metodo-group-lbl:before,.metodo-group-lbl:after{content:'';flex:1;border-top:1px solid var(--g200)}
+.metodo-group-sin{color:var(--amber)}
+.metodo-row{border:1px solid var(--g200);border-radius:var(--r);margin-bottom:6px;overflow:hidden;background:white;transition:all .2s;box-shadow:var(--shadow-1)}
+.metodo-row.active{border-color:var(--lime-dk);background:#fcffe0;box-shadow:0 0 0 3px rgba(203,241,53,0.2),var(--shadow-1)}
+.metodo-row.metodo-sin.active{border-color:#185FA5;background:#f3f8ff;box-shadow:0 0 0 3px rgba(24,95,165,0.14),var(--shadow-1)}
+.metodo-top{display:flex;flex-direction:row;justify-content:space-between;align-items:flex-start;padding:10px 12px 8px;gap:10px}
+.metodo-info{flex:1;min-width:0}
+.metodo-name{font-size:12px;font-weight:600;color:var(--g900);line-height:1.35}
+.metodo-tasa{font-size:9.5px;padding:2px 7px;border-radius:20px;background:var(--teal-lt);color:var(--teal);font-weight:600;margin-left:4px;white-space:nowrap;letter-spacing:0.01em}
+.metodo-row.metodo-sin .metodo-tasa{background:#E6F1FB;color:#0C447C}
+.metodo-sub{font-size:10.5px;color:var(--g400);margin-top:3px;line-height:1.4}
+.cadena-wrap{background:var(--g50);border-top:1px solid var(--g200);padding:9px 12px;overflow-x:auto}
+.cadena-row{display:flex;flex-direction:row;align-items:stretch;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+.step-box{background:white;border:1px solid var(--g200);border-radius:6px;padding:6px 8px;text-align:center;min-width:48px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:var(--shadow-1)}
+.step-n{font-size:14px;font-weight:700;color:var(--g900);line-height:1.1;font-family:var(--font);letter-spacing:-0.02em;font-feature-settings:"tnum"}
+.step-l{font-size:8.5px;color:var(--g400);line-height:1.35;margin-top:3px;text-align:center;letter-spacing:0.02em}
+.step-hi{border-color:var(--lime-dk)!important;background:#fbffd9!important}
+.step-hi .step-n{color:#4a6600!important}.step-hi .step-l{color:#5a7800!important}
+.step-hi-blue{border-color:#185FA5!important;background:#E6F1FB!important}
+.step-hi-blue .step-n{color:#0C447C!important}.step-hi-blue .step-l{color:#185FA5!important}
+.step-hi-amber{border-color:#854F0B!important;background:#FAEEDA!important}
+.step-hi-amber .step-n{color:#633806!important}.step-hi-amber .step-l{color:#854F0B!important}
+.step-arr{color:var(--g300);font-size:13px;flex-shrink:0;align-self:center;padding:0 2px;line-height:1}
+.cadena-note{font-size:9.5px;color:var(--g400);margin-top:5px;font-style:italic;line-height:1.4}
 
 /* Print */
 @media print{
@@ -143,6 +212,8 @@ function LogoProxis() {
   )
 }
 
+const inpNum: React.CSSProperties = { padding: '5px 8px', border: '1.5px solid var(--g200)', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 13, textAlign: 'center' }
+
 export default function SimuladorPage() {
   const [token, setToken] = useState<string | null>(null)
   const [ident, setIdent] = useState<Identidad>(null)
@@ -152,9 +223,17 @@ export default function SimuladorPage() {
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
   const [open, setOpen] = useState<Record<string, boolean>>({ mix: false, tramos: false, consol: false })
+  const [s, setS] = useState<SimState>(() => initialStateZurich(ZURICH_ASESORES))
+
+  // ── Updaters (calco del comportamiento del legacy; cálculo en calculo.ts) ──
+  const upd = (patch: Partial<SimState>) => setS((p) => ({ ...p, ...patch }))
+  const chQty = (id: string, d: number) => setS((p) => ({ ...p, qty: { ...p.qty, [id]: clampQty(p.qty[id] + d) } }))
+  const setPrima = (id: string, v: number) => setS((p) => ({ ...p, prima: { ...p.prima, [id]: v } }))
+  const chQtyGI = (id: string, d: number) => setS((p) => ({ ...p, qtyGI: { ...p.qtyGI, [id]: clampQty(p.qtyGI[id] + d) } }))
+  const setPrimaGI = (id: string, v: number) => setS((p) => ({ ...p, primaGI: { ...p.primaGI, [id]: v } }))
+  const chPct = (id: string, d: number) => setS((p) => ({ ...p, pcts: { ...p.pcts, [id]: nextPct(p.pcts, id, d) } }))
 
   useEffect(() => { const t = localStorage.getItem(TOKEN_KEY); if (t) setToken(t) }, [])
-
   useEffect(() => {
     fetch('https://mindicador.cl/api/uf').then((r) => r.json())
       .then((d) => setUf('$' + Math.round(d.serie[0].valor).toLocaleString('es-CL')))
@@ -169,7 +248,6 @@ export default function SimuladorPage() {
       if (r.ok) setIdent({ nombre: d.nombre, tipo: d.tipo })
     } catch { /* header sin identidad */ }
   }, [])
-
   useEffect(() => { if (token) cargarIdent(token) }, [token, cargarIdent])
 
   async function login() {
@@ -187,6 +265,44 @@ export default function SimuladorPage() {
   }
   function salir() { localStorage.removeItem(TOKEN_KEY); setToken(null); setIdent(null) }
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
+
+  // ── Grid de métodos (calco de buildSimMetodos: 3 encabezados intercalados + filas) ──
+  function renderMetodos(): ReactNode[] {
+    const out: ReactNode[] = []
+    let hNodo = false, hPost = false, hSin = false
+    SIM_METODOS.forEach((m) => {
+      if (m.esNodo && !m.esPostCierre && !hNodo) { out.push(<div key="h1" className="metodo-group-lbl">Con contacto / nodo activo</div>); hNodo = true }
+      if (m.esNodo && m.esPostCierre && !hPost) { out.push(<div key="h2" className="metodo-group-lbl" style={{ color: '#a8cc1a' }}>Referidos tras cierre o entrega de póliza</div>); hPost = true }
+      if (!m.esNodo && !hSin) { out.push(<div key="h3" className="metodo-group-lbl metodo-group-sin">Sin contacto / nodo</div>); hSin = true }
+      const pct = s.pcts[m.id] || 0
+      out.push(
+        <div key={m.id} className={`metodo-row${pct > 0 ? ' active' : ''}${m.esNodo ? '' : ' metodo-sin'}`}>
+          <div className="metodo-top">
+            <div className="metodo-info">
+              <div className="metodo-name">{m.nombre} <span className="metodo-tasa">{m.tasa}</span></div>
+              <div className="metodo-sub">{m.desc}</div>
+            </div>
+            <div className="mpct-wrap"><button onClick={() => chPct(m.id, -5)}>−</button><div className="mpct-num">{pct}%</div><button onClick={() => chPct(m.id, 5)}>+</button></div>
+          </div>
+          <div className="cadena-wrap">
+            <div className="cadena-row">
+              {m.cadena.map((step, i) => (
+                <Fragment key={i}>
+                  {i > 0 && <span className="step-arr">→</span>}
+                  <div className={`step-box ${step.hi === true ? 'step-hi' : step.hi === 'blue' ? 'step-hi-blue' : step.hi === 'amber' ? 'step-hi-amber' : ''}`}>
+                    <div className="step-n">{step.n}</div>
+                    <div className="step-l">{step.l.split('\n').map((ln, j) => <Fragment key={j}>{j > 0 && <br />}{ln}</Fragment>)}</div>
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+            {m.esNodo && <div className="cadena-note">* Valores aproximados según efectividad del asesor.</div>}
+          </div>
+        </div>
+      )
+    })
+    return out
+  }
 
   // ── LOGIN ──
   if (!token) {
@@ -208,8 +324,6 @@ export default function SimuladorPage() {
       </>
     )
   }
-
-  const rolTxt = ident?.tipo === 'mando' ? 'Supervisora' : 'Asesor/a'
 
   return (
     <>
@@ -239,7 +353,8 @@ export default function SimuladorPage() {
           <div className="hlogo-text" style={{ fontSize: 11, fontWeight: 600, color: 'white', lineHeight: 1.3 }}>Prospección<span style={{ display: 'block', fontSize: 10, fontWeight: 400, opacity: .7, letterSpacing: '.07em', textTransform: 'uppercase' }}>en práctica</span></div>
           <span className="huf">UF: <span className="uf-display">{uf}</span></span>
           <div className="hml">
-            <div className="hrole">{ident?.nombre} · <strong>{rolTxt}</strong></div>
+            {/* C1: supervisora Zurich hardcodeada (calco del legacy USUARIOS). Bloqueo de tenant = deuda (ver DISENO_CONSOLIDACION.md). */}
+            <div className="hrole">{ZURICH_SUPERVISORA} · <strong>Supervisora</strong></div>
             <a href="/" className="hinicio">← Inicio</a>
             <button className="hout" onClick={salir}>Salir</button>
           </div>
@@ -253,34 +368,213 @@ export default function SimuladorPage() {
 
         {/* Módulo simulador */}
         <div className="two-col">
-          {/* Panel izquierdo (inputs) — SECCIÓN 2 */}
-          <div className="left" />
+          {/* ── Panel izquierdo (inputs Zurich) — SECCIÓN 2 ── */}
+          <div className="left">
+            {/* 1 · Selección de asesor */}
+            <div className="stitle">Selección de asesor</div>
+            <div className="fg">
+              <div className="flbl">Asesor a simular</div>
+              <select className="fsel" value={s.asesor} onChange={(e) => upd({ asesor: e.target.value })}>
+                {ZURICH_ASESORES.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
 
-          {/* Panel derecho (resultados) */}
+            {/* 2 · Sliders base */}
+            <div className="fg"><div className="flbl">Antigüedad del asesor <span>{labelAnt(s.ant)}</span></div>
+              <input type="range" min={1} max={120} step={1} value={s.ant} onChange={(e) => upd({ ant: +e.target.value })} /></div>
+            <div className="fg"><div className="flbl">Meta de ingreso mensual <span>{fmtCLP(s.meta)}</span></div>
+              <input type="range" min={500000} max={8000000} step={50000} value={s.meta} onChange={(e) => upd({ meta: +e.target.value })} /></div>
+            <div className="fg"><div className="flbl">Persistencia real estimada <span>{labelPersist(s.persist)}</span></div>
+              <input type="range" min={0} max={120} step={1} value={s.persist} onChange={(e) => upd({ persist: +e.target.value })} /></div>
+            {/* C4: persist-info (.ib.bl). Frame literal; valores calculados (mes, %, %, label) → "—"; se conectan en Sección 3. */}
+            <div className="ib bl" style={{ fontSize: 11 }}>Mínima exigida (mes —): <strong>—</strong> · Cumplimiento: <strong>—</strong> → <strong>— del bono</strong></div>
+
+            {/* 3 · Modo de contrato */}
+            <div className="stitle">Modo de contrato</div>
+            <div className="toggle-row">
+              <div className="toggle-lbl"><strong>Activar campaña 2026</strong><br /><span style={{ fontSize: 11, color: 'var(--g400)' }}>APV 100% AE · topes ampliados</span></div>
+              <label className="toggle-sw"><input type="checkbox" checked={s.campana} onChange={(e) => upd({ campana: e.target.checked })} /><span className="toggle-sl" /></label>
+            </div>
+            {/* C5: campana-info (.ib.bl). Rama campaña ON (default) literal; tope_t5 calculado → "—"; rama y tope se conectan en Sección 3. */}
+            <div className="ib bl" style={{ fontSize: 11 }}>Campaña 2026: APV al <strong>100%</strong>. Tope T5: <strong>—</strong>. GI: tope liberado.</div>
+
+            {/* 4 · Mix de productos */}
+            <div className="stitle">Mix de productos mensual</div>
+            <div className="ib am" style={{ fontSize: 11 }}><strong>Número de pólizas por tipo en un mes típico.</strong></div>
+            {SIM_PRODS.map((p) => (
+              <div className="mix-row" key={p.id}>
+                <div>
+                  <div className="mix-name">{p.n}{p.id === 'APV' && <span className="pill pill-gn" style={{ marginLeft: 3, fontSize: 10 }}>campaña 100%</span>}</div>
+                  <div className="mix-sub">Factor AE: {(p.z * 100).toFixed(0)}%</div>
+                </div>
+                <div className="mix-qty"><button onClick={() => chQty(p.id, -1)}>−</button><div className="mix-qty-n">{s.qty[p.id]}</div><button onClick={() => chQty(p.id, 1)}>+</button></div>
+              </div>
+            ))}
+
+            {/* 5 · Primas Vida (visible si qty>0) */}
+            <div className="stitle">Prima mensual promedio por producto (Vida)</div>
+            {SIM_PRODS.filter((p) => s.qty[p.id] > 0).map((p) => (
+              <div className="fg" key={p.id}>
+                <div className="flbl">{p.n} <span style={{ fontSize: 10, color: 'var(--g400)' }}>PPA = prima × 12</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <input type="number" step={0.1} min={0} max={9999} value={s.prima[p.id]} onChange={(e) => setPrima(p.id, parseFloat(e.target.value) || 0)} style={{ ...inpNum, width: 90 }} placeholder="UF" />
+                  <span style={{ fontSize: 11, color: 'var(--g400)' }}>UF/mes</span>
+                  <span style={{ fontSize: 11, color: 'var(--blue)', fontFamily: 'var(--mono)' }}>{labelPPA(s.prima[p.id])}</span>
+                </div>
+              </div>
+            ))}
+
+            {/* 6 · Mix Generales (GI) */}
+            <div className="stitle">Mix Generales (GI)</div>
+            <div style={{ fontSize: 11, color: 'var(--g400)', marginBottom: 8 }}>Auto: 50% AE · Hogar: 100% AE. Se suman con tope del 25% del AE Vida.</div>
+            {SIM_PRODS_GI.map((p) => (
+              <div className={`mix-row${s.qtyGI[p.id] > 0 ? ' active' : ''}`} key={p.id}>
+                <div><div className="mix-name">{p.n}</div><div className="mix-sub">AE: <strong>{(p.z * 100).toFixed(0)}%</strong></div></div>
+                <div className="mix-qty"><button onClick={() => chQtyGI(p.id, -1)}>−</button><div className="mix-qty-n">{s.qtyGI[p.id]}</div><button onClick={() => chQtyGI(p.id, 1)}>+</button></div>
+              </div>
+            ))}
+            {SIM_PRODS_GI.filter((p) => s.qtyGI[p.id] > 0).map((p) => (
+              <div className="fg" key={p.id}>
+                <div className="flbl">{p.n}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <input type="number" step={0.1} min={0} max={999} value={s.primaGI[p.id]} onChange={(e) => setPrimaGI(p.id, parseFloat(e.target.value) || 0)} style={{ ...inpNum, width: 90 }} placeholder="UF" />
+                  <span style={{ fontSize: 11, color: 'var(--g400)' }}>UF/mes</span>
+                  <span style={{ fontSize: 11, color: 'var(--blue)', fontFamily: 'var(--mono)' }}>{labelPPA(s.primaGI[p.id])}</span>
+                </div>
+              </div>
+            ))}
+
+            {/* 7 · Aportes y traspasos */}
+            <div className="stitle">Aportes y traspasos (AE cartera)</div>
+            <div className="fg"><div className="flbl">APV — Aporte extraordinario (UF) <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--g400)' }}>· PPA: 10% · AE: 50% (o 100% campaña)</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <input type="number" step={0.1} min={0} max={99999} value={s.apvEx} onChange={(e) => upd({ apvEx: parseFloat(e.target.value) || 0 })} style={{ ...inpNum, width: 100 }} placeholder="UF" />
+                <span style={{ fontSize: 11, color: 'var(--g400)' }}>UF · <span style={{ fontFamily: 'var(--mono)', color: 'var(--amber)' }}>{labelApvEx(s.apvEx)}</span></span>
+              </div>
+            </div>
+            <div className="fg"><div className="flbl">APV AE Flexible — Traspaso cartera (UF) <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--g400)' }}>· PPA: 10% del monto · AE: 25%</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <input type="number" step={0.1} min={0} max={99999} value={s.apvFlexEx} onChange={(e) => upd({ apvFlexEx: parseFloat(e.target.value) || 0 })} style={{ ...inpNum, width: 100 }} placeholder="UF" />
+                <span style={{ fontSize: 11, color: 'var(--g400)' }}>UF · <span style={{ fontFamily: 'var(--mono)', color: 'var(--amber)' }}>{labelApvFlex(s.apvFlexEx)}</span></span>
+              </div>
+            </div>
+            <div className="fg"><div className="flbl">Renta Preferente — Aporte extraordinario (UF) <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--g400)' }}>· AE: 5% del monto</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <input type="number" step={0.1} min={0} max={99999} value={s.rpMonto} onChange={(e) => upd({ rpMonto: parseFloat(e.target.value) || 0 })} style={{ ...inpNum, width: 100 }} placeholder="UF" />
+                <span style={{ fontSize: 11, color: 'var(--g400)' }}>UF · <span style={{ fontFamily: 'var(--mono)', color: 'var(--amber)' }}>{labelRp(s.rpMonto)}</span></span>
+              </div>
+            </div>
+
+            {/* 8 · KPI Campaña APV 100% */}
+            <div className="stitle" style={{ color: '#BA7517' }}>KPI Campaña APV 100% <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--g400)' }}>— requiere los 3</span></div>
+            <div style={{ background: '#FAEEDA', border: '1.5px solid #BA7517', borderRadius: 'var(--r)', padding: '10px 12px', marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: '#633806', marginBottom: 8, lineHeight: 1.4 }}>Para pago al <strong>100%</strong>: debe cumplir <strong>los 3 KPI</strong>. Si falla uno → APV se paga al <strong>50%</strong> (contrato base).</div>
+              {([['vida', 'Póliza Vida', 'Vida Empresarial, Vida Mujer, Seguro Temporal u otro producto Vida'], ['gi', 'Póliza Generales', 'Auto, Hogar u otro producto GI'], ['salud', 'Póliza Salud XS', 'Protección Light / Oncológico']] as const).map(([k, t, sub], i) => (
+                <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, marginBottom: i < 2 ? 6 : 0, cursor: 'pointer', padding: 5, borderRadius: 6, background: 'white' }}>
+                  <input type="checkbox" checked={s.kpi[k]} onChange={(e) => setS((p) => ({ ...p, kpi: { ...p.kpi, [k]: e.target.checked } }))} style={{ accentColor: '#BA7517', width: 14, height: 14 }} />
+                  <div><div style={{ fontWeight: 500 }}>{t}</div><div style={{ fontSize: 10, color: 'var(--g400)' }}>{sub}</div></div>
+                </label>
+              ))}
+            </div>
+
+            {/* 9 · Tramo 5 */}
+            <div className="stitle" style={{ color: '#5B36AB' }}>Tramo 5 — Requisitos (AE &gt; 200)</div>
+            <div style={{ background: 'white', border: '1.5px solid #5B36AB', borderRadius: 'var(--r)', padding: '10px 12px', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#5B36AB', marginBottom: 6 }}>Cumple al menos 1 de 5 + persistencia ≥ 85%</div>
+              {([['r1', 'Prima Básica ≥ UF 55'], ['r2', 'Capital fallecimiento ≥ UF 6.000'], ['r3', 'APE emitido ≥ UF 300'], ['r4', '4 pólizas vida (o 3)'], ['r5', '3 pólizas vida + 3 generales']] as const).map(([k, lbl]) => (
+                <label key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11, marginBottom: 4, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={s.t5[k]} onChange={(e) => setS((p) => ({ ...p, t5: { ...p.t5, [k]: e.target.checked } }))} style={{ accentColor: '#5B36AB' }} /> {lbl}
+                </label>
+              ))}
+            </div>
+
+            {/* 10 · Bonos adicionales */}
+            <div className="stitle">Bonos adicionales</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+              <div style={{ background: 'white', border: '1px solid var(--g200)', borderRadius: 'var(--r)', padding: '8px 10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div><div style={{ fontSize: 12, fontWeight: 500 }}>🏅 Bono Top 20 APE</div><div style={{ fontSize: 10, color: 'var(--g400)' }}>Premio UF 1-23 según ranking</div></div>
+                  <input type="checkbox" checked={s.bonos.top20ape} onChange={(e) => setS((p) => ({ ...p, bonos: { ...p.bonos, top20ape: e.target.checked } }))} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                </div>
+                {s.bonos.top20ape && (
+                  <div style={{ marginTop: 8 }}>
+                    <div className="flbl">Posición: <span>#{s.rankApe} — {TOP20_APE_UF[s.rankApe - 1]} UF</span></div>
+                    <input type="range" min={1} max={20} value={s.rankApe} onChange={(e) => upd({ rankApe: +e.target.value })} />
+                  </div>
+                )}
+              </div>
+              <div style={{ background: 'white', border: '1px solid var(--g200)', borderRadius: 'var(--r)', padding: '8px 10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div><div style={{ fontSize: 12, fontWeight: 500 }}>📈 Bono Top 20 Crecim.</div><div style={{ fontSize: 10, color: 'var(--g400)' }}>Premio UF 1-11 según ranking</div></div>
+                  <input type="checkbox" checked={s.bonos.top20cv} onChange={(e) => setS((p) => ({ ...p, bonos: { ...p.bonos, top20cv: e.target.checked } }))} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                </div>
+                {s.bonos.top20cv && (
+                  <div style={{ marginTop: 8 }}>
+                    <div className="flbl">Posición: <span>#{s.rankCv} — {TOP20_CV_UF[s.rankCv - 1]} UF</span></div>
+                    <input type="range" min={1} max={20} value={s.rankCv} onChange={(e) => upd({ rankCv: +e.target.value })} />
+                  </div>
+                )}
+              </div>
+              <div style={{ background: 'white', border: '1px solid var(--g200)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div><div style={{ fontSize: 12, fontWeight: 500 }}>💼 Gratificación legal</div><div style={{ fontSize: 10, color: 'var(--g400)' }}>Art. 50 CT · 25% IMM mensual</div></div>
+                <input type="checkbox" checked={s.bonos.grati} onChange={(e) => setS((p) => ({ ...p, bonos: { ...p.bonos, grati: e.target.checked } }))} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+              </div>
+            </div>
+
+            {/* 11 · Métodos de prospección */}
+            <div className="stitle">Prospectos Referidos por Contactos / Nodos Referidores</div>
+            <div className="ib am" style={{ fontSize: 11 }}><strong>Define el % de prospectos por método</strong> (pasos de 5%). Meta: ≥80% Contactos/Nodos Referidores.</div>
+            {renderMetodos()}
+          </div>
+
+          {/* ── Panel derecho (resultados) — shells Sección 1; contenido Sección 3 ── */}
           <div className="right">
-            <div style={{ marginBottom: 12 }} />
-
-            {/* Botón PDF */}
+            {/* alert-box: en Sección 3 va arriba el aviso de meta (ib gn/rd, calculado). Aquí solo el botón. */}
+            <div id="alert-box" style={{ marginBottom: 12 }}>
+              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
+                {/* Guardado DESCONECTADO (stub inerte) — la escritura va por API en Fase 3. */}
+                <button className="btn btn-success" onClick={() => { /* no-op: guardado de metas va por API en Fase 3 */ }}>💾 Guardar metas de {s.asesor} en Tracker</button>
+              </div>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
               <button className="btn btn-primary report-btn" onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9H3V2z" stroke="white" strokeWidth="1.3" fill="none" strokeLinejoin="round" /><path d="M10 2v3h3M5 7h6M5 9.5h6M5 12h4" stroke="white" strokeWidth="1.3" strokeLinecap="round" /></svg>
-                Generar informe PDF — <span style={{ fontStyle: 'italic' }}>—</span>
+                Generar informe PDF — <span style={{ fontStyle: 'italic' }}>{s.asesor}</span>
               </button>
             </div>
-
-            {/* metric-row — SECCIÓN 3 */}
-            <div className="mcrow" />
-
-            {/* Nota referencial (estática) */}
+            {/* C2: 3 tarjetas de resultados (#metric-row). Valores calculados → placeholder; Sección 3 los conecta.
+                Tarjeta 3 = base `smc ok` (azul/énfasis); el rojo `ng` lo añade el cálculo en Sección 3. */}
+            <div className="mcrow">
+              <div className="smc"><div className="smc-lbl">Sueldo base</div><div className="smc-val">{fmtCLP(SUELDO_BASE_DEFAULT)}</div><div className="smc-sub">Mín. legal $539.000</div></div>
+              <div className="smc"><div className="smc-lbl">Bono producción AE</div><div className="smc-val">$—</div><div className="smc-sub">—</div></div>
+              <div className="smc ok"><div className="smc-lbl">* Ingreso Bruto Aproximado Total</div><div className="smc-val">$—</div><div className="smc-sub">—</div></div>
+            </div>
             <div style={{ fontSize: 11, color: '#185FA5', lineHeight: 1.6, marginBottom: 12, padding: '9px 12px', background: '#E6F1FB', borderLeft: '3px solid #185FA5', borderRadius: '0 6px 6px 0' }}>ℹ️ * Cifra referencial. Valores aproximados. Es posible que haya diferencias con los valores reales. El objetivo del &quot;Ingreso Bruto Aproximado Total&quot; es servir solo de referencia general para el cálculo de las metas de prospección.</div>
-
-            {/* metric-contacts — SECCIÓN 3 */}
-            <div />
-
-            {/* Card embudo (shell) — contenido SECCIÓN 3 */}
+            {/* C3: tarjeta "Contactos necesarios para tu meta" (#metric-contacts). Números calculados → "0" placeholder; Sección 3 los conecta. */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14, marginBottom: 4 }}>
+              <div style={{ position: 'relative', display: 'inline-flex', flexDirection: 'column', background: '#fcffe0', border: '1.5px solid var(--lime-dk)', borderRadius: 'var(--rl)', padding: '14px 18px', boxShadow: '0 0 0 3px rgba(203,241,53,0.22),0 1px 2px rgba(0,0,0,0.04)', minWidth: 340 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="9" stroke="#4a6600" strokeWidth="1.8" />
+                    <circle cx="12" cy="12" r="5" stroke="#4a6600" strokeWidth="1.8" />
+                    <circle cx="12" cy="12" r="1.5" fill="#4a6600" />
+                  </svg>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: '#4a6600', letterSpacing: '.09em', textTransform: 'uppercase', lineHeight: 1.2 }}>Contactos necesarios para tu meta</div>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ background: 'white', border: '2px solid var(--lime-dk)', borderRadius: 'var(--r)', padding: '8px 14px', textAlign: 'center', minWidth: 122, boxShadow: '0 1px 2px rgba(168,204,26,.08)' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 42, fontWeight: 800, lineHeight: 1, color: '#3a4f00', letterSpacing: '-0.03em' }}>0</div>
+                    <div style={{ fontSize: 10, color: 'var(--g600)', marginTop: 4, letterSpacing: '.03em', fontWeight: 500 }}>por mes</div>
+                  </div>
+                  <div style={{ background: 'white', border: '1.5px solid var(--lime-dk)', borderRadius: 'var(--r)', padding: '8px 14px', textAlign: 'center', minWidth: 122, boxShadow: '0 1px 2px rgba(168,204,26,.08)' }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 30, fontWeight: 600, lineHeight: 1, color: 'var(--g900)', letterSpacing: '-0.03em' }}>0</div>
+                    <div style={{ fontSize: 10, color: 'var(--g600)', marginTop: 4, letterSpacing: '.03em', fontWeight: 500 }}>esta semana</div>
+                  </div>
+                </div>
+                <div title="Activar plan" style={{ position: 'absolute', bottom: -14, right: -14, width: 56, height: 56, borderRadius: '50%', background: 'var(--lime)', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, boxShadow: '0 6px 16px rgba(168,204,26,.36),0 1px 3px rgba(0,0,0,.08)', lineHeight: 1, cursor: 'pointer' }}>🚀</div>
+              </div>
+            </div>
             <div className="card"><div className="card-title">Prospectos Referidos por Contactos / Nodos</div><div /></div>
-
-            {/* Literatura (estático completo) */}
             <div className="lit-box">
               <div className="lit-title">Tasas de cierre de referencia — Granum · LIMRA · MDRT · Finseca · NAIFA</div>
               <table className="lit-table">
@@ -295,8 +589,6 @@ export default function SimuladorPage() {
               <div className="lit-note"><strong>Sistema TPS — Nodos Referidores:</strong> 1 contacto/nodo activo genera en promedio 5 prospectos referidos. Con presentación activa del nodo, la tasa de cierre base alcanza 50–65%, resultando en 1,5–2 ventas por nodo.<br /><br />
                 <strong>Factor de efectividad del asesor para Transferencia en vivo (nodo presenta):</strong> <strong>Baja (33%)</strong> → 1 venta cada 4–5 prospectos · <strong>Media (66%)</strong> → 1 venta cada 2–3 · <strong>Alta (100%)</strong> → 1 venta cada 1–2. Mejora con entrenamiento y dominio del cierre.</div>
             </div>
-
-            {/* Cards colapsables (shells) — cuerpos SECCIÓN 3 */}
             <div className={`card card-collapsible${open.mix ? ' open' : ''}`}>
               <div className="card-title" onClick={() => toggle('mix')}>Desglose del mix de productos — Contrato original <span className="coll-arrow">▾</span></div>
               <div className="card-body" style={{ textAlign: 'left' }} />
@@ -309,10 +601,7 @@ export default function SimuladorPage() {
               <div className="card-title" onClick={() => toggle('consol')}>🧾 Consolidado mensual completo <span className="coll-arrow">▾</span></div>
               <div className="card-body" />
             </div>
-
-            {/* Disclaimer (shell) — texto SECCIÓN 3 */}
             <p className="disclaimer" style={{ fontSize: 11, color: 'var(--g400)', borderTop: '1px solid var(--g200)', paddingTop: 12, marginTop: 4, lineHeight: 1.6 }} />
-
             <div className="copyright" style={{ marginTop: 24 }}>
               <span style={{ color: 'var(--g400)' }}>© 2026 The Precision Selling · Todos los derechos reservados</span>
             </div>
