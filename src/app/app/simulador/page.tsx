@@ -4,7 +4,7 @@ import {
   SIM_PRODS, SIM_PRODS_GI, SIM_METODOS, TOP20_APE_UF, TOP20_CV_UF, ZURICH_ASESORES, ZURICH_SUPERVISORA, SUELDO_BASE_DEFAULT, UF_DEFAULT,
   initialStateZurich, clampQty, nextPct, fmtCLP, fmtUF, labelAnt, labelPersist, labelPPA, labelApvEx, labelApvFlex, labelRp,
   PMIN, FP, simCalcZ, simCalcBonoUF, calcEmbudo,
-  type SimState,
+  type SimState, type Metodo,
 } from '@/lib/simulador/calculo'
 
 /*
@@ -613,15 +613,15 @@ export default function SimuladorPage() {
                   const maxP = Math.max(totP, 1)
                   const totP_nodo = activos.filter(m => m.esNodo).reduce((a, m) => a + m.prospectos, 0)
                   const totP_frio = totP - totP_nodo
-                  const meta = (id) => SIM_METODOS.find(m => m.id === id) || {}
-                  const sep = (lbl, cls) => (
+                  const meta = (id: string): Metodo => SIM_METODOS.find(m => m.id === id) || ({} as Metodo)
+                  const sep = (lbl: string, cls: string) => (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 6px', fontSize: 10, fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase', color: cls === 'nodo' ? '#0F6E56' : 'var(--g400)' }}>
                       <span style={{ flex: 1, borderTop: `0.5px solid ${cls === 'nodo' ? '#5DCAA5' : 'var(--g200)'}` }} />
                       <span>{lbl}</span>
                       <span style={{ flex: 1, borderTop: `0.5px solid ${cls === 'nodo' ? '#5DCAA5' : 'var(--g200)'}` }} />
                     </div>
                   )
-                  const fstep = (key, lbl, val, cls, eq, small) => (
+                  const fstep = (key: string, lbl: string, val: number, cls: string, eq: string, small: boolean) => (
                     <div key={key} className="fstep" style={small ? { opacity: .7 } : undefined}>
                       <div className="fstep-lbl" style={small ? { fontSize: 11 } : undefined}>{lbl}</div>
                       <div className="fbar-wrap"><div className={`fbar ${cls}`} style={{ width: `${Math.round((val / maxP) * 100)}%`, ...(small ? { background: '#E8E7E2', color: '#5F5E5A', fontSize: 11 } : {}) }}>{val}</div></div>
@@ -631,7 +631,7 @@ export default function SimuladorPage() {
                   )
                   const nodoAct = activos.filter(m => m.esNodo)
                   const sinAct = activos.filter(m => !m.esNodo)
-                  const row = (m, key) => {
+                  const row = (m: (typeof activos)[number], key: string) => {
                     const info = meta(m.id)
                     const pct = totP > 0 ? Math.round(m.prospectos / totP * 100) : 0
                     const w = pct
