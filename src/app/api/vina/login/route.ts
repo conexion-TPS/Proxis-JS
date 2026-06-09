@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { supabaseVina } from '@/lib/supabaseVina'
+import { supabaseVina, EMPRESA_VINA } from '@/lib/supabaseVina'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const rol = cred.rol ?? 'asesor'
   const token = jwt.sign(
-    { asesor: cred.asesor, email: cred.email, empresa: 'vina', rol },
+    { asesor: cred.asesor, email: cred.email, empresa: EMPRESA_VINA, rol },
     SECRET,
     { expiresIn: EXPIRES }
   )

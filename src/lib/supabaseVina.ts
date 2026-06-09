@@ -25,4 +25,4 @@ export function supabaseVina() {
   return createClient(VINA_URL, VINA_KEY, { auth: { persistSession: false } })
 }
 
-export const EMPRESA_VINA = 'vina'
+export const EMPRESA_VINA = 'consorcio'
