@@ -144,3 +144,163 @@ export function nextPct(pcts: Record<string, number>, id: string, delta: number)
   return Math.round(nuevo / 5) * 5
 }
 export const sumaPct = (pcts: Record<string, number>) => Object.values(pcts).reduce((a, b) => a + b, 0)
+
+/* ════════════════════════════════════════════════════════════════
+   MOTOR DE CÁLCULO (3.1) — transcripción EXACTA del legacy.
+   - simCalcZ / simCalcBonoUF: renta.js (reciben `ss` por parámetro, no leen global).
+   - calcEmbudo: nucleo/embudo.js (función pura).
+   M1: la lectura DOM `kpi-salud.checked` se traduce a `ss.kpi.salud`.
+   El UF (ufVal) se recibe por parámetro (M2 se resuelve en el componente, paso 3.2).
+   ════════════════════════════════════════════════════════════════ */
+
+export type DetItem = { p: { id: string; n: string }; qty: number; ppaUF: number; zTotal: number; comVenta: number; incMant: number; nota: string }
+export type DetGIItem = { p: ProdGI; qty: number; ppaUF: number; zTotal: number }
+export type TramoDet = { min: number; max: number; pct: number; lbl: string; ap: number; uf: number; motivo?: string; capped?: boolean }
+
+// ── simCalcZ (renta.js:90-183) — cálculo de AE, comisión, incentivo, bonos ──
+export function simCalcZ(ss: SimState, campana: boolean, ufVal: number) {
+  let zVI = 0, zGIBruto = 0, comVenta = 0, incMant = 0, ventas = 0
+  const det: DetItem[] = [], detGI: DetGIItem[] = []
+
+  // ── Pólizas Vida VI ──
+  SIM_PRODS.forEach((p) => {
+    const qty = ss.qty[p.id]; if (!qty) return
+    const cp = campana ? CAMP_PRODS[p.id] : null
+    const prima = ss.prima[p.id]
+    // M1: kpi-salud del DOM → ss.kpi.salud
+    const kpiSaludChk = ss.kpi.salud || ss.qty['SS'] > 0
+    const tieneVidaMix = SIM_PRODS.some((q) => ss.qty[q.id] > 0)
+    const tieneGIMix = SIM_PRODS_GI.some((q) => ss.qtyGI[q.id] > 0)
+    const kpiCumpleCalc = kpiSaludChk && tieneVidaMix && tieneGIMix
+    const usarCamp = cp != null && (p.id !== 'APV' || kpiCumpleCalc)
+    const zF = usarCamp ? cp!.z : p.z
+    const nota = usarCamp ? `campaña ${(zF * 100).toFixed(0)}%` : (p.id === 'APV' && campana && !kpiCumpleCalc ? 'APV 50% (KPI ✗)' : '')
+    let ppaUF = prima * 12 // prima ya está en UF
+    if (usarCamp && cp?.capUF) ppaUF = Math.min(ppaUF, cp.capUF * qty)
+    let zT = ppaUF * zF
+    if (usarCamp && cp?.tope) zT = Math.min(zT, cp.tope * qty)
+    zVI += zT; ventas += qty
+    // Comisión venta mes 1
+    let cV = 0
+    const primaCLP = prima * ufVal
+    if (p.cUF) { cV = p.cUF * ufVal * qty }
+    else if (p.c) { cV = primaCLP * p.c * qty; if (p.cTopeUF) cV = Math.min(cV, p.cTopeUF * ufVal * qty) }
+    comVenta += cV
+    // Incentivo mantención (según antigüedad)
+    let incT = 0, incTasa: number | null = null, incTopeUF: number | undefined
+    if (ss.ant >= 2) {
+      if (ss.ant <= 12 && p.incM12) { incTasa = p.incM12; incTopeUF = p.incM12TopeUF }
+      else if (ss.ant <= 24 && p.incM24) { incTasa = p.incM24; incTopeUF = p.incM24TopeUF }
+      else if (ss.ant > 24 && p.incM120) { incTasa = p.incM120 }
+      if (incTasa) { incT = primaCLP * incTasa * qty; if (incTopeUF) incT = Math.min(incT, incTopeUF * ufVal * qty) }
+    }
+    incMant += incT
+    det.push({ p, qty, ppaUF, zTotal: zT, comVenta: cV, incMant: incT, nota })
+  })
+
+  // Columna endoso según pólizas nueva venta del período
+  const endosoCol = ventas >= 3 ? 0 : ventas === 2 ? 1 : 2
+  const endosoLbl = endosoCol === 0 ? '≥3 pol.' : endosoCol === 1 ? '2 pol.' : '0-1 pol.'
+
+  // ── APV AE Flexible Traspaso cartera ──
+  if (ss.apvFlexEx > 0) {
+    const zFactor = ENDOSO_Z['APVF'][endosoCol]
+    const ppaF = ss.apvFlexEx * 0.10
+    const zF = ppaF * zFactor
+    zVI += zF
+    det.push({ p: { id: 'APVFLEX_EX', n: 'APV AE Flexible Traspaso Cartera' }, qty: 1, ppaUF: ppaF, zTotal: zF, comVenta: 0, incMant: 0, nota: `PPA ${(zFactor * 100).toFixed(1)}% (${endosoLbl})` })
+    ventas++ // APV Flex activado cuenta como +1 póliza
+  }
+  // ── APV aporte extraordinario ──
+  if (ss.apvEx > 0) {
+    const ppaEq = ss.apvEx * 0.10
+    const zFactor = ENDOSO_Z['APV'][endosoCol]
+    const z = ppaEq * zFactor
+    zVI += z
+    det.push({ p: { id: 'APVEX', n: 'APV Aporte Extra' }, qty: 1, ppaUF: ppaEq, zTotal: z, comVenta: 0, incMant: 0, nota: `aporte ${(zFactor * 100).toFixed(0)}% (${endosoLbl})` })
+  }
+  // ── Renta Preferente Prima Única ──
+  if (ss.rpMonto > 0) {
+    const zFactor = ENDOSO_Z['RP'][endosoCol]
+    const ppaRP = ss.rpMonto * 0.10
+    const z = ppaRP * zFactor
+    zVI += z
+    det.push({ p: { id: 'RPUNI', n: 'Renta Preferente' }, qty: 1, ppaUF: ppaRP, zTotal: z, comVenta: 0, incMant: 0, nota: `${(zFactor * 100).toFixed(0)}% (${endosoLbl})` })
+  }
+
+  // ── Pólizas Generales GI ──
+  SIM_PRODS_GI.forEach((p) => {
+    const qty = ss.qtyGI[p.id]; if (!qty) return
+    const ppaUF = ss.primaGI[p.id] * 12
+    const z = ppaUF * p.z
+    zGIBruto += z
+    detGI.push({ p, qty, ppaUF, zTotal: z })
+  })
+  // Tope GI: 25% AE VI (liberado en campaña)
+  const topeGI = campana ? Infinity : zVI * 0.25
+  const zGI = Math.min(zGIBruto, topeGI)
+  const zTotal = zVI + zGI
+
+  // ── Bonos opcionales ──
+  let bonoApe = 0, bonoCv = 0, grati = 0 // grati nunca se reasigna (igual que el legacy)
+  if (ss.bonos.top20ape) bonoApe = (TOP20_APE_UF[ss.rankApe - 1] || 0) * ufVal
+  if (ss.bonos.top20cv) bonoCv = (TOP20_CV_UF[ss.rankCv - 1] || 0) * ufVal
+
+  return { zVI, zGIBruto, zGI, zGITopado: zGIBruto > topeGI, zTotal, det, detGI, comVenta, incMant, ventas, bonoApe, bonoCv, grati }
+}
+
+// ── simCalcBonoUF (renta.js:185-203) — bono UF por tramos AE ──
+export function simCalcBonoUF(z: number, ant: number, campana: boolean, ss: SimState) {
+  const tope_t5 = TOPE_T5(ant, campana)
+  const cumpleT5 = Object.values(ss.t5).some((v) => v) && (ss.persist / 100) >= 0.85
+  let uf = 0
+  const det: TramoDet[] = []
+  for (const t of SIM_TRAMOS) {
+    if (t.min >= 200) {
+      // Tramo 5: requiere T5 habilitado + tope por antigüedad
+      if (z <= 200 || !cumpleT5) { det.push({ ...t, ap: 0, uf: 0, motivo: z <= 200 ? 'AE≤200' : !cumpleT5 ? 'sin req.' : '' }); continue }
+      const exceso = z - 200
+      const ap = tope_t5 === null ? exceso : Math.min(exceso, tope_t5)
+      const u = ap * t.pct; det.push({ ...t, ap, uf: u, capped: tope_t5 !== null && exceso > tope_t5 }); uf += u
+      continue
+    }
+    if (z <= t.min) { det.push({ ...t, ap: 0, uf: 0 }); continue }
+    const ap = Math.min(z, t.max) - t.min; if (ap <= 0) { det.push({ ...t, ap: 0, uf: 0 }); continue }
+    const u = ap * t.pct; det.push({ ...t, ap, uf: u }); uf += u
+  }
+  return { uf, det, t5Hab: cumpleT5, tope_t5 }
+}
+
+// ── calcEmbudo (nucleo/embudo.js:40-71) — embudo de prospección (pura) ──
+// OJO: totContactos ≠ metaContactos. La tarjeta "por mes" usa totContactos.
+export function calcEmbudo(pcts: Record<string, number>, ventas: number) {
+  const metaContactos = Math.max(1, Math.round(
+    SIM_METODOS.filter((m) => m.esNodo).reduce((a, m) => {
+      const pct = (pcts[m.id] || 0) / 100
+      return a + (pct > 0 ? Math.ceil(ventas * pct) : 0)
+    }, 0) / 4
+  ))
+  const metaProspectos = Math.max(1, Math.round(
+    SIM_METODOS.reduce((a, m) => {
+      const pct = (pcts[m.id] || 0) / 100
+      if (pct === 0) return a
+      const prosp = m.esNodo
+        ? Math.round(ventas * pct * (m.cadena ? Number(m.cadena[1].n) : 5))
+        : Math.round(ventas * pct * m.cPV)
+      return a + prosp
+    }, 0)
+  ))
+  const activos = SIM_METODOS.map((m) => {
+    const pct = (pcts[m.id] || 0) / 100
+    if (pct === 0) return null
+    const vM = ventas * pct
+    return {
+      id: m.id, esNodo: m.esNodo,
+      contactos: m.esNodo ? Math.ceil(vM) : 0,
+      prospectos: m.esNodo ? Math.ceil(vM) * 5 : Math.round(vM * m.cPV),
+    }
+  }).filter(Boolean) as { id: string; esNodo: boolean; contactos: number; prospectos: number }[]
+  const totContactos = activos.filter((m) => m.esNodo).reduce((a, m) => a + m.contactos, 0)
+  const totProspectos = activos.reduce((a, m) => a + m.prospectos, 0)
+  return { metaContactos, metaProspectos, totContactos, totProspectos, activos }
+}

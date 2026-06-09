@@ -1,8 +1,9 @@
 'use client'
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
-  SIM_PRODS, SIM_PRODS_GI, SIM_METODOS, TOP20_APE_UF, TOP20_CV_UF, ZURICH_ASESORES, ZURICH_SUPERVISORA, SUELDO_BASE_DEFAULT,
-  initialStateZurich, clampQty, nextPct, fmtCLP, labelAnt, labelPersist, labelPPA, labelApvEx, labelApvFlex, labelRp,
+  SIM_PRODS, SIM_PRODS_GI, SIM_METODOS, TOP20_APE_UF, TOP20_CV_UF, ZURICH_ASESORES, ZURICH_SUPERVISORA, SUELDO_BASE_DEFAULT, UF_DEFAULT,
+  initialStateZurich, clampQty, nextPct, fmtCLP, fmtUF, labelAnt, labelPersist, labelPPA, labelApvEx, labelApvFlex, labelRp,
+  PMIN, FP, simCalcZ, simCalcBonoUF, calcEmbudo,
   type SimState,
 } from '@/lib/simulador/calculo'
 
@@ -124,6 +125,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .ib{padding:10px 13px;border-radius:var(--r);font-size:12px;line-height:1.55;margin-bottom:12px;border:1px solid transparent}
 .ib.am{background:var(--amber-lt);color:#7a4d0a;border-color:rgba(168,105,26,0.18)}
 .ib.bl{background:var(--blue-lt);color:var(--blue);border-color:rgba(11,10,9,0.08)}
+.ib.rd{background:var(--red-lt);color:var(--red);border-color:rgba(176,58,58,0.18)}
+.ib.gn{background:var(--teal-lt);color:var(--teal);border-color:rgba(31,111,86,0.18)}
 .ib strong{font-weight:600}
 .pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:-0.005em;line-height:1.3}
 .pill-gn{background:var(--teal-lt);color:var(--teal)}
@@ -218,6 +221,7 @@ export default function SimuladorPage() {
   const [token, setToken] = useState<string | null>(null)
   const [ident, setIdent] = useState<Identidad>(null)
   const [uf, setUf] = useState('…')
+  const [ufVal, setUfVal] = useState<number>(UF_DEFAULT) // M2(a): UF numérica para el cálculo (fallback 39357)
   const [cargando, setCargando] = useState(false)
   const [err, setErr] = useState('')
   const [email, setEmail] = useState('')
@@ -236,7 +240,7 @@ export default function SimuladorPage() {
   useEffect(() => { const t = localStorage.getItem(TOKEN_KEY); if (t) setToken(t) }, [])
   useEffect(() => {
     fetch('https://mindicador.cl/api/uf').then((r) => r.json())
-      .then((d) => setUf('$' + Math.round(d.serie[0].valor).toLocaleString('es-CL')))
+      .then((d) => { setUf('$' + Math.round(d.serie[0].valor).toLocaleString('es-CL')); setUfVal(d.serie[0].valor) })
       .catch(() => setUf('—'))
   }, [])
 
@@ -325,6 +329,20 @@ export default function SimuladorPage() {
     )
   }
 
+  // ── Derivados (3.2): cálculo puro en cada render. Aún NO conectados al DOM (eso es 3.3-3.6). ──
+  const campana = s.campana
+  const ant = s.ant
+  const pR = s.persist / 100
+  const pM = PMIN(ant)
+  const fp = FP(pR, pM, ant)
+  const { zVI, zGIBruto, zGI, zGITopado, zTotal, det, detGI, comVenta, incMant, ventas, bonoApe, bonoCv } = simCalcZ(s, campana, ufVal)
+  const { uf: bUF, det: trDet, t5Hab, tope_t5 } = simCalcBonoUF(zTotal, ant, campana, s)
+  const bonoNeto = bUF * fp * ufVal
+  const total = SUELDO_BASE_DEFAULT + bonoNeto + comVenta + incMant + bonoApe + bonoCv
+  const { totContactos, metaContactos, totProspectos, activos } = calcEmbudo(s.pcts, ventas)
+  const mc = total >= s.meta ? 'ok' : 'ng'
+  const diff = total - s.meta
+
   return (
     <>
       <style>{CSS}</style>
@@ -387,7 +405,7 @@ export default function SimuladorPage() {
             <div className="fg"><div className="flbl">Persistencia real estimada <span>{labelPersist(s.persist)}</span></div>
               <input type="range" min={0} max={120} step={1} value={s.persist} onChange={(e) => upd({ persist: +e.target.value })} /></div>
             {/* C4: persist-info (.ib.bl). Frame literal; valores calculados (mes, %, %, label) → "—"; se conectan en Sección 3. */}
-            <div className="ib bl" style={{ fontSize: 11 }}>Mínima exigida (mes —): <strong>—</strong> · Cumplimiento: <strong>—</strong> → <strong>— del bono</strong></div>
+            <div className="ib bl" style={{ fontSize: 11 }}>Mínima exigida (mes {ant}): <strong>{Math.round(pM * 100)}%</strong> · Cumplimiento: <strong>{Math.round(pR / pM * 100)}%</strong> → <strong>{(fp === 0 ? '0% — sin bono' : fp === .5 ? '50%' : fp === .65 ? '65%' : fp === .9 ? '90%' : fp === 1 ? '100%' : '120%')} del bono</strong></div>
 
             {/* 3 · Modo de contrato */}
             <div className="stitle">Modo de contrato</div>
@@ -396,7 +414,9 @@ export default function SimuladorPage() {
               <label className="toggle-sw"><input type="checkbox" checked={s.campana} onChange={(e) => upd({ campana: e.target.checked })} /><span className="toggle-sl" /></label>
             </div>
             {/* C5: campana-info (.ib.bl). Rama campaña ON (default) literal; tope_t5 calculado → "—"; rama y tope se conectan en Sección 3. */}
-            <div className="ib bl" style={{ fontSize: 11 }}>Campaña 2026: APV al <strong>100%</strong>. Tope T5: <strong>—</strong>. GI: tope liberado.</div>
+            <div className="ib bl" style={{ fontSize: 11 }}>{campana
+              ? <>Campaña 2026: APV al <strong>100%</strong>. Tope T5: <strong>{tope_t5 === null ? 'sin tope' : tope_t5 + ' AE'}</strong>. GI: tope liberado.</>
+              : <>Contrato base: Tope T5 <strong>{tope_t5 === null ? 'sin tope' : tope_t5 + ' AE'}</strong> (mes {ant}). GI: tope 25% AE VI.</>}</div>
 
             {/* 4 · Mix de productos */}
             <div className="stitle">Mix de productos mensual</div>
@@ -531,6 +551,11 @@ export default function SimuladorPage() {
           <div className="right">
             {/* alert-box: en Sección 3 va arriba el aviso de meta (ib gn/rd, calculado). Aquí solo el botón. */}
             <div id="alert-box" style={{ marginBottom: 12 }}>
+              {Math.abs(diff) < 30000
+                ? <div className="ib gn" style={{ textAlign: 'center' }}><strong>Meta prácticamente alcanzada.</strong> Ingreso: {fmtCLP(total)} · Asesor: {s.asesor}</div>
+                : diff >= 0
+                  ? <div className="ib gn" style={{ textAlign: 'center' }}><strong>Meta alcanzable.</strong> Ingreso: {fmtCLP(total)} · Excedente: {fmtCLP(diff)}</div>
+                  : <div className="ib rd" style={{ textAlign: 'center' }}><strong>Meta no alcanzada.</strong> Ingreso: {fmtCLP(total)} · Brecha: {fmtCLP(Math.abs(diff))}.</div>}
               <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
                 {/* Guardado DESCONECTADO (stub inerte) — la escritura va por API en Fase 3. */}
                 <button className="btn btn-success" onClick={() => { /* no-op: guardado de metas va por API en Fase 3 */ }}>💾 Guardar metas de {s.asesor} en Tracker</button>
@@ -546,8 +571,8 @@ export default function SimuladorPage() {
                 Tarjeta 3 = base `smc ok` (azul/énfasis); el rojo `ng` lo añade el cálculo en Sección 3. */}
             <div className="mcrow">
               <div className="smc"><div className="smc-lbl">Sueldo base</div><div className="smc-val">{fmtCLP(SUELDO_BASE_DEFAULT)}</div><div className="smc-sub">Mín. legal $539.000</div></div>
-              <div className="smc"><div className="smc-lbl">Bono producción AE</div><div className="smc-val">$—</div><div className="smc-sub">—</div></div>
-              <div className="smc ok"><div className="smc-lbl">* Ingreso Bruto Aproximado Total</div><div className="smc-val">$—</div><div className="smc-sub">—</div></div>
+              <div className="smc"><div className="smc-lbl">Bono producción AE</div><div className="smc-val">{fmtCLP(bonoNeto)}</div><div className="smc-sub">{zTotal.toFixed(1)}AE → {fmtUF(bUF)} × {Math.round(fp * 100)}% {zTotal > 200 ? (t5Hab ? <span style={{ color: 'var(--teal)', fontSize: '10px' }}>✓ T5</span> : <span style={{ color: 'var(--red)', fontSize: '10px' }}>✗ T5</span>) : ''}</div></div>
+              <div className={`smc ${mc} ok`}><div className="smc-lbl">* Ingreso Bruto Aproximado Total</div><div className="smc-val">{fmtCLP(total)}</div><div className="smc-sub">UF: {fmtCLP(ufVal)} · AE VI+GI: {zTotal.toFixed(1)}</div></div>
             </div>
             <div style={{ fontSize: 11, color: '#185FA5', lineHeight: 1.6, marginBottom: 12, padding: '9px 12px', background: '#E6F1FB', borderLeft: '3px solid #185FA5', borderRadius: '0 6px 6px 0' }}>ℹ️ * Cifra referencial. Valores aproximados. Es posible que haya diferencias con los valores reales. El objetivo del &quot;Ingreso Bruto Aproximado Total&quot; es servir solo de referencia general para el cálculo de las metas de prospección.</div>
             {/* C3: tarjeta "Contactos necesarios para tu meta" (#metric-contacts). Números calculados → "0" placeholder; Sección 3 los conecta. */}
@@ -563,18 +588,86 @@ export default function SimuladorPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <div style={{ background: 'white', border: '2px solid var(--lime-dk)', borderRadius: 'var(--r)', padding: '8px 14px', textAlign: 'center', minWidth: 122, boxShadow: '0 1px 2px rgba(168,204,26,.08)' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 42, fontWeight: 800, lineHeight: 1, color: '#3a4f00', letterSpacing: '-0.03em' }}>0</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 42, fontWeight: 800, lineHeight: 1, color: '#3a4f00', letterSpacing: '-0.03em' }}>{totContactos}</div>
                     <div style={{ fontSize: 10, color: 'var(--g600)', marginTop: 4, letterSpacing: '.03em', fontWeight: 500 }}>por mes</div>
                   </div>
                   <div style={{ background: 'white', border: '1.5px solid var(--lime-dk)', borderRadius: 'var(--r)', padding: '8px 14px', textAlign: 'center', minWidth: 122, boxShadow: '0 1px 2px rgba(168,204,26,.08)' }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 30, fontWeight: 600, lineHeight: 1, color: 'var(--g900)', letterSpacing: '-0.03em' }}>0</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 30, fontWeight: 600, lineHeight: 1, color: 'var(--g900)', letterSpacing: '-0.03em' }}>{Math.ceil(totContactos / 4)}</div>
                     <div style={{ fontSize: 10, color: 'var(--g600)', marginTop: 4, letterSpacing: '.03em', fontWeight: 500 }}>esta semana</div>
                   </div>
                 </div>
                 <div title="Activar plan" style={{ position: 'absolute', bottom: -14, right: -14, width: 56, height: 56, borderRadius: '50%', background: 'var(--lime)', border: '3px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, boxShadow: '0 6px 16px rgba(168,204,26,.36),0 1px 3px rgba(0,0,0,.08)', lineHeight: 1, cursor: 'pointer' }}>🚀</div>
               </div>
             </div>
-            <div className="card"><div className="card-title">Prospectos Referidos por Contactos / Nodos</div><div /></div>
+            <div className="card"><div className="card-title">Prospectos Referidos por Contactos / Nodos</div>
+              <div id="funnel-content">
+                {(() => {
+                  const P = s.pcts || {}
+                  const tot = Object.values(P).reduce((a, b) => a + (+b || 0), 0)
+                  if (tot === 0 || ventas === 0) {
+                    return <div className="ib am">Asigna porcentajes a al menos un método y define el mix de productos.</div>
+                  }
+                  const totC = totContactos
+                  const totP = totProspectos
+                  const cSem = totC > 0 ? Math.ceil(totC / 4) : 0
+                  const maxP = Math.max(totP, 1)
+                  const totP_nodo = activos.filter(m => m.esNodo).reduce((a, m) => a + m.prospectos, 0)
+                  const totP_frio = totP - totP_nodo
+                  const meta = (id) => SIM_METODOS.find(m => m.id === id) || {}
+                  const sep = (lbl, cls) => (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 6px', fontSize: 10, fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase', color: cls === 'nodo' ? '#0F6E56' : 'var(--g400)' }}>
+                      <span style={{ flex: 1, borderTop: `0.5px solid ${cls === 'nodo' ? '#5DCAA5' : 'var(--g200)'}` }} />
+                      <span>{lbl}</span>
+                      <span style={{ flex: 1, borderTop: `0.5px solid ${cls === 'nodo' ? '#5DCAA5' : 'var(--g200)'}` }} />
+                    </div>
+                  )
+                  const fstep = (key, lbl, val, cls, eq, small) => (
+                    <div key={key} className="fstep" style={small ? { opacity: .7 } : undefined}>
+                      <div className="fstep-lbl" style={small ? { fontSize: 11 } : undefined}>{lbl}</div>
+                      <div className="fbar-wrap"><div className={`fbar ${cls}`} style={{ width: `${Math.round((val / maxP) * 100)}%`, ...(small ? { background: '#E8E7E2', color: '#5F5E5A', fontSize: 11 } : {}) }}>{val}</div></div>
+                      <div className="fnum" style={small ? { fontSize: 13, color: 'var(--g400)' } : undefined}>{val}</div>
+                      <div className="feq" style={small ? { fontSize: 10 } : undefined}>{eq}</div>
+                    </div>
+                  )
+                  const nodoAct = activos.filter(m => m.esNodo)
+                  const sinAct = activos.filter(m => !m.esNodo)
+                  const row = (m, key) => {
+                    const info = meta(m.id)
+                    const pct = totP > 0 ? Math.round(m.prospectos / totP * 100) : 0
+                    const w = pct
+                    const nombre = m.esNodo ? (info.nombre || '').replace('Contacto/Nodo — ', '') : (info.nombre || '')
+                    return (
+                      <div key={key} className="orig-row">
+                        <div className="orig-lbl">{nombre}</div>
+                        <div className="orig-bar-wrap"><div className="orig-bar" style={{ width: `${Math.max(w, 2)}%`, background: info.color }}>
+                          {m.prospectos > 0 ? <span className="orig-val">{m.prospectos}</span> : null}</div>
+                          <span className="orig-pct">{pct}%</span></div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <>
+                      {sep('con contacto / nodo activo', 'nodo')}
+                      {totC > 0 && fstep('c', 'Contactos/Nodos', totC, 'bar-c', `${cSem} contacto${cSem === 1 ? '' : 's'} por semana`, false)}
+                      {fstep('pn', 'Prospectos', totP_nodo, 'bar-p', '5 por contacto', false)}
+                      {sep('sin contacto / nodo', 'cold')}
+                      {totP_frio > 0 && fstep('pf', 'Digital + frío', totP_frio, 'bar-p', 'prospectos adicionales', true)}
+                      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '.5px solid var(--g200)', fontSize: 11, color: 'var(--g400)' }}>
+                        Total prospectos del período: <strong style={{ color: 'var(--g900)' }}>{totP}</strong> · Ver desglose completo en <em>Origen estimado de prospectos</em>
+                      </div>
+                      {activos.length > 0 && (
+                        <div className="orig-chart">
+                          <div className="orig-title">Origen estimado de prospectos</div>
+                          {nodoAct.length > 0 && <><div className="orig-group-lbl orig-nodo">Con contacto / nodo activo</div>{nodoAct.map((m, i) => row(m, `n${i}`))}</>}
+                          {sinAct.length > 0 && <><div className="orig-group-lbl orig-sin">Sin contacto / nodo</div>{sinAct.map((m, i) => row(m, `s${i}`))}</>}
+                          <div className="orig-total">Total: <strong>{totP}</strong> prospectos estimados</div>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
             <div className="lit-box">
               <div className="lit-title">Tasas de cierre de referencia — Granum · LIMRA · MDRT · Finseca · NAIFA</div>
               <table className="lit-table">
@@ -591,17 +684,130 @@ export default function SimuladorPage() {
             </div>
             <div className={`card card-collapsible${open.mix ? ' open' : ''}`}>
               <div className="card-title" onClick={() => toggle('mix')}>Desglose del mix de productos — Contrato original <span className="coll-arrow">▾</span></div>
-              <div className="card-body" style={{ textAlign: 'left' }} />
+              <div className="card-body" style={{ textAlign: 'left' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead><tr>
+                    <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--g400)', padding: '7px 9px', borderBottom: '1px solid var(--g200)' }}>Producto</th>
+                    <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--g400)', padding: '7px 9px', borderBottom: '1px solid var(--g200)' }}>Cant.</th>
+                    <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--g400)', padding: '7px 9px', borderBottom: '1px solid var(--g200)' }}>%</th>
+                    <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--g400)', padding: '7px 9px', borderBottom: '1px solid var(--g200)' }}>PPA UF</th>
+                    <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--g400)', padding: '7px 9px', borderBottom: '1px solid var(--g200)' }}>AE</th>
+                    <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--g400)', padding: '7px 9px', borderBottom: '1px solid var(--g200)' }}>Nota</th>
+                  </tr></thead>
+                  <tbody>
+                    {det.length === 0 ? (
+                      <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--g400)', padding: 12 }}>Agrega pólizas al mix.</td></tr>
+                    ) : det.map((d, i) => {
+                      const tdS = { padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }
+                      const isCamp = d.nota && d.nota.includes('campaña')
+                      return (
+                        <tr key={i}>
+                          <td style={tdS}>{d.p.n}</td>
+                          <td style={tdS}>{d.qty}</td>
+                          <td style={tdS}>{(d.zTotal && d.ppaUF ? d.zTotal / d.ppaUF * 100 : 0).toFixed(0)}%</td>
+                          <td style={tdS}>{d.ppaUF.toFixed(2)}</td>
+                          <td style={tdS}>{d.zTotal.toFixed(1)}</td>
+                          <td style={tdS}>{d.nota ? <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 20, fontSize: 10, fontWeight: 600, ...(isCamp ? { background: 'var(--teal-lt)', color: 'var(--teal)' } : { background: 'var(--amber-lt)', color: 'var(--amber)' }) }}>{d.nota}</span> : null}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ fontWeight: 600, color: 'var(--g900)', borderTop: '1px solid var(--g300)', background: 'var(--g50)' }}>
+                      <td style={{ padding: '9px 9px' }}>Total VI</td>
+                      <td style={{ padding: '9px 9px' }}>{ventas}</td>
+                      <td style={{ padding: '9px 9px' }}>—</td>
+                      <td style={{ padding: '9px 9px' }}>—</td>
+                      <td style={{ padding: '9px 9px' }}>{zVI.toFixed(1)} AE</td>
+                      <td style={{ padding: '9px 9px' }} />
+                    </tr>
+                    <tr>
+                      <td colSpan={4} style={{ fontSize: 11, color: 'var(--g400)', padding: '8px 9px' }}>+ AE GI: {zGI.toFixed(1)} {zGITopado ? '(topado)' : ''} → AE Total: <strong>{zTotal.toFixed(1)}</strong></td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
             <div className={`card card-collapsible${open.tramos ? ' open' : ''}`}>
               <div className="card-title" onClick={() => toggle('tramos')}>Transformación AE Puntos → Bono UF <span className="coll-arrow">▾</span></div>
-              <div className="card-body" />
+              <div className="card-body">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead><tr>
+                    {['Tramo', 'AE', '%', 'UF', '$'].map((h, i) => (
+                      <th key={i} style={{ textAlign: 'left', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--g400)', padding: '7px 9px', borderBottom: '1px solid var(--g200)' }}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {trDet.map((t, i) => {
+                      const a = t.ap > 0
+                      const tdS = { padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: a ? 'var(--g700)' : 'var(--g400)' }
+                      return (
+                        <tr key={i}>
+                          <td style={tdS}>{t.lbl}</td>
+                          <td style={tdS}>{a ? t.ap.toFixed(1) : '—'}</td>
+                          <td style={tdS}>{Math.round(t.pct * 100)}%</td>
+                          <td style={tdS}>{a ? t.uf.toFixed(2) : '—'}</td>
+                          <td style={tdS}>{a ? fmtCLP(t.uf * ufVal) : '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ fontWeight: 600, color: 'var(--g900)', borderTop: '1px solid var(--g300)', background: 'var(--g50)' }}>
+                      <td colSpan={3} style={{ padding: '9px 9px' }}>Bono bruto</td>
+                      <td style={{ padding: '9px 9px' }}>{bUF.toFixed(2)} UF</td>
+                      <td style={{ padding: '9px 9px' }}>{fmtCLP(bUF * ufVal)}</td>
+                    </tr>
+                    <tr style={{ fontWeight: 600, color: 'var(--g900)', background: 'var(--g50)' }}>
+                      <td colSpan={3} style={{ padding: '9px 9px' }}>× Persistencia ({Math.round(fp * 100)}%)</td>
+                      <td style={{ padding: '9px 9px' }}>{(bUF * fp).toFixed(2)} UF</td>
+                      <td style={{ padding: '9px 9px' }}><strong>{fmtCLP(bonoNeto)}</strong></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
             <div className={`card card-collapsible${open.consol ? ' open' : ''}`} style={{ marginTop: 14 }}>
               <div className="card-title" onClick={() => toggle('consol')}>🧾 Consolidado mensual completo <span className="coll-arrow">▾</span></div>
-              <div className="card-body" />
+              <div className="card-body">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}>Sueldo base</td>
+                      <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}>Fijo mensual</td>
+                      <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}><strong>{fmtCLP(SUELDO_BASE_DEFAULT)}</strong></td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}>Bono producción AE</td>
+                      <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}>{zVI.toFixed(1)} VI + {zGI.toFixed(1)} GI = {zTotal.toFixed(1)} AE</td>
+                      <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}><strong>{fmtCLP(bonoNeto)}</strong></td>
+                    </tr>
+                    {bonoApe > 0 && (
+                      <tr>
+                        <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}>Bono Top 20 APE</td>
+                        <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}>Ranking #{s.rankApe}</td>
+                        <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}><strong>{fmtCLP(bonoApe)}</strong></td>
+                      </tr>
+                    )}
+                    {bonoCv > 0 && (
+                      <tr>
+                        <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}>Bono Top 20 Crecim.</td>
+                        <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}>Ranking #{s.rankCv}</td>
+                        <td style={{ padding: '8px 9px', borderBottom: '1px solid var(--g100)', color: 'var(--g700)' }}><strong>{fmtCLP(bonoCv)}</strong></td>
+                      </tr>
+                    )}
+                    <tr style={{ background: 'var(--teal-lt)' }}>
+                      <td colSpan={2} style={{ padding: '9px 9px' }}><strong>INGRESO BRUTO MENSUAL ESTIMADO</strong></td>
+                      <td style={{ padding: '9px 9px' }}><strong style={{ color: 'var(--teal)', fontSize: 14 }}>{fmtCLP(total)}</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <p className="disclaimer" style={{ fontSize: 11, color: 'var(--g400)', borderTop: '1px solid var(--g200)', paddingTop: 12, marginTop: 4, lineHeight: 1.6 }} />
+            <p className="disclaimer" style={{ fontSize: 11, color: 'var(--g400)', borderTop: '1px solid var(--g200)', paddingTop: 12, marginTop: 4, lineHeight: 1.6 }}>
+              * Esta simulación es una <strong style={{ color: 'var(--g600)' }}>referencia de gestión</strong>, no una liquidación exacta. Su propósito es estimar el número de contactos y volumen de producción necesarios para alcanzar una meta de ingresos. El resultado real dependerá del mix definitivo de productos, primas cobradas y persistencia mensual. UF = ${Math.round(ufVal).toLocaleString('es-CL')} · Sueldo mínimo $539.000 (Ley 21.751) · Tope T5: {tope_t5 === null ? 'sin tope' : tope_t5 + ' AE'} (mes {ant}).
+            </p>
             <div className="copyright" style={{ marginTop: 24 }}>
               <span style={{ color: 'var(--g400)' }}>© 2026 The Precision Selling · Todos los derechos reservados</span>
             </div>
