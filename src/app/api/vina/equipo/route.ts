@@ -9,7 +9,7 @@ const SECRET = process.env.VINA_JWT_SECRET ?? process.env.SAILOR_JWT_SECRET ?? '
 
 type Sesion = { asesor: string; email: string; empresa: string; rol?: string }
 
-// Solo un token de SUPERVISOR de empresa 'vina' puede ver el roster del equipo.
+// Solo un token de SUPERVISOR de empresa 'consorcio' puede ver el roster del equipo.
 function verifySupervisor(req: NextRequest): Sesion | null {
   const auth = req.headers.get('authorization') ?? ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null

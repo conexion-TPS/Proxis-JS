@@ -29,13 +29,13 @@ const USUARIOS = {
 const ASESORES = Object.entries(USUARIOS).filter(([,v])=>v.rol==='asesor').map(([k])=>k);
 
 /* ── Roster por tenant ──────────────────────────────────────────
-   Zurich usa ASESORES (hardcodeado). Consorcio ('vina') usa el equipo
+   Zurich usa ASESORES (hardcodeado). Consorcio ('consorcio') usa el equipo
    de su supervisora, leído del servidor (vina_credentials, sin hashes).
    roster() es la única lista que deben iterar las vistas de supervisor. */
 let TEAM_ROSTER = null;
-function roster(){ return (G.empresa==='vina' && TEAM_ROSTER && TEAM_ROSTER.length) ? TEAM_ROSTER : ASESORES; }
-// Sufijo de query: aísla las lecturas de 'vina' en las tablas que tienen columna empresa.
-function empQ(){ return G.empresa==='vina' ? '&empresa=eq.vina' : ''; }
+function roster(){ return (G.empresa==='consorcio' && TEAM_ROSTER && TEAM_ROSTER.length) ? TEAM_ROSTER : ASESORES; }
+// Sufijo de query: aísla las lecturas de 'consorcio' en las tablas que tienen columna empresa.
+function empQ(){ return G.empresa==='consorcio' ? '&empresa=eq.consorcio' : ''; }
 async function loadRosterVina(){
   try{
     const r=await fetch('/api/vina/equipo',{headers:{Authorization:`Bearer ${G.token||''}`}});
@@ -182,7 +182,7 @@ async function doLogin(){
       const r=await fetch('/api/vina/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:n,password:p})});
       const d=await r.json().catch(()=>({}));
       if(!r.ok){ hideMsg('lload'); showMsg('lerr',d.error||'Credenciales incorrectas.'); document.getElementById('lp').value=''; return; }
-      G.usuario=d.asesor; G.rol=(d.rol||'asesor'); G.empresa='vina'; G.token=d.token||null;
+      G.usuario=d.asesor; G.rol=(d.rol||'asesor'); G.empresa='consorcio'; G.token=d.token||null;
       enterApp();
     }catch(e){ hideMsg('lload'); showMsg('lerr','No se pudo conectar.'); }
     return;
@@ -221,17 +221,17 @@ async function fetchUF(){
     UF_VAL=dUF.serie[0].valor;
     try{const dSM=await rSM.json();SUELDO_BASE=dSM.serie[0].valor;}catch{}
     document.getElementById('uf-display').textContent='$'+Math.round(UF_VAL).toLocaleString('es-CL');
-    if (G.empresa === 'vina' && typeof renderConsorcio === 'function') renderConsorcio(); else simRender();
+    if (G.empresa === 'consorcio' && typeof renderConsorcio === 'function') renderConsorcio(); else simRender();
   }catch{
     document.getElementById('uf-display').textContent='$'+Math.round(UF_VAL).toLocaleString('es-CL')+' (ref.)';
-    if (G.empresa === 'vina' && typeof renderConsorcio === 'function') renderConsorcio(); else simRender();
+    if (G.empresa === 'consorcio' && typeof renderConsorcio === 'function') renderConsorcio(); else simRender();
   }
 }
 
 /* ══ BUILD APP ══ */
 async function buildApp(){
   // Consorcio: cargar el roster del equipo ANTES de construir selects y renderers.
-  if(G.empresa==='vina' && G.rol==='supervisor') await loadRosterVina();
+  if(G.empresa==='consorcio' && G.rol==='supervisor') await loadRosterVina();
   document.getElementById('h-role').innerHTML=
     `${G.usuario} · <strong>${G.rol==='supervisor'?'Supervisora':'Asesor/a'}</strong>`;
   document.getElementById('print-name').textContent=
@@ -271,7 +271,7 @@ async function buildApp(){
 
   // Render first view
   if(G.rol==='supervisor'){
-    if (G.empresa === 'vina' && typeof initConsorcio === 'function') initConsorcio();
+    if (G.empresa === 'consorcio' && typeof initConsorcio === 'function') initConsorcio();
     else buildSimulador();
     fetchUF();
     setTimeout(()=>renderEquipo(), 100);
@@ -1365,7 +1365,7 @@ async function guardarMeta(asesor){
     meta_prospectos_mes:  parseInt(document.getElementById(`mp-${asesor}`)?.value||15),
     meta_ventas_mes:      parseInt(document.getElementById(`mv-${asesor}`)?.value||5),
     meta_ingresos:        parseInt(document.getElementById(`mi-${asesor}`)?.value||2000000),
-    empresa:(G.empresa==='vina'?'vina':undefined),
+    empresa:(G.empresa==='consorcio'?'consorcio':undefined),
     updated_at:new Date().toISOString()
   };
   try{
@@ -1470,7 +1470,7 @@ async function guardarMetasEnTracker(){
     return;
   }
   try{
-    await SB.upsert('metas',{...m, empresa:(G.empresa==='vina'?'vina':undefined), updated_at:new Date().toISOString()},'asesor');
+    await SB.upsert('metas',{...m, empresa:(G.empresa==='consorcio'?'consorcio':undefined), updated_at:new Date().toISOString()},'asesor');
     const btn=document.querySelector('[onclick="guardarMetasEnTracker()"]');
     if(btn){btn.textContent='✓ Metas guardadas para '+m.asesor;btn.style.background='var(--teal)';btn.style.color='white';setTimeout(()=>{btn.textContent='💾 Guardar metas de '+m.asesor+' en Tracker';btn.style.background='';btn.style.color='';},3000)}
   }catch(e){alert('Error al guardar metas: '+e.message)}

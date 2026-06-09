@@ -15,7 +15,7 @@ function verifySesion(req: NextRequest): Sesion | null {
   if (!token) return null
   try {
     const s = jwt.verify(token, SECRET) as Sesion
-    // Cinturón de aislamiento: el token debe ser de empresa 'vina'.
+    // Cinturón de aislamiento: el token debe ser de empresa 'consorcio'.
     if (s.empresa !== EMPRESA_VINA) return null
     return s
   } catch {
@@ -33,7 +33,7 @@ function lunesISO(d = new Date()): string {
 
 const VINCULOS = ['Amigo/a', 'Familiar', 'Cliente', 'Conocido/a']
 
-// ── GET: semanas (reportes) + contactos del asesor, SOLO empresa='vina' ──
+// ── GET: semanas (reportes) + contactos del asesor, SOLO empresa='consorcio' ──
 export async function GET(req: NextRequest) {
   const s = verifySesion(req)
   if (!s) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
