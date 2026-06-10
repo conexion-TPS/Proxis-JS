@@ -395,6 +395,8 @@ Dos desviaciones, ambas en el **header del app-shell**:
 - **Consorcio sin `metas`/`nodos`/`ingresos`:** equipo reciente; sembrar/esperar actividad en Fase 2.
 - **Simulador Zurich — bloqueo de tenant pendiente (C1):** Header del simulador Zurich hardcodea "Alejandra Espinoza" como supervisora. El bloqueo de tenant (equivalente al split de routing `buildApp` del legacy, `empresa='vina'` → `initConsorcio`) no está implementado. Cuando se implemente, el header reflejará la sesión real y Valeska/Consorcio será enrutada a su propio simulador. El simulador Consorcio se porta en Sección 4.
 - **Simulador Consorcio — bloqueo de tenant pendiente (paralelo a C1):** El simulador Consorcio (`src/app/app/simulador-consorcio/page.tsx`) hardcodea "Valeska Comparini Cruells" como supervisora (constante `CONSORCIO_SUPERVISORA`). Ese nombre sale del conocimiento de plataforma, NO del calco (en el legacy `sim.js` el asesor es un input de texto libre y no hay supervisora). Misma deuda que Zurich: hoy ambos simuladores son rutas separadas con la supervisora cableada; cuando se implemente el bloqueo de tenant, el header reflejará la sesión real y cada supervisora será enrutada a su simulador según `empresa`.
+- **🔴 Edición/guardado de metas del supervisor — HUÉRFANA (función CAPITAL, pendiente Fase 2/3):** La edición/guardado de metas del supervisor (`renderMetas` + `guardarMeta` → upsert a tabla `metas`) está huérfana en el legacy vivo (definida sin call-site; no existe tab 'Metas' en el Tracker supervisor actual). NO se portó en el Tracker Consorcio porque el panel Equipo completo es read-only. Es una función CAPITAL pendiente: es la vía por la que el supervisor registra la META ACORDADA con cada asesor — indicador clave que debe alimentar a la IA. Debe reactivarse/portarse en Fase 2/3. Hoy la única vía viva que escribe metas es `guardarMetasEnTracker` del Simulador (inerte en React).
+- **Tracker Consorcio — quirk multi-mes calcado fiel del legacy:** en `renderEquipo` el cálculo pasa `meses[0]` a `calcIndicadores`, por lo que en períodos >1 mes las KPIs y la tabla per-asesor solo reflejan el primer mes del rango (la tendencia mensual sí suma todos). Probable bug del legacy, replicado idéntico por fidelidad. Revisar/corregir conscientemente en Fase 2.
 
 > ✅ **Resuelto en paso A** (ya no es deuda): los `org_nodos` de Zurich/Consorcio y la conexión del mando (Alejandra/Valeska) a sus nodos — la resolución asesor→supervisor de los equipos reales ya funciona.
 
@@ -405,6 +407,38 @@ Dos desviaciones, ambas en el **header del app-shell**:
 - **RLS:** tablas de Viña con anon key pública hardcodeada en `plataforma-core.js`. No urgente (datos no sensibles, 2 semanas). Se define correctamente sobre el modelo final.
 - **`feedback`** sin tenant → verificar si debe ser tenant-aware.
 
+### Frente futuro — aislamiento de empresa en endpoints /api/vina/* (Fase 3)
+
+Estado (2026-06-08): los endpoints /api/vina/* (login, equipo, bitacora)
+siguen acoplados al modelo legacy: filtran por la constante EMPRESA_VINA='vina'
+(o no filtran, caso de `equipo`), y el login firma empresa hardcodeada en el token.
+
+Tras la migración de datos del 06-05 (vina→consorcio), el código quedó
+desalineado: el dashboard de la supervisora de Consorcio (Valeska) muestra vacío
+porque el código busca 'vina' y los datos dicen 'consorcio'. Datos intactos
+(verificado); es cosmético, no pérdida.
+
+NO es riesgo presente: el aislamiento Consorcio↔Zurich se sostiene hoy por el
+split de routing del legacy (Consorcio entra por /api/vina/login→vina_credentials;
+Zurich entra hardcodeado en plataforma-core.js). vina_credentials solo contiene
+Consorcio; Zurich no está ahí. El riesgo de mezcla es teórico hasta que una
+segunda empresa entre por esa misma vía.
+
+Arreglo definitivo: derivar la empresa de la identidad del token resuelto a
+institucion_id, en Fase 3, junto con la conmutación a proxis_dev. NO antes:
+cualquier arreglo sobre la capa Viña (vina_credentials, token legacy) es
+transitorio y se desecha al apagar el legacy. Una empresa nueva se da de alta
+en proxis_dev (persona/org_usuarios/asesor_credentials, segmentada por
+institucion_id), no en vina_credentials.
+
+Patrón correcto confirmado: derivar del token, no hardcodear. Su lugar es Fase 3.
+Plan detallado (transitorio, referencia): PLAN_AISLAMIENTO_EMPRESA.md.
 ---
 
 *Fin. **Fase 0 + Paso A + Paso B COMPLETOS** — **Mi Informe portado a React con calco fiel** (commit `9d43275`); el patrón legacy→React (leer de **proxis_dev** por `persona_id`/`institucion_id`, NO de Viña ni por nombre + UI idéntica) está probado **end-to-end sobre una pantalla completa**. Desviaciones del calco registradas en §7-quinquies (A dejada por decisión; B pendiente). Próximo paso (a decidir): portar la siguiente pantalla (**Simulador** / Nodos / Tracker) o endurecer el login de Zurich. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
+
+3.6.e (tabla campaña / mix-camp-tbody): OMITIDA por diseño. El legacy
+mostraba una tabla comparativa separada que recomputaba valores de campaña.
+En React, simCalcZ(campana=true) ya integra CAMP_PRODS en el `det` principal,
+así que la tabla mix (3.6.a) muestra los valores de campaña al activar el
+toggle s.campana. La tabla separada es redundante. No es trabajo pendiente.

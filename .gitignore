@@ -21,6 +21,9 @@ tsconfig.tsbuildinfo
 # Secrets (nunca commitear)
 admin/_secrets.js
 
+# Doc de contexto interno (contiene token Management API + notas de secretos) — NUNCA versionar
+HANDOFF.md
+
 # Confidencial — modelo de compensación con términos/productos reales (de-ofuscación)
 consorcio-confidencial/
 
