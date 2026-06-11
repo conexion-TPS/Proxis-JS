@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { SIM_METODOS, nextPct, computeConsorcio, calcEmbudo, type ConsorcioScn, type Metodo } from '@/lib/simulador/calculoConsorcio' // motor/embudo autónomo (NO Zurich)
 import { useAuth } from '../AuthProvider'
+import { useRouter } from 'next/navigation'
 
 /*
  * Simulador de Metas — tenant CONSORCIO. Calco fiel del legacy
@@ -13,11 +14,6 @@ import { useAuth } from '../AuthProvider'
  * OCULTOS (Consorcio no los muestra, sim.js:189): card-mix y card-tramos
  * (= "Transformación AE Puntos → Bono UF").
  */
-
-// Supervisora Consorcio hardcodeada. Sale del conocimiento de plataforma, NO del
-// calco (sim.js usa un input de texto libre). Paralelo a ZURICH_SUPERVISORA.
-// Bloqueo de tenant = deuda registrada en DISENO_CONSOLIDACION.md.
-const CONSORCIO_SUPERVISORA = 'Valeska Comparini Cruells'
 
 // Bloque <style> propio y autónomo (copia del de Zurich; las clases del simulador
 // no están en globals.css). No se importa nada de Zurich.
@@ -231,7 +227,8 @@ type CsState = {
 }
 
 export default function SimuladorConsorcioPage() {
-  const { token, login: signIn, logout, loadIdentity } = useAuth()
+  const { token, ident, login: signIn, logout, loadIdentity } = useAuth()
+  const router = useRouter()
   const [uf, setUf] = useState('…')
   const [ufVal, setUfVal] = useState(39500) // UF numérica para el motor; fallback 39500 (Consorcio, ≠ 39357 Zurich) — calco UF() sim.js:23
   const [cargando, setCargando] = useState(false)
@@ -279,6 +276,8 @@ export default function SimuladorConsorcioPage() {
   // Validación de sesión al cargar (calco de cargarIdent): /api/app/me con 401→logout,
   // ahora vía el AuthProvider. El header de esta página no usa la identidad (Consorcio hardcodeado).
   useEffect(() => { if (token) loadIdentity() }, [token, loadIdentity])
+  // Gate de rol (C1.2): el Simulador de Metas es vista de supervisor → un asesor se redirige a Mi Informe.
+  useEffect(() => { if (ident?.tipo === 'asesor') router.push('/app/informe') }, [ident, router])
 
   async function login() {
     setErr(''); setCargando(true)
@@ -359,6 +358,16 @@ export default function SimuladorConsorcioPage() {
   const emb = calcEmbudo(cs.pcts, nPolizas)
   const totC = emb.totContactos
 
+  // Mientras resuelve la identidad, o si es asesor (en plena redirección): NO renderizar el Simulador.
+  if (!ident || ident.tipo === 'asesor') {
+    return (
+      <>
+        <style>{CSS}</style>
+        <div className="login-wrap"><div style={{ color: 'var(--g400)', fontSize: 14 }}>Cargando…</div></div>
+      </>
+    )
+  }
+
   return (
     <>
       <style>{CSS}</style>
@@ -390,7 +399,7 @@ export default function SimuladorConsorcioPage() {
             {/* Supervisora Consorcio hardcodeada (Valeska Comparini Cruells). Sale del
                 conocimiento de plataforma, NO del calco. Bloqueo de tenant = deuda
                 (ver DISENO_CONSOLIDACION.md). Paralelo a C1 de Zurich. */}
-            <div className="hrole">{CONSORCIO_SUPERVISORA} · <strong>Supervisora</strong></div>
+            <div className="hrole">{ident?.nombre ?? ''} · <strong>{ident?.tipo === 'mando' ? 'Supervisora' : 'Asesor/a'}</strong></div>
             <a href="/" className="hinicio">← Inicio</a>
             <button className="hout" onClick={logout}>Salir</button>
           </div>

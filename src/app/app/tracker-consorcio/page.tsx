@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MiInforme, { type Informe } from '@/components/MiInforme' // render compartido de Mi Informe (T3b)
 import { useAuth } from '../AuthProvider'
+import { useRouter } from 'next/navigation'
 
 /*
  * Tracker de Prospección — tenant CONSORCIO, vista SUPERVISOR. Calco del legacy
@@ -12,10 +13,6 @@ import { useAuth } from '../AuthProvider'
  * SIN escrituras. Los stubs inertes guardarMeta/guardarIngreso son T2/T4.
  * NO toca el simulador, Zurich, ni /vina (bitácora del asesor, viva en prod).
  */
-
-// Supervisora Consorcio hardcodeada (mismo patrón que simulador-consorcio).
-// Bloqueo de tenant = deuda registrada en DISENO_CONSOLIDACION.md.
-const CONSORCIO_SUPERVISORA = 'Valeska Comparini Cruells'
 
 // Bloque <style> propio y autónomo: copia verbatim del de simulador-consorcio
 // (app-shell, cards, .smc, .ib, tablas .dt, etc.) + las reglas de TABS del legacy.
@@ -333,7 +330,8 @@ function GapCard({ g }: { g: EquipoGap }) {
 }
 
 export default function TrackerConsorcioPage() {
-  const { token, login: signIn, logout, loadIdentity } = useAuth()
+  const { token, ident, login: signIn, logout, loadIdentity } = useAuth()
+  const router = useRouter()
   const [uf, setUf] = useState('…')
   const [cargando, setCargando] = useState(false)
   const [err, setErr] = useState('')
@@ -364,6 +362,8 @@ export default function TrackerConsorcioPage() {
   // Validación de sesión al cargar (calco de cargarIdent): /api/app/me con 401→logout,
   // ahora vía el AuthProvider. El header de esta página no usa la identidad (Consorcio hardcodeado).
   useEffect(() => { if (token) loadIdentity() }, [token, loadIdentity])
+  // Gate de rol (C1.2): un asesor no accede al Tracker (vista de supervisor) → redirige a Mi Informe.
+  useEffect(() => { if (ident?.tipo === 'asesor') router.push('/app/informe') }, [ident, router])
 
   // Carga del panel Equipo completo (solo lectura; el cálculo vive en /api/app/equipo).
   const cargarEquipo = useCallback(async () => {
@@ -490,6 +490,16 @@ export default function TrackerConsorcioPage() {
     )
   }
 
+  // Mientras resuelve la identidad, o si es asesor (en plena redirección): NO renderizar el Tracker.
+  if (!ident || ident.tipo === 'asesor') {
+    return (
+      <>
+        <style>{CSS}</style>
+        <div className="login-wrap"><div style={{ color: 'var(--g400)', fontSize: 14 }}>Cargando…</div></div>
+      </>
+    )
+  }
+
   return (
     <>
       <style>{CSS}</style>
@@ -519,7 +529,7 @@ export default function TrackerConsorcioPage() {
           <span className="huf">UF: <span className="uf-display">{uf}</span></span>
           <div className="hml">
             {/* Supervisora Consorcio hardcodeada (paralelo a simulador-consorcio). Deuda de tenant en DISENO_CONSOLIDACION.md. */}
-            <div className="hrole">{CONSORCIO_SUPERVISORA} · <strong>Supervisora</strong></div>
+            <div className="hrole">{ident?.nombre ?? ''} · <strong>{ident?.tipo === 'mando' ? 'Supervisora' : 'Asesor/a'}</strong></div>
             <a href="/" className="hinicio">← Inicio</a>
             <button className="hout" onClick={logout}>Salir</button>
           </div>
