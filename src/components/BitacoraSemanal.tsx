@@ -22,11 +22,14 @@ export type BitacoraDTO = { mes: string; mesPrev: string; reportes: ReporteB[]; 
 // ── Helpers temporales (calco de plataforma-core.js) ──
 const _SEM1 = new Date('2026-03-30')
 const semNum = (f: string) => Math.round((+new Date(f) - +_SEM1) / (7 * 24 * 60 * 60 * 1000)) + 1
+// Formatea una fecha como YYYY-MM-DD en hora LOCAL (sin pasar por UTC). Reemplaza
+// d.toISOString(), que en husos UTC+ corría la fecha un día y borraba la semana del historial.
+const fmtLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 function getLunes(): string {
   const now = new Date()
   const day = now.getDay()
   const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-  return new Date(now.getFullYear(), now.getMonth(), diff).toISOString().split('T')[0]
+  return fmtLocal(new Date(now.getFullYear(), now.getMonth(), diff))
 }
 function lunesDelMes(mesISO: string): string[] {
   const [yy, mm] = mesISO.split('-').map(Number)
@@ -34,7 +37,7 @@ function lunesDelMes(mesISO: string): string[] {
   const back = dow === 0 ? 6 : dow - 1
   const lunes: string[] = []
   let d = new Date(yy, mm - 1, 1 - back)
-  while (d < new Date(yy, mm, 1)) { lunes.push(d.toISOString().split('T')[0]); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7) }
+  while (d < new Date(yy, mm, 1)) { lunes.push(fmtLocal(d)); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7) }
   return lunes
 }
 

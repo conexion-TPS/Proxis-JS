@@ -169,10 +169,10 @@ export default function InformePage() {
   useEffect(() => { if (token) cargar(token, mes) }, [token, mes, cargar])
 
   // Bitácora Semanal — solo lectura (proxis_dev por persona_id, mes actual + previo). Carga al abrir la pestaña.
-  const cargarBitacora = useCallback(async (tk: string) => {
+  const cargarBitacora = useCallback(async (tk: string, m: string) => {
     setBitLoading(true); setBitErr('')
     try {
-      const r = await fetch(`/api/app/bitacora?mes=${last6Meses()[0]}`, { headers: { Authorization: `Bearer ${tk}` } })
+      const r = await fetch(`/api/app/bitacora?mes=${m}`, { headers: { Authorization: `Bearer ${tk}` } })
       if (r.status === 401) { localStorage.removeItem(TOKEN_KEY); setToken(null); return }
       const d = await r.json()
       if (!r.ok) { setBitErr(d.error ?? 'Error'); setBitData(null); return }
@@ -180,7 +180,7 @@ export default function InformePage() {
     } catch { setBitErr('No se pudo conectar') }
     finally { setBitLoading(false) }
   }, [])
-  useEffect(() => { if (token && tab === 'bitacora' && !bitData) cargarBitacora(token) }, [token, tab, bitData, cargarBitacora])
+  useEffect(() => { if (token && tab === 'bitacora') cargarBitacora(token, mes) }, [token, tab, mes, cargarBitacora])
 
   async function login() {
     setErr(''); setCargando(true)
@@ -287,7 +287,7 @@ export default function InformePage() {
           <div className="informe-head">
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 600 }}>Bitácora Semanal</h2>
-              <p style={{ fontSize: 13, color: 'var(--g400)' }}>Mes en curso: {getMesLabel(last6Meses()[0])}</p>
+              <p style={{ fontSize: 13, color: 'var(--g400)' }}>Mes en curso: {getMesLabel(mes)}</p>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
