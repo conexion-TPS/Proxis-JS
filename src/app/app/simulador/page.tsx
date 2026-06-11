@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import {
   SIM_PRODS, SIM_PRODS_GI, SIM_METODOS, TOP20_APE_UF, TOP20_CV_UF, ZURICH_ASESORES, ZURICH_SUPERVISORA, SUELDO_BASE_DEFAULT, UF_DEFAULT,
-  initialStateZurich, clampQty, nextPct, fmtCLP, fmtUF, labelAnt, labelPersist, labelPPA, labelApvEx, labelApvFlex, labelRp,
+  initialStateZurich, clampQty, nextPct, fmtCLP, fmtUF, labelAnt, labelPersist, labelPPA, labelApvEx, labelApvFlex, labelRp, labelBlEx,
   PMIN, FP, simCalcZ, simCalcBonoUF, calcEmbudo,
   type SimState, type Metodo,
 } from '@/lib/simulador/calculo'
@@ -260,7 +260,8 @@ export default function SimuladorPage() {
               <div className="mix-row" key={p.id}>
                 <div>
                   <div className="mix-name">{p.n}{p.id === 'APV' && <span className="pill pill-gn" style={{ marginLeft: 3, fontSize: 10 }}>campaña 100%</span>}</div>
-                  <div className="mix-sub">Factor AE: {(p.z * 100).toFixed(0)}%</div>
+                  {/* Q1 (TPS): los productos con factor AE variable por endoso (RP) no muestran un % fijo. */}
+                  {!p.zEndoso && <div className="mix-sub">Factor AE: {(p.z * 100).toFixed(0)}%</div>}
                 </div>
                 <div className="mix-qty"><button onClick={() => chQty(p.id, -1)}>−</button><div className="mix-qty-n">{s.qty[p.id]}</div><button onClick={() => chQty(p.id, 1)}>+</button></div>
               </div>
@@ -313,10 +314,17 @@ export default function SimuladorPage() {
                 <span style={{ fontSize: 11, color: 'var(--g400)' }}>UF · <span style={{ fontFamily: 'var(--mono)', color: 'var(--amber)' }}>{labelApvFlex(s.apvFlexEx)}</span></span>
               </div>
             </div>
-            <div className="fg"><div className="flbl">Renta Preferente — Aporte extraordinario (UF) <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--g400)' }}>· AE: 5% del monto</span></div>
+            <div className="fg"><div className="flbl">Renta Preferente — Aporte extraordinario (UF) <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--g400)' }}>· PPA: 10% · AE: 5% del monto</span></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                 <input type="number" step={0.1} min={0} max={99999} value={s.rpMonto} onChange={(e) => upd({ rpMonto: parseFloat(e.target.value) || 0 })} style={{ ...inpNum, width: 100 }} placeholder="UF" />
                 <span style={{ fontSize: 11, color: 'var(--g400)' }}>UF · <span style={{ fontFamily: 'var(--mono)', color: 'var(--amber)' }}>{labelRp(s.rpMonto)}</span></span>
+              </div>
+            </div>
+            {/* A4: Aporte extraordinario Business Life. PPA 10%; AE = PPA × ENDOSO_Z['BL'][endosoCol] (no se muestra el factor variable, decisión TPS). */}
+            <div className="fg"><div className="flbl">Business Life — Aporte extraordinario (UF) <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--g400)' }}>· PPA: 10% del monto</span></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                <input type="number" step={0.1} min={0} max={99999} value={s.blEx} onChange={(e) => upd({ blEx: parseFloat(e.target.value) || 0 })} style={{ ...inpNum, width: 100 }} placeholder="UF" />
+                <span style={{ fontSize: 11, color: 'var(--g400)' }}>UF · <span style={{ fontFamily: 'var(--mono)', color: 'var(--amber)' }}>{labelBlEx(s.blEx)}</span></span>
               </div>
             </div>
 

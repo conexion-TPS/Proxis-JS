@@ -25,6 +25,8 @@ export const ZURICH_SUPERVISORA = 'Alejandra Espinoza'
 export type ProdVida = {
   id: string; n: string; z: number; c?: number; cUF?: number; q: number; p: number; pMax: number
   cTopeUF?: number; incM12?: number; incM12TopeUF?: number; incM24?: number; incM24TopeUF?: number; incM120?: number
+  // Factor AE variable por columna de endoso (clave de ENDOSO_Z), en vez de `z` fijo. Ej: RP.
+  zEndoso?: string
 }
 export const SIM_PRODS: ProdVida[] = [
   { id: 'BL', n: 'Business Life', z: 2.00, c: .32, q: 1, p: 200000, pMax: 2000000, incM12: .32, incM24: .06, incM120: .036 },
@@ -34,6 +36,14 @@ export const SIM_PRODS: ProdVida[] = [
   { id: 'APV', n: 'APV', z: 0.50, cUF: .08, q: 1, p: 120000, pMax: 2000000 },
   { id: 'SS', n: 'Salud', z: 0.50, c: .08, q: 0, p: 50000, pMax: 1000000, incM12: .08, incM24: .08, incM120: .08 },
   { id: 'BLF', n: 'Business Life Flexible', z: 0.50, c: .32, q: 0, p: 80000, pMax: 2000000, incM12: .32, incM24: .06, incM120: .036 },
+  // ── A1: APV Flexible como PRODUCTO del Mix (divergencia intencional del legacy).
+  //    Factor AE 0.25 flat sobre PPA; comisión cUF 0.08 (fija por póliza, como APV); sin incentivo.
+  //    Campaña vía CAMP_PRODS['APVF'] (z 0.50, tope 600, cap 500). pMax = tope de formulario (UI), no cableado al input.
+  { id: 'APVF', n: 'APV Flexible', z: 0.25, cUF: .08, q: 0, p: 0, pMax: 2000000 },
+  // ── A2: Renta Preferente como PRODUCTO del Mix. Factor AE NO flat: sigue ENDOSO_Z['RP']
+  //    por columna de endoso (≥3/2 pól → 0.50, 0-1 pól → 0.25). Comisión c 0.24; sin incentivo.
+  //    Campaña vía CAMP_PRODS['RP'] (z 0.50, tope 300). `z` aquí es solo placeholder (no se usa: prima domina vía zEndoso).
+  { id: 'RP', n: 'Renta Preferente', z: 0.50, c: .24, q: 0, p: 0, pMax: 2000000, zEndoso: 'RP' },
 ]
 
 // ── PRODUCTOS GENERALES GI (Auto 50%, Hogar 100%) ── (datos.js)
@@ -99,7 +109,7 @@ export type SimState = {
   pcts: Record<string, number>
   qty: Record<string, number>; prima: Record<string, number>
   qtyGI: Record<string, number>; primaGI: Record<string, number>
-  rpMonto: number; apvEx: number; apvFlexEx: number
+  rpMonto: number; apvEx: number; apvFlexEx: number; blEx: number
   t5: Record<string, boolean>
   // KPI Campaña APV 100%: el legacy los lee del DOM al calcular; en React se guardan en estado.
   kpi: { vida: boolean; gi: boolean; salud: boolean }
@@ -115,7 +125,7 @@ export function initialStateZurich(asesores: string[]): SimState {
     meta: 2000000, ant: 3, persist: 92, campana: true,
     pcts: { ref1: 40, ref2: 40, ref3: 0, ref4: 0, dig: 10, frio: 10 },
     qty, prima, qtyGI, primaGI,
-    rpMonto: 0, apvEx: 0, apvFlexEx: 0,
+    rpMonto: 0, apvEx: 0, apvFlexEx: 0, blEx: 0,
     t5: { r1: false, r2: false, r3: false, r4: false, r5: false },
     kpi: { vida: false, gi: false, salud: false },
     bonos: { top20ape: false, top20cv: false, grati: true },
@@ -131,8 +141,11 @@ export const labelPPA = (prima: number) => `PPA: ${(prima * 12).toFixed(1)} UF`
 export const labelApvEx = (uf: number) => { const ppa = (uf * 0.10).toFixed(2); const ae = (parseFloat(ppa) * 0.5).toFixed(2); return `PPA: ${ppa} UF · ${ae} AE` }
 // APV Flexible: PPA = 10%; AE = 25% del PPA (perfil.js:120)
 export const labelApvFlex = (uf: number) => { const ppa = uf * 0.10; return `PPA: ${ppa.toFixed(2)} UF · ${(ppa * 0.25).toFixed(2)} AE` }
-// Renta Preferente: AE = 5% del monto (perfil.js:118)
-export const labelRp = (uf: number) => `${(uf * 0.05).toFixed(2)} AE`
+// A3: Aporte Renta Preferente — AE FIJO 5% del monto. Etiqueta muestra PPA (10%) y AE (5%).
+export const labelRp = (uf: number) => `PPA: ${(uf * 0.10).toFixed(2)} UF · ${(uf * 0.05).toFixed(2)} AE`
+// A4: Aporte extraordinario Business Life — AE varía por endoso (0.80/0.60/0.50); por decisión
+// de TPS NO se muestra el factor variable en la etiqueta del input, solo el PPA (10% fijo).
+export const labelBlEx = (uf: number) => `PPA: ${(uf * 0.10).toFixed(2)} UF`
 
 // ── Comportamiento de steppers (calco exacto, aislado del render) ──
 export const clampQty = (v: number) => Math.max(0, Math.min(20, v))
@@ -162,6 +175,15 @@ export function simCalcZ(ss: SimState, campana: boolean, ufVal: number) {
   let zVI = 0, zGIBruto = 0, comVenta = 0, incMant = 0, ventas = 0
   const det: DetItem[] = [], detGI: DetGIItem[] = []
 
+  // ── P5: endosoCol se deriva del total de pólizas del mix ANTES del loop (suma de qty
+  //    de TODOS los SIM_PRODS, incluidos los nuevos APVF/RP), porque el factor del producto
+  //    RP depende de la columna de endoso. Es el MISMO valor que el cálculo post-loop original
+  //    (suma de las qty del loop). El quirk legacy del traspaso APVF (+1 póliza, más abajo) se
+  //    mantiene intacto y NO afecta este endosoCol. ──
+  const ventasMix = SIM_PRODS.reduce((a, p) => a + (ss.qty[p.id] || 0), 0)
+  const endosoCol = ventasMix >= 3 ? 0 : ventasMix === 2 ? 1 : 2
+  const endosoLbl = endosoCol === 0 ? '≥3 pol.' : endosoCol === 1 ? '2 pol.' : '0-1 pol.'
+
   // ── Pólizas Vida VI ──
   SIM_PRODS.forEach((p) => {
     const qty = ss.qty[p.id]; if (!qty) return
@@ -173,7 +195,9 @@ export function simCalcZ(ss: SimState, campana: boolean, ufVal: number) {
     const tieneGIMix = SIM_PRODS_GI.some((q) => ss.qtyGI[q.id] > 0)
     const kpiCumpleCalc = kpiSaludChk && tieneVidaMix && tieneGIMix
     const usarCamp = cp != null && (p.id !== 'APV' || kpiCumpleCalc)
-    const zF = usarCamp ? cp!.z : p.z
+    // A2: factor base de RP por columna de endoso (ENDOSO_Z['RP']); el resto usa su `z` fijo.
+    const zBase = p.zEndoso ? ENDOSO_Z[p.zEndoso][endosoCol] : p.z
+    const zF = usarCamp ? cp!.z : zBase
     const nota = usarCamp ? `campaña ${(zF * 100).toFixed(0)}%` : (p.id === 'APV' && campana && !kpiCumpleCalc ? 'APV 50% (KPI ✗)' : '')
     let ppaUF = prima * 12 // prima ya está en UF
     if (usarCamp && cp?.capUF) ppaUF = Math.min(ppaUF, cp.capUF * qty)
@@ -198,9 +222,7 @@ export function simCalcZ(ss: SimState, campana: boolean, ufVal: number) {
     det.push({ p, qty, ppaUF, zTotal: zT, comVenta: cV, incMant: incT, nota })
   })
 
-  // Columna endoso según pólizas nueva venta del período
-  const endosoCol = ventas >= 3 ? 0 : ventas === 2 ? 1 : 2
-  const endosoLbl = endosoCol === 0 ? '≥3 pol.' : endosoCol === 1 ? '2 pol.' : '0-1 pol.'
+  // (endosoCol/endosoLbl ya calculados ANTES del loop — P5)
 
   // ── APV AE Flexible Traspaso cartera ──
   if (ss.apvFlexEx > 0) {
@@ -219,13 +241,23 @@ export function simCalcZ(ss: SimState, campana: boolean, ufVal: number) {
     zVI += z
     det.push({ p: { id: 'APVEX', n: 'APV Aporte Extra' }, qty: 1, ppaUF: ppaEq, zTotal: z, comVenta: 0, incMant: 0, nota: `aporte ${(zFactor * 100).toFixed(0)}% (${endosoLbl})` })
   }
-  // ── Renta Preferente Prima Única ──
+  // ── A3: Aporte Renta Preferente (divergencia intencional del legacy).
+  //    AE pasa de variable por endoso a FIJO = 5% del aporte (PPA = 10%; AE = PPA × 0.5 = 5%). ──
   if (ss.rpMonto > 0) {
-    const zFactor = ENDOSO_Z['RP'][endosoCol]
     const ppaRP = ss.rpMonto * 0.10
-    const z = ppaRP * zFactor
+    const z = ss.rpMonto * 0.05
     zVI += z
-    det.push({ p: { id: 'RPUNI', n: 'Renta Preferente' }, qty: 1, ppaUF: ppaRP, zTotal: z, comVenta: 0, incMant: 0, nota: `${(zFactor * 100).toFixed(0)}% (${endosoLbl})` })
+    det.push({ p: { id: 'RPUNI', n: 'Renta Preferente (aporte)' }, qty: 1, ppaUF: ppaRP, zTotal: z, comVenta: 0, incMant: 0, nota: 'PPA 10% · AE 5%' })
+  }
+  // ── A4: Aporte extraordinario Business Life (nuevo).
+  //    PPA = 10% del aporte; AE = PPA × ENDOSO_Z['BL'][endosoCol] (≥3 pól 0.80 / 2 pól 0.60 / 0-1 pól 0.50).
+  //    Sin comisión ni incentivo. ──
+  if (ss.blEx > 0) {
+    const zFactor = ENDOSO_Z['BL'][endosoCol]
+    const ppaBL = ss.blEx * 0.10
+    const z = ppaBL * zFactor
+    zVI += z
+    det.push({ p: { id: 'BLEX', n: 'Aporte Extra Business Life' }, qty: 1, ppaUF: ppaBL, zTotal: z, comVenta: 0, incMant: 0, nota: `${(zFactor * 100).toFixed(0)}% (${endosoLbl})` })
   }
 
   // ── Pólizas Generales GI ──
