@@ -29,8 +29,6 @@ function mesSiguiente(mes: string): string {
 }
 
 // ── Helpers de escritura (POST) ──
-const VINCULOS = ['Amigo/a', 'Familiar', 'Cliente', 'Conocido/a']
-
 // Calco de getLunes() del legacy (lunes ISO de la semana en curso). HALLAZGO: el legacy
 // (plataforma-core.js:122-129) usa la zona horaria LOCAL del navegador (= Chile en los
 // asesores reales). El server corre en UTC → computamos en Chile UTC-3 FIJO (convención
@@ -140,37 +138,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, reporte_id: data.id })
   }
 
-  // ── guardar_contactos (calco A §1b: delete-all + reinsert; validaciones B) ──
+  // ── guardar_contactos (v2a: RPC transaccional guardar_contactos_v2 en proxis_dev) ──
+  // Toda la maquinaria (delete+reinsert con B2, re-derivación de reactivaciones server-side,
+  // conversión/reactivación de nodos con B1, limpieza de huérfanos) vive en la RPC, en UNA
+  // transacción con lock del reporte. Las validaciones (pertenencia/confirmado/whitelist/trim)
+  // las hace la RPC. Ver db/migrations/2026-06-12_guardar_contactos_v2.sql + AJUSTES_BITACORA_V2.md.
   if (accion === 'guardar_contactos') {
     const reporte_id = body?.reporte_id
-    const contactos = body?.contactos
     if (!reporte_id) return NextResponse.json({ error: 'reporte_id requerido' }, { status: 400 })
 
-    const { data: rep } = await sb.from('reportes')
-      .select('id, confirmado').eq('id', reporte_id).eq('persona_id', id.persona_id).maybeSingle()
-    if (!rep) return NextResponse.json({ error: 'Reporte no encontrado' }, { status: 404 })
-    if (rep.confirmado) return NextResponse.json({ error: 'Semana ya confirmada' }, { status: 409 })
-
-    // delete-all del reporte → reinsert (calco guardarBorrador, SIN nodos/homónimos)
-    await sb.from('contactos').delete().eq('reporte_id', reporte_id)
-    const filas = (Array.isArray(contactos) ? contactos : [])
-      .filter((c) => (c?.nombre ?? '').trim())
-      .map((c) => ({
-        reporte_id, persona_id: id.persona_id, institucion_id: id.institucion_id, asesor: id.nombre,
-        nombre: String(c.nombre).trim(),
-        vinculo: VINCULOS.includes(c.vinculo) ? c.vinculo : 'Conocido/a',
-        tipo_contacto: typeof c.tipo_contacto === 'string' && c.tipo_contacto ? c.tipo_contacto : 'nuevo',
-        llamo: !!c.llamo,
-        reunion: !!c.reunion,
-        prospectos: Number.isFinite(+c.prospectos) ? Math.max(0, Math.trunc(+c.prospectos)) : 0,
-      }))
-    if (filas.length) {
-      const { error } = await sb.from('contactos').insert(filas)
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      // con contactos → la semana ya no es "sin actividad" (calco B)
-      await sb.from('reportes').update({ sin_actividad: false }).eq('id', reporte_id).eq('persona_id', id.persona_id)
+    const { data, error } = await sb.rpc('guardar_contactos_v2', {
+      p_persona_id: id.persona_id,
+      p_institucion_id: id.institucion_id,
+      p_reporte_id: reporte_id,
+      p_contactos: Array.isArray(body?.contactos) ? body.contactos : [],
+    })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (data && data.ok === false) {
+      return NextResponse.json({ error: data.error }, { status: data.status ?? 400 })
     }
-    return NextResponse.json({ ok: true, guardados: filas.length })
+    // data: { ok, guardados, nodos_nuevos[], nodos_reactivados[], nodos_borrados[] }
+    return NextResponse.json(data)
   }
 
   // ── sin_actividad (calco B) ──
