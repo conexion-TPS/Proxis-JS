@@ -7,6 +7,12 @@ export const dynamic = 'force-dynamic'
 
 const SECRET = process.env.VINA_JWT_SECRET ?? process.env.SAILOR_JWT_SECRET ?? 'proxis-vina-secret'
 
+// ── Corte 2026-06-15: bitácora B (Consorcio) en SOLO-CONSULTA. ──
+// ÚNICO SWITCH de B: poner en false revierte. El GET (consulta) sigue intacto;
+// el POST (todas las acciones de escritura) responde 409 con el aviso de migración.
+const VINA_SOLO_CONSULTA = true
+const AVISO_CORTE = '📢 Desde el lunes 15 de junio, la bitácora se carga en la plataforma nueva: proxis.theprecisionselling.com/app/informe — Entra con tu email y tu clave nueva. Aquí puedes seguir consultando tu historial.'
+
 type Sesion = { asesor: string; email: string; empresa: string }
 
 function verifySesion(req: NextRequest): Sesion | null {
@@ -67,6 +73,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const s = verifySesion(req)
   if (!s) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  // Corte: bitácora B en solo-consulta → bloquea TODAS las escrituras en un solo punto.
+  if (VINA_SOLO_CONSULTA) return NextResponse.json({ error: AVISO_CORTE }, { status: 409 })
 
   const body = await req.json().catch(() => ({}))
   const { accion } = body

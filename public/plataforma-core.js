@@ -93,6 +93,28 @@ const SB = {
 };
 
 /* ══════════════════════════════════════════════════════════════
+   CORTE — LEGACY A SOLO-CONSULTA (preparado para el corte del 2026-06-15)
+   ÚNICO SWITCH: poner PLATAFORMA_SOLO_CONSULTA = false revierte TODO el corte.
+   Bloquea TODAS las escrituras del legacy; lecturas y consultas siguen igual.
+══════════════════════════════════════════════════════════════ */
+const PLATAFORMA_SOLO_CONSULTA = true;
+function avisoSoloConsulta(){
+  alert('📢 Desde el lunes 15 de junio, la bitácora se carga en la plataforma nueva: proxis.theprecisionselling.com/app/informe — Entra con tu email y tu clave nueva. Aquí puedes seguir consultando tu historial.');
+}
+function bannerSoloConsulta(){
+  if(!PLATAFORMA_SOLO_CONSULTA || document.getElementById('banner-solo-consulta')) return;
+  const b=document.createElement('div');
+  b.id='banner-solo-consulta';
+  b.innerHTML='📢 Desde el lunes 15 de junio, la bitácora se carga en la plataforma nueva: <strong>proxis.theprecisionselling.com/app/informe</strong> — Entra con tu email y tu clave nueva. Aquí puedes seguir consultando tu historial.';
+  b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#0b0a09;color:#fff;font:13px/1.45 system-ui,-apple-system,sans-serif;padding:10px 16px;text-align:center;box-shadow:0 -2px 12px rgba(0,0,0,.25)';
+  document.body.appendChild(b);
+}
+if(PLATAFORMA_SOLO_CONSULTA){
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bannerSoloConsulta);
+  else bannerSoloConsulta();
+}
+
+/* ══════════════════════════════════════════════════════════════
    ESTADO
 ══════════════════════════════════════════════════════════════ */
 let G = { usuario:null, rol:null, empresa:null, token:null, filaCount:0, chartCache:{}, charts:{} };
@@ -853,6 +875,7 @@ async function renderReporteLista(){
 }
 
 async function abrirNuevaSemana(){
+  if(PLATAFORMA_SOLO_CONSULTA){ avisoSoloConsulta(); return; }
   const cont=document.getElementById('reporte-content');
   cont.innerHTML='<div class="ib bl">Verificando…</div>';
   await loadContactHistory(G.usuario);
@@ -1103,6 +1126,7 @@ function homonimoEsDistinto(){
 }
 
 async function checkYConvertirNodo(asesor,nombre,vinculo,prospectos,semanaInicio){
+  if(PLATAFORMA_SOLO_CONSULTA){ return {esNodo:false}; }
   try{
     const nombreNorm=normNombre(nombre);
 
@@ -1221,6 +1245,7 @@ const SIMILITUD_THRESHOLD = 0.70; // 70% similarity triggers homonym check
 function esSimilar(a,b){ return similitud(a,b) >= SIMILITUD_THRESHOLD; }
 function esMismoExacto(a,b){ return normNombre(a)===normNombre(b); }
 async function guardarBorrador(rid){
+  if(PLATAFORMA_SOLO_CONSULTA){ avisoSoloConsulta(); return; }
   const contactos=leerForm();
   if(!contactos.length){ showMsg('form-err','Ingresa al menos un contacto con nombre.'); return; }
   hideMsg('form-err'); hideMsg('form-ok');
@@ -1359,6 +1384,7 @@ async function renderMetas(){
 }
 
 async function guardarMeta(asesor){
+  if(PLATAFORMA_SOLO_CONSULTA){ avisoSoloConsulta(); return; }
   const data={
     asesor,
     meta_contactos_semana:parseInt(document.getElementById(`mc-${asesor}`)?.value||3),
@@ -1439,6 +1465,7 @@ function toggleBitacoraGuia(){
 }
 
 async function guardarIngreso(asesor){
+  if(PLATAFORMA_SOLO_CONSULTA){ avisoSoloConsulta(); return; }
   const mes=document.getElementById('sel-mes-ing')?.value||getMesActual();
   const val=parseInt(document.getElementById(`ing-${asesor}`)?.value||0);
   try{
@@ -1463,6 +1490,7 @@ function cerrarModal(){ document.getElementById('modal').classList.remove('open'
    INIT
 ══════════════════════════════════════════════════════════════ */
 async function guardarMetasEnTracker(){
+  if(PLATAFORMA_SOLO_CONSULTA){ avisoSoloConsulta(); return; }
   const m = window._simMeta;
   if(!m){alert('Primero configura la simulación.');return}
   if(m.meta_prospectos_mes<=1){
@@ -1665,6 +1693,7 @@ async function renderNodosPanel(){
 }
 
 async function registrarActivacion(nodoId,nombreNodo){
+  if(PLATAFORMA_SOLO_CONSULTA){ avisoSoloConsulta(); return; }
   const prosp=parseInt(document.getElementById(`act-prosp-${nodoId}`)?.value||0);
   // Use most recent report week, same logic as renderNodosPanel
   const reportesMes=await getReportesMes(G.usuario,getMesActual()).catch(()=>[]);
@@ -1704,6 +1733,7 @@ async function registrarActivacion(nodoId,nombreNodo){
 
 /* ══ EQUIPO COMPLETO ══ */
 async function eliminarNodo(nodoId, nombreNodo){
+  if(PLATAFORMA_SOLO_CONSULTA){ avisoSoloConsulta(); return; }
   const confirmar = confirm(
     `¿Eliminar el nodo "${nombreNodo}"?\n\nEsto borrará el nodo, sus activaciones y eliminará a esta persona del reporte actual. Esta acción no se puede deshacer.`
   );
@@ -1744,6 +1774,7 @@ async function eliminarNodo(nodoId, nombreNodo){
 }
 
 async function eliminarContacto(contactoId, reporteId){
+  if(PLATAFORMA_SOLO_CONSULTA){ avisoSoloConsulta(); return; }
   if(!confirm('¿Eliminar este contacto del reporte?')) return;
   try{
     await SB.del('contactos',`id=eq.${contactoId}`);
@@ -2128,7 +2159,7 @@ function resetOnboarding(){
   if(!G.usuario)return;
   const lsKey='ob_seen_'+G.usuario.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'').replace(/__+/g,'_');
   localStorage.removeItem(lsKey);
-  SB.patch('metas',{onboarding_seen:false},`asesor=eq.${encodeURIComponent(G.usuario)}`).catch(()=>{});
+  if(!PLATAFORMA_SOLO_CONSULTA) SB.patch('metas',{onboarding_seen:false},`asesor=eq.${encodeURIComponent(G.usuario)}`).catch(()=>{});
   alert(`Onboarding reseteado para ${G.usuario}. Recarga la página para verlo.`);
 }
 
@@ -2150,7 +2181,7 @@ function obNext(){
     // Mark as seen
     const lsKey2='ob_seen_'+G.usuario.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'').replace(/__+/g,'_');
     try{localStorage.setItem(lsKey2,'1');}catch{}
-    SB.patch('metas',{onboarding_seen:true},`asesor=eq.${encodeURIComponent(G.usuario)}`).catch(()=>{});
+    if(!PLATAFORMA_SOLO_CONSULTA) SB.patch('metas',{onboarding_seen:true},`asesor=eq.${encodeURIComponent(G.usuario)}`).catch(()=>{});
   }
 }
 function obPrev(){if(_obSlide>0){_obSlide--;renderObSlide();}}
