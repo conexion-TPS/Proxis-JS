@@ -341,7 +341,11 @@ export default function TrackerConsorcioPage() {
   // ahora vía el AuthProvider. El header de esta página no usa la identidad (Consorcio hardcodeado).
   useEffect(() => { if (token) loadIdentity() }, [token, loadIdentity])
   // Gate de rol (C1.2): un asesor no accede al Tracker (vista de supervisor) → redirige a Mi Informe.
-  useEffect(() => { if (ident?.tipo === 'asesor') router.push('/app/informe') }, [ident, router])
+  // Gate de tenant (C1): solo la unidad Consorcio abre este tracker.
+  useEffect(() => {
+    if (ident?.tipo === 'asesor') router.push('/app/informe')
+    else if (ident && ident.institucion_nombre !== 'Consorcio') router.push('/app/informe')
+  }, [ident, router])
 
   // Carga del panel Equipo completo (solo lectura; el cálculo vive en /api/app/equipo).
   const cargarEquipo = useCallback(async () => {

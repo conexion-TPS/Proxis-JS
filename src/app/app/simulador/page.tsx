@@ -1,12 +1,13 @@
 'use client'
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import {
-  SIM_PRODS, SIM_PRODS_GI, SIM_METODOS, TOP20_APE_UF, TOP20_CV_UF, ZURICH_ASESORES, ZURICH_SUPERVISORA, SUELDO_BASE_DEFAULT, UF_DEFAULT,
+  SIM_PRODS, SIM_PRODS_GI, SIM_METODOS, TOP20_APE_UF, TOP20_CV_UF, ZURICH_ASESORES, SUELDO_BASE_DEFAULT, UF_DEFAULT,
   initialStateZurich, clampQty, nextPct, fmtCLP, fmtUF, labelAnt, labelPersist, labelPPA, labelApvEx, labelApvFlex, labelRp, labelBlEx,
   PMIN, FP, simCalcZ, simCalcBonoUF, calcEmbudo,
   type SimState, type Metodo,
 } from '@/lib/simulador/calculo'
 import { useAuth } from '../AuthProvider'
+import { useRouter } from 'next/navigation'
 import { SIM_COMMON_CSS } from '../simuladorCss'
 
 /*
@@ -69,7 +70,8 @@ function LogoProxis() {
 const inpNum: React.CSSProperties = { padding: '5px 8px', border: '1.5px solid var(--g200)', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 13, textAlign: 'center' }
 
 export default function SimuladorPage() {
-  const { token, login: signIn, logout, loadIdentity } = useAuth()
+  const { token, ident, login: signIn, logout, loadIdentity } = useAuth()
+  const router = useRouter()
   const [uf, setUf] = useState('…')
   const [ufVal, setUfVal] = useState<number>(UF_DEFAULT) // M2(a): UF numérica para el cálculo (fallback 39357)
   const [cargando, setCargando] = useState(false)
@@ -96,6 +98,12 @@ export default function SimuladorPage() {
   // Validación de sesión al cargar (calco de cargarIdent): /api/app/me con 401→logout,
   // ahora vía el AuthProvider. El header de esta página no usa la identidad (Zurich hardcodeado).
   useEffect(() => { if (token) loadIdentity() }, [token, loadIdentity])
+  // Gate de rol (C1.2): el Simulador de Metas es vista de supervisor → un asesor se redirige a Mi Informe.
+  // Gate de tenant (C1): solo la unidad Zurich abre este simulador.
+  useEffect(() => {
+    if (ident?.tipo === 'asesor') router.push('/app/informe')
+    else if (ident && ident.institucion_nombre !== 'Zurich') router.push('/app/informe')
+  }, [ident, router])
 
   async function login() {
     setErr(''); setCargando(true)
@@ -178,6 +186,16 @@ export default function SimuladorPage() {
   const mc = total >= s.meta ? 'ok' : 'ng'
   const diff = total - s.meta
 
+  // Mientras resuelve la identidad, o si es asesor (en plena redirección): NO renderizar el Simulador.
+  if (!ident || ident.tipo === 'asesor') {
+    return (
+      <>
+        <style>{CSS}</style>
+        <div className="login-wrap"><div style={{ color: 'var(--g400)', fontSize: 14 }}>Cargando…</div></div>
+      </>
+    )
+  }
+
   return (
     <>
       <style>{CSS}</style>
@@ -207,7 +225,7 @@ export default function SimuladorPage() {
           <span className="huf">UF: <span className="uf-display">{uf}</span></span>
           <div className="hml">
             {/* C1: supervisora Zurich hardcodeada (calco del legacy USUARIOS). Bloqueo de tenant = deuda (ver DISENO_CONSOLIDACION.md). */}
-            <div className="hrole">{ZURICH_SUPERVISORA} · <strong>Supervisora</strong></div>
+            <div className="hrole">{ident?.nombre ?? ''} · <strong>{ident?.tipo === 'mando' ? 'Supervisora' : 'Asesor/a'}</strong></div>
             <a href="/" className="hinicio">← Inicio</a>
             <button className="hout" onClick={logout}>Salir</button>
           </div>

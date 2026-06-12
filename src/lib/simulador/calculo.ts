@@ -16,10 +16,6 @@ export const ZURICH_ASESORES = [
   'Sindy Martínez', 'Francis Arancibia', 'Marcela Jara', 'María Francisca Lorenz',
   'Oriana Jorquera', 'Mauricio Gana',
 ]
-// Supervisora del tenant Zurich — calco hardcodeado del legacy (USUARIOS), SIN "Morral".
-// El header del simulador Zurich la muestra fija (como el legacy muestra G.usuario).
-// Deuda: el bloqueo de tenant (split de routing) no está implementado — ver DISENO_CONSOLIDACION.md.
-export const ZURICH_SUPERVISORA = 'Alejandra Espinoza'
 
 // ── PRODUCTOS VIDA VI (factor AE, comisiones según contrato) ── (datos.js)
 export type ProdVida = {

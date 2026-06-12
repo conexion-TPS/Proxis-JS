@@ -140,7 +140,11 @@ export default function SimuladorConsorcioPage() {
   // ahora vía el AuthProvider. El header de esta página no usa la identidad (Consorcio hardcodeado).
   useEffect(() => { if (token) loadIdentity() }, [token, loadIdentity])
   // Gate de rol (C1.2): el Simulador de Metas es vista de supervisor → un asesor se redirige a Mi Informe.
-  useEffect(() => { if (ident?.tipo === 'asesor') router.push('/app/informe') }, [ident, router])
+  // Gate de tenant (C1): solo la unidad Consorcio abre este simulador.
+  useEffect(() => {
+    if (ident?.tipo === 'asesor') router.push('/app/informe')
+    else if (ident && ident.institucion_nombre !== 'Consorcio') router.push('/app/informe')
+  }, [ident, router])
 
   async function login() {
     setErr(''); setCargando(true)
@@ -259,9 +263,6 @@ export default function SimuladorConsorcioPage() {
           <div className="hlogo-text" style={{ fontSize: 11, fontWeight: 600, color: 'white', lineHeight: 1.3 }}>Prospección<span style={{ display: 'block', fontSize: 10, fontWeight: 400, opacity: .7, letterSpacing: '.07em', textTransform: 'uppercase' }}>en práctica</span></div>
           <span className="huf">UF: <span className="uf-display">{uf}</span></span>
           <div className="hml">
-            {/* Supervisora Consorcio hardcodeada (Valeska Comparini Cruells). Sale del
-                conocimiento de plataforma, NO del calco. Bloqueo de tenant = deuda
-                (ver DISENO_CONSOLIDACION.md). Paralelo a C1 de Zurich. */}
             <div className="hrole">{ident?.nombre ?? ''} · <strong>{ident?.tipo === 'mando' ? 'Supervisora' : 'Asesor/a'}</strong></div>
             <a href="/" className="hinicio">← Inicio</a>
             <button className="hout" onClick={logout}>Salir</button>
