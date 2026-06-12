@@ -303,9 +303,11 @@ export default function InformePage() {
               </div>
             </div>
           )}
-          {bitLoading && <div className="ib bl">Cargando bitácora…</div>}
+          {bitLoading && !bitData && <div className="ib bl">Cargando bitácora…</div>}
           {bitErr && <div className="ib rd">{bitErr}</div>}
-          {!bitLoading && !bitErr && bitData && <BitacoraSemanal dto={bitData} token={token!} onChanged={() => cargarBitacora(token!, mes)} />}
+          {/* Se mantiene montado durante el refetch (onChanged) para no desmontar SemanaEditable
+              y perder el modal de celebración de nodo. El spinner solo aparece en la carga inicial. */}
+          {!bitErr && bitData && <BitacoraSemanal dto={bitData} token={token!} onChanged={() => cargarBitacora(token!, mes)} />}
           <div className="copyright" style={{ marginTop: 24 }}>
             <span style={{ color: 'var(--g400)' }}>© 2026 The Precision Selling · Todos los derechos reservados</span>
           </div>

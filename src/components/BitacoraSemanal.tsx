@@ -50,6 +50,16 @@ const FORM_CSS = `
 .bw-msg{padding:10px 12px;border-radius:var(--r);font-size:12px;margin-top:10px;border:1px solid transparent}
 .bw-msg.rd{background:var(--red-lt);color:var(--red);border-color:rgba(176,58,58,0.18)}
 .bw-msg.gn{background:var(--teal-lt);color:var(--teal);border-color:rgba(31,111,86,0.18)}
+.bw-modal-ov{position:fixed;inset:0;background:rgba(11,10,9,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.bw-modal{background:white;border-radius:14px;max-width:440px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.bw-modal h3{font-size:15px;font-weight:700;color:var(--g900);margin-bottom:10px;line-height:1.4}
+.bw-modal p{font-size:13px;color:var(--g700);line-height:1.5;margin-bottom:8px}
+.bw-modal-acts{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.bw-name-wrap{position:relative}
+.bw-sug{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--g200);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50;max-height:180px;overflow-y:auto;margin-top:2px}
+.bw-sug-item{padding:8px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--g100);color:var(--g700)}
+.bw-sug-item:last-child{border-bottom:none}
+.bw-sug-item:hover{background:var(--g100);color:var(--g900)}
 `
 
 // Helper de escritura (POST /api/app/bitacora con el token de sesión).
@@ -83,27 +93,133 @@ function lunesDelMes(mesISO: string): string[] {
   return lunes
 }
 
+// ── Similitud de nombres — calco EXACTO de plataforma-core.js §1 (portado casi literal).
+//    Mismos resultados que el JS legacy (la RPC server replica estos helpers en SQL). ──
+const SIMILITUD_THRESHOLD = 0.70
+function normNombre(s: string): string {
+  if (!s) return ''
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim().replace(/\s+/g, ' ')
+}
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length
+  const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)))
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+  return dp[m][n]
+}
+function similitud(a: string, b: string): number {
+  a = normNombre(a); b = normNombre(b)
+  if (!a || !b) return 0
+  if (a === b) return 1
+  const maxLen = Math.max(a.length, b.length)
+  if (maxLen === 0) return 1
+  const fullSim = (maxLen - levenshtein(a, b)) / maxLen
+  const aParts = a.split(' '), bParts = b.split(' ')
+  const fnSim = aParts[0] && bParts[0]
+    ? (Math.max(aParts[0].length, bParts[0].length) - levenshtein(aParts[0], bParts[0])) / Math.max(aParts[0].length, bParts[0].length)
+    : 0
+  return fnSim > 0.8 ? Math.max(fullSim, fullSim * 0.7 + fnSim * 0.3) : fullSim
+}
+function esSimilar(a: string, b: string): boolean { return similitud(a, b) >= SIMILITUD_THRESHOLD }
+// esMismoExacto disponible por paridad con el legacy (la conversión real la decide la RPC):
+// function esMismoExacto(a: string, b: string): boolean { return normNombre(a) === normNombre(b) }
+
+// Dedup intra-form — calco EXACTO §2c (esSimilar OR startsWith OR includes; conserva la
+// primera aparición, descarta el resto en silencio).
+function dedupForm<T extends { nombre: string }>(items: T[]): T[] {
+  const seen: string[] = []
+  const out: T[] = []
+  for (const it of items) {
+    if (!it.nombre.trim()) continue
+    const nNorm = normNombre(it.nombre)
+    const dupe = seen.some((s) => {
+      const sNorm = normNombre(s)
+      return esSimilar(s, it.nombre) || nNorm.startsWith(sNorm) || sNorm.startsWith(nNorm) || nNorm.includes(sNorm) || sNorm.includes(nNorm)
+    })
+    if (!dupe) { seen.push(it.nombre); out.push(it) }
+  }
+  return out
+}
+
 // ── Tarjeta de una semana EDITABLE (no confirmada) — calco de mostrarFormulario() ──
-function SemanaEditable({ rep, num, token, onChanged }: { rep: ReporteB; num: number; token: string; onChanged: () => void | Promise<void> }) {
+function SemanaEditable({ rep, num, token, onChanged, nodos, todosContactos }: { rep: ReporteB; num: number; token: string; onChanged: () => void | Promise<void>; nodos: NodoB[]; todosContactos: ContactoB[] }) {
   const [filas, setFilas] = useState<Fila[]>(() =>
     rep.contactos.length
       ? rep.contactos.map((c) => ({ nombre: c.nombre, vinculo: VINCULOS.includes(c.vinculo ?? '') ? (c.vinculo as string) : 'Conocido/a', tipo_contacto: c.tipo_contacto || 'nuevo', llamo: c.llamo, reunion: c.reunion, prospectos: c.prospectos }))
       : [filaVacia()]
   )
   const [err, setErr] = useState(''); const [ok, setOk] = useState(''); const [busy, setBusy] = useState(false)
+  // ── Estado de la capa de homónimos / nodos (v2b) ──
+  const [homModal, setHomModal] = useState<{ nombre: string; prev: ContactoB } | null>(null)
+  const homResolver = useRef<((d: 'mismo' | 'distinto', id?: string) => void) | null>(null)
+  const [celeb, setCeleb] = useState<{ nombre: string; numNodo: number } | null>(null)
+  const [sugFor, setSugFor] = useState<number | null>(null)
+
+  // Historial de OTRAS semanas (para §2a-ii). La RPC re-deriva contra el historial completo;
+  // aquí el modal usa lo cargado por el GET (mes actual + previo) → UX, no fuente de verdad.
+  const historialOtras = todosContactos.filter((c) => c.reporte_id !== rep.id)
 
   const setFila = (i: number, patch: Partial<Fila>) => setFilas((p) => p.map((f, k) => (k === i ? { ...f, ...patch } : f)))
   const addFila = () => setFilas((p) => [...p, filaVacia()])
   const delFila = (i: number) => setFilas((p) => (p.length === 1 ? [filaVacia()] : p.filter((_, k) => k !== i)))
 
+  // Promesa que resuelve cuando el usuario decide en el modal de homónimo (calco del await del legacy).
+  const pedirDecision = (nombre: string, prev: ContactoB) =>
+    new Promise<{ decision: 'mismo' | 'distinto'; idNombre?: string }>((resolve) => {
+      setHomModal({ nombre, prev })
+      homResolver.current = (decision, idNombre) => { setHomModal(null); resolve({ decision, idNombre }) }
+    })
+
+  // Autocomplete — calco getContactSuggestions (datos frescos del GET; dedup por nombre normalizado).
+  function sugerencias(query: string): string[] {
+    if (!query || query.trim().length < 2) return []
+    const cand = todosContactos
+      .filter((c) => { const cn = normNombre(c.nombre), qn = normNombre(query); return cn.includes(qn) || qn.includes(cn) || esSimilar(c.nombre, query) })
+      .sort((a, b) => similitud(b.nombre, query) - similitud(a.nombre, query))
+    const seen = new Set<string>(); const out: string[] = []
+    for (const c of cand) { const cn = normNombre(c.nombre); if (!seen.has(cn)) { seen.add(cn); out.push(c.nombre) } if (out.length >= 6) break }
+    return out
+  }
+
   async function guardar() {
-    const conNombre = filas.filter((f) => f.nombre.trim())
+    const conNombre = filas.map((f, i) => ({ ...f, _idx: i })).filter((x) => x.nombre.trim())
     if (!conNombre.length) { setErr('Ingresa al menos un contacto con nombre.'); setOk(''); return }
-    setErr(''); setOk(''); setBusy(true)
-    const r = await postBitacora(token, { accion: 'guardar_contactos', reporte_id: rep.id, contactos: conNombre })
+    setErr(''); setOk(''); setSugFor(null); setBusy(true)
+
+    // ── §2a — detección de homónimos (en orden, calco del loop de guardarBorrador) ──
+    for (const it of conNombre) {
+      if (it.tipo_contacto === 'reactivacion' || it.tipo_contacto === 'activacion_nodo') continue
+      // (i) ya es nodo confirmado → reactivación, SIN modal
+      if (nodos.some((n) => esSimilar(n.nombre, it.nombre))) { it.tipo_contacto = 'reactivacion'; continue }
+      // (ii) aparece en otra semana → modal "¿es la misma persona?"
+      const prev = historialOtras.find((c) => c.nombre && esSimilar(c.nombre, it.nombre))
+      if (prev) {
+        const { decision, idNombre } = await pedirDecision(it.nombre, prev)
+        if (decision === 'mismo') {
+          it.nombre = prev.nombre              // adopta el nombre canónico
+          it.tipo_contacto = 'reactivacion'
+        } else if (idNombre && idNombre.trim()) {
+          it.nombre = idNombre.trim()          // B3: el identificador SÍ se aplica a la fila
+          setFila(it._idx, { nombre: idNombre.trim() })
+          // tipo queda 'nuevo'
+        }
+      }
+    }
+
+    // ── §2c — dedup intra-form (conserva la primera, descarta el resto) ──
+    const finales = dedupForm(conNombre).map(({ _idx, ...c }) => c)
+
+    const r = await postBitacora(token, { accion: 'guardar_contactos', reporte_id: rep.id, contactos: finales })
     setBusy(false)
     if (!r.ok) { setErr(r.error ?? 'Error al guardar'); return }
-    setOk('Reporte guardado.'); await onChanged()
+    setOk('Reporte guardado.')
+    // ── §3c — celebración: solo el PRIMER nodo nuevo (quirk de celebración única, calcado) ──
+    const nuevos = r.nodos_nuevos as { nombre: string; numNodo: number }[] | undefined
+    if (nuevos && nuevos.length) setCeleb(nuevos[0])
+    await onChanged()
   }
   async function marcarSinActividad(value: boolean) {
     setErr(''); setOk(''); setBusy(true)
@@ -143,7 +259,24 @@ function SemanaEditable({ rep, num, token, onChanged }: { rep: ReporteB; num: nu
             {filas.map((f, i) => (
               <tr key={i}>
                 <td style={{ color: 'var(--g400)', fontFamily: 'var(--mono)', fontSize: 12 }}>{i + 1}</td>
-                <td><input type="text" value={f.nombre} placeholder="Nombre completo" autoComplete="off" onChange={(e) => setFila(i, { nombre: e.target.value })} /></td>
+                <td>
+                  <div className="bw-name-wrap">
+                    <input type="text" value={f.nombre} placeholder="Nombre completo" autoComplete="off"
+                      onChange={(e) => { setFila(i, { nombre: e.target.value }); setSugFor(i) }}
+                      onFocus={() => setSugFor(i)}
+                      onBlur={() => setTimeout(() => setSugFor((s) => (s === i ? null : s)), 150)} />
+                    {sugFor === i && (() => {
+                      const sg = sugerencias(f.nombre)
+                      return sg.length ? (
+                        <div className="bw-sug">
+                          {sg.map((s) => (
+                            <div key={s} className="bw-sug-item" onMouseDown={(e) => { e.preventDefault(); setFila(i, { nombre: s }); setSugFor(null) }}>{s}</div>
+                          ))}
+                        </div>
+                      ) : null
+                    })()}
+                  </div>
+                </td>
                 <td><select value={f.vinculo} onChange={(e) => setFila(i, { vinculo: e.target.value })}>{VINCULOS.map((v) => <option key={v} value={v}>{v}</option>)}</select></td>
                 <td><button type="button" className={`bw-check-btn${f.llamo ? ' on' : ''}`} onClick={() => setFila(i, { llamo: !f.llamo })}>{f.llamo ? '✓' : '○'}</button></td>
                 <td><button type="button" className={`bw-check-btn${f.reunion ? ' on' : ''}`} onClick={() => setFila(i, { reunion: !f.reunion })}>{f.reunion ? '✓' : '○'}</button></td>
@@ -161,6 +294,38 @@ function SemanaEditable({ rep, num, token, onChanged }: { rep: ReporteB; num: nu
       </div>
       {err && <div className="bw-msg rd">{err}</div>}
       {ok && <div className="bw-msg gn">{ok}</div>}
+
+      {/* ══ Modal de homónimo (calco §2b: "¿es la misma persona?") ══ */}
+      {homModal && (
+        <div className="bw-modal-ov">
+          <div className="bw-modal">
+            <h3>«{homModal.nombre}» es similar a un contacto anterior ({Math.round(similitud(homModal.nombre, homModal.prev.nombre) * 100)}% coincidencia)</h3>
+            <p>Contacto anterior encontrado: <strong>{homModal.prev.nombre}</strong> · {homModal.prev.vinculo || '—'} · {homModal.prev.prospectos || 0} prospectos previos</p>
+            <p style={{ color: 'var(--g400)', fontSize: 12 }}>¿Es la misma persona?</p>
+            <div className="bw-modal-acts">
+              <button className="bw-btn bw-btn-success" onClick={() => homResolver.current?.('mismo')}>Sí, es la misma</button>
+              <button className="bw-btn bw-btn-secondary" onClick={() => {
+                const id = window.prompt(`Agrega un identificador para distinguirlo:\n(ej. "${homModal.nombre} (amigo de Carlos)")`)
+                homResolver.current?.('distinto', id || undefined)
+              }}>No, es otra persona</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Modal de celebración de nodo (calco §3c: solo el primero) ══ */}
+      {celeb && (
+        <div className="bw-modal-ov" onClick={() => setCeleb(null)}>
+          <div className="bw-modal" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 40 }}>🌳</div>
+            <h3 style={{ color: 'var(--teal)' }}>¡{celeb.nombre} es tu Nodo {celeb.numNodo}!</h3>
+            <p>{celeb.nombre} ha vuelto a referirte prospectos. Has profundizado esta relación y ahora tienes un nodo activo más en tu red. ¡Sigue cultivando esta confianza!</p>
+            <div className="bw-modal-acts" style={{ justifyContent: 'center' }}>
+              <button className="bw-btn bw-btn-success" onClick={() => setCeleb(null)}>¡Genial!</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -176,6 +341,10 @@ export default function BitacoraSemanal({ dto, token, onChanged }: { dto: Bitaco
     : getLunes()
   const actsEstaSemana = dto.activaciones.filter((a) => a.semana_inicio === semanaRef)
   const nodosConAct = new Set(actsEstaSemana.map((a) => a.nodo_id))
+
+  // Todos los contactos cargados (mes actual + previo) — base de la detección de homónimos
+  // y del autocomplete en cada semana editable. NO se crea cliente Supabase nuevo (calco vía GET).
+  const todosContactos = dto.reportes.flatMap((r) => r.contactos)
 
   // ── Gráfico de tendencia de nodos (calco 1634-1664). Solo si hay nodos. ──
   useEffect(() => {
@@ -293,7 +462,7 @@ export default function BitacoraSemanal({ dto, token, onChanged }: { dto: Bitaco
 
           // ── Semana NO confirmada → editable (calco A: editable mientras no se confirme) ──
           if (!r.confirmado) {
-            return <SemanaEditable key={fecha} rep={r} num={num} token={token} onChanged={onChanged} />
+            return <SemanaEditable key={fecha} rep={r} num={num} token={token} onChanged={onChanged} nodos={dto.nodos} todosContactos={todosContactos} />
           }
 
           // ── Semana confirmada → solo lectura ──

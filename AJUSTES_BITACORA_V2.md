@@ -76,3 +76,21 @@ Se conservan idénticos al legacy; quedan anotados para que TPS decida en Fase 2
 capa **interactiva** → van en **v2b (cliente)**, no en la RPC. La RPC recibe el `contactos[]` ya resuelto
 por el cliente y **re-deriva la reactivación server-side** (el flag del cliente es intención; el server decide
 comparando contra historial y nodos frescos).
+
+---
+
+## Sub-lote v2b — capa cliente (`BitacoraSemanal.tsx`)
+
+Implementa §1-§2 + autocomplete + celebración. Helpers de similitud (`normNombre`/`levenshtein`/
+`similitud`/`esSimilar`) **portados casi literal** del JS legacy → mismos resultados.
+
+- **B3 aplicada:** la rama "distinto" del modal aplica el identificador a la **fila correspondiente**
+  (el bug `filaNum=null` del legacy **no** se calca). Tipo queda `'nuevo'`.
+- **Nota — autocomplete con datos frescos:** `getContactSuggestions` se calca, pero alimentado por
+  los datos del **GET** (`/api/app/bitacora`, mes actual + previo) en vez del cache `_contactHistory`
+  del legacy. El cache desactualizado del legacy es **quirk de implementación, no de comportamiento**
+  → no es divergencia numerada. (Se dedup por nombre normalizado para no repetir el mismo contacto.)
+- **Nota — ventana del modal:** la detección de homónimo del **cliente** usa el historial cargado por
+  el GET (2 meses). Es solo UX: la **RPC re-deriva contra el historial completo** y es la fuente de
+  verdad de la conversión, así que un match fuera de la ventana igual se resuelve server-side.
+- **Sin cliente Supabase browser nuevo:** toda la data viene del `dto` del GET existente.
