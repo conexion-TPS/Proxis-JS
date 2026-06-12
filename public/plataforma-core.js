@@ -2115,7 +2115,7 @@ async function renderIndividual(){
 
 /* ══ ONBOARDING SYSTEM ══ */
 const OB_SLIDES_SUPERVISOR = [
-  {icon:'🎯',title:'Bienvenida, Alejandra',body:'Esta es tu plataforma de Prospección y Metas. Aquí podrás simular los ingresos de cada asesor, hacer seguimiento de su actividad semanal y observar cómo la actividad de contacto se convierte en resultados de ingresos.'},
+  {icon:'🎯',title:'¡Hola!',body:'Esta es tu plataforma de Prospección y Metas. Aquí podrás simular los ingresos de cada asesor, hacer seguimiento de su actividad semanal y observar cómo la actividad de contacto se convierte en resultados de ingresos.'},
   {icon:'📊',title:'Simulador de Metas',body:'Comienza por el Simulador de Metas: define la antigüedad, persistencia y mix de productos de cada asesor. Al terminar, haz clic en "Guardar metas en Tracker" para que esos objetivos queden vinculados al sistema de seguimiento.'},
   {icon:'📋',title:'Equipo completo',body:'En "Equipo completo" verás el consolidado de actividad de todo tu equipo: contactos, prospectos, gaps y nodos. Los gaps son tu meta de supervisión: reducirlos semana a semana es la señal de que el equipo está progresando.'},
   {icon:'🌳',title:'El sistema de Nodos',body:'Un contacto se convierte en Nodo cuando vuelve a referir prospectos por segunda vez. Los nodos son el corazón del sistema: un asesor con muchos nodos activos tiene una red que trabaja para él. Observa su evolución mes a mes.'},
