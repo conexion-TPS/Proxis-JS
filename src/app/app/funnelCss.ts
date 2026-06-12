@@ -1,5 +1,5 @@
 // Bloque CSS de embudo (FUNNEL + ORIG-CHART) — verbatim del legacy plataforma (C2.1-bis).
-// Byte-idéntico en /app/simulador, /app/simulador-consorcio y /app/tracker-consorcio;
+// Byte-idéntico en /app/simulador, /app/simulador-consorcio y /app/tracker;
 // se centraliza aquí. NO incluye el override responsive `@media .fstep{…}` (vive en el
 // bloque @media general de cada página). La copia en /plataforma (legacy) NO se toca.
 export const FUNNEL_CSS = `/* ══ FUNNEL ══ (verbatim del legacy plataforma) */
