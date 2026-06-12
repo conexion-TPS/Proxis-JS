@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import MiInforme, { getMesLabel, type Informe } from '@/components/MiInforme'
-import BitacoraSemanal, { type BitacoraDTO } from '@/components/BitacoraSemanal'
+import BitacoraSemanal, { postBitacora, type BitacoraDTO } from '@/components/BitacoraSemanal'
 import { useAuth } from '../AuthProvider'
 
 /*
@@ -109,6 +109,7 @@ export default function InformePage() {
   const [bitLoading, setBitLoading] = useState(false)
   const [bitErr, setBitErr] = useState('')
   const [guia, setGuia] = useState(false) // acordeón de ayuda "¿Cómo funciona?" (toggle local, no escribe)
+  const [bitBusy, setBitBusy] = useState(false) // botón "+ Nueva semana"
 
   // UF (mindicador.cl) — igual que el legacy fetchUF()
   useEffect(() => {
@@ -145,6 +146,16 @@ export default function InformePage() {
     finally { setBitLoading(false) }
   }, [logout])
   useEffect(() => { if (token && tab === 'bitacora') cargarBitacora(token, mes) }, [token, tab, mes, cargarBitacora])
+
+  // "+ Nueva semana": abre el reporte de la semana en curso (calco A) y refresca la bitácora.
+  async function nuevaSemana() {
+    if (!token) return
+    setBitErr(''); setBitBusy(true)
+    const r = await postBitacora(token, { accion: 'nueva_semana' })
+    setBitBusy(false)
+    if (!r.ok) { setBitErr(r.error ?? 'No se pudo abrir la semana'); return }
+    await cargarBitacora(token, mes)
+  }
 
   async function login() {
     setErr(''); setCargando(true)
@@ -251,12 +262,12 @@ export default function InformePage() {
                 onClick={() => setGuia((v) => !v)}
                 style={{ fontSize: 12, padding: '7px 12px', background: 'white', border: '1px solid var(--g200)', borderRadius: 'var(--r)', color: 'var(--g700)', fontFamily: 'var(--font)', fontWeight: 500, cursor: 'pointer' }}
               >💡 ¿Cómo funciona?</button>
-              {/* Recordatorio visual de A — inerte (la escritura es Fase 3) */}
+              {/* Abre el reporte de la semana en curso (calco A). */}
               <button
-                disabled
-                title="Disponible en Fase 3"
-                style={{ fontSize: 13, padding: '7px 14px', background: '#0b0a09', color: 'white', border: 'none', borderRadius: 'var(--r)', fontFamily: 'var(--font)', fontWeight: 600, opacity: .4, cursor: 'not-allowed' }}
-              >+ Nueva semana</button>
+                onClick={nuevaSemana}
+                disabled={bitBusy}
+                style={{ fontSize: 13, padding: '7px 14px', background: '#0b0a09', color: 'white', border: 'none', borderRadius: 'var(--r)', fontFamily: 'var(--font)', fontWeight: 600, opacity: bitBusy ? .5 : 1, cursor: bitBusy ? 'not-allowed' : 'pointer' }}
+              >{bitBusy ? 'Abriendo…' : '+ Nueva semana'}</button>
             </div>
           </div>
 
@@ -287,14 +298,14 @@ export default function InformePage() {
                   </div>
                 </div>
                 <div style={{ marginTop: 14, fontSize: 11, opacity: .75, textAlign: 'center' }}>
-                  Las semanas anteriores se cierran automáticamente cuando abres una nueva · Solo la semana más reciente es editable
+                  Puedes editar cualquier semana mientras no la confirmes · Al confirmar, la semana queda en solo lectura
                 </div>
               </div>
             </div>
           )}
           {bitLoading && <div className="ib bl">Cargando bitácora…</div>}
           {bitErr && <div className="ib rd">{bitErr}</div>}
-          {!bitLoading && !bitErr && bitData && <BitacoraSemanal dto={bitData} />}
+          {!bitLoading && !bitErr && bitData && <BitacoraSemanal dto={bitData} token={token!} onChanged={() => cargarBitacora(token!, mes)} />}
           <div className="copyright" style={{ marginTop: 24 }}>
             <span style={{ color: 'var(--g400)' }}>© 2026 The Precision Selling · Todos los derechos reservados</span>
           </div>
