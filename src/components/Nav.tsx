@@ -23,7 +23,7 @@ export default function Nav() {
       <div className="nav-actions">
         <Link href="/login" className="nav-btn nav-btn-outline">Ver tutorial</Link>
         <Link href="/demo" className="nav-btn nav-btn-outline">Demo</Link>
-        <Link href="/plataforma" className="nav-btn nav-btn-lime">Abrir Proxis →</Link>
+        <Link href="/app" className="nav-btn nav-btn-lime">Abrir Proxis →</Link>
       </div>
     </nav>
   )

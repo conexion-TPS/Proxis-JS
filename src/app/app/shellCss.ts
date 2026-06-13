@@ -1,6 +1,6 @@
 // Shell CSS compartido del /app (C2.1) — tokens de diseño + app-shell + module-bar.
 // Estas 34 líneas son BYTE-IDÉNTICAS hoy en las 4 pantallas (informe, simulador,
-// simulador-consorcio, tracker-consorcio); se extraen aquí como única fuente.
+// simulador-consorcio, tracker); se extraen aquí como única fuente.
 // El CSS por-módulo (tabs, simulador-layout, tablas, cards, etc.) NO se toca: queda
 // en cada página, porque NO es duplicación. Verificado con diff (líneas 1-35 del bloque).
 export const SHELL_CSS = `

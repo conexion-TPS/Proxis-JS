@@ -231,10 +231,10 @@ export default function SimuladorPage() {
           </div>
         </header>
 
-        {/* Module bar (supervisor) */}
+        {/* Module bar (supervisor) — Simulador activo; Tracker navega a /app/tracker */}
         <div className="module-bar">
           <div className="mod-btn active">📊 Simulador de Metas</div>
-          <div className="mod-btn">📋 Tracker de Prospección</div>
+          <div className="mod-btn" style={{ cursor: 'pointer' }} onClick={() => router.push('/app/tracker')}>📋 Tracker de Prospección</div>
         </div>
 
         {/* Módulo simulador */}

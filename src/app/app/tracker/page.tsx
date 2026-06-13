@@ -513,9 +513,9 @@ export default function TrackerConsorcioPage() {
           </div>
         </header>
 
-        {/* Module bar — Tracker activo, Simulador inerte (sin handler; mejora futura: link a /app/simulador-consorcio) */}
+        {/* Module bar — Tracker activo; Simulador navega al simulador de SU empresa (por institucion de /api/app/me) */}
         <div className="module-bar">
-          <div className="mod-btn">📊 Simulador de Metas</div>
+          <div className="mod-btn" style={{ cursor: 'pointer' }} onClick={() => router.push(ident?.institucion_nombre === 'Zurich' ? '/app/simulador' : '/app/simulador-consorcio')}>📊 Simulador de Metas</div>
           <div className="mod-btn active">📋 Tracker de Prospección</div>
         </div>
 

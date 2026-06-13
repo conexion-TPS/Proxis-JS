@@ -269,11 +269,10 @@ export default function SimuladorConsorcioPage() {
           </div>
         </header>
 
-        {/* Module bar (supervisor) */}
+        {/* Module bar (supervisor) — Simulador activo; Tracker navega a /app/tracker */}
         <div className="module-bar">
           <div className="mod-btn active">📊 Simulador de Metas</div>
-          {/* Tab inerte (sin handler), igual que Zurich */}
-          <div className="mod-btn">📋 Tracker de Prospección</div>
+          <div className="mod-btn" style={{ cursor: 'pointer' }} onClick={() => router.push('/app/tracker')}>📋 Tracker de Prospección</div>
         </div>
 
         {/* Módulo simulador */}

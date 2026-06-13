@@ -305,7 +305,7 @@ export default function HomePage() {
 
         <div className="cta-row">
           <Link href="/login" className="cta-primary">Ver tutorial →</Link>
-          <Link href="/plataforma" className="cta-secondary">Abrir Proxis</Link>
+          <Link href="/app" className="cta-secondary">Abrir Proxis</Link>
         </div>
 
         <div className="animation-wrap">
