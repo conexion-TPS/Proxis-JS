@@ -38,6 +38,15 @@ con el nombre distinguido, p.ej. `"Juan (amigo de Carlos)"`).
 **Porqué:** la función de distinguir homónimos estaba rota en el legacy; es la intención real del diseño.
 **Estado:** se implementa en v2b (UI). Aquí solo se registra.
 
+### B4 — Lock por fecha (lote 13-jun)
+Solo la semana **en curso** es editable; las semanas pasadas quedan **read-only ignorando `confirmado`**;
+se elimina la acción/botón **Confirmar**. Divergencia deliberada del calco (el legacy A permite editar
+semanas pasadas no confirmadas), aprobada por TPS el **13-jun**. La "semana en curso" la fija el
+**servidor** (`lunesActualChile()`, expuesto en el DTO como `semana_actual`); el gate vive en la RPC
+(`semana_inicio <> p_semana_actual → 409`) y en el endpoint (`eliminar_contacto`/`sin_actividad`).
+La columna `confirmado` **se conserva** (la usa el legacy `/vina`), **inerte en `/app`**.
+**Estado:** implementado (RPC `2026-06-13_lock_por_fecha.sql` + endpoint + UI).
+
 ---
 
 ## Nota de calco — `normNombre` en SQL (`app_norm_nombre`)

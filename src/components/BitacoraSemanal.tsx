@@ -5,11 +5,12 @@ import { useEffect, useRef, useState } from 'react'
  * BitacoraSemanal — Bitácora del asesor en el /app. Calco de la bitácora A (/plataforma):
  *   • Tarjeta de nodos (read-only)            ← renderNodosPanel()
  *   • Historial de semanas + edición inline   ← renderReporteLista()/mostrarFormulario()
- * ESCRITURAS v1 (POST /api/app/bitacora): nueva_semana, guardar_contactos (delete-all+reinsert),
- * sin_actividad, confirmar. NODOS/HOMÓNIMOS: NO en v1 (la detección/modal y la conversión a
- * nodos quedan para v2 — el form guarda lo que el usuario escribió; tipo_contacto se preserva).
- * Lock = calco A: una semana es editable mientras NO esté confirmada; al confirmar → solo lectura.
- * Datos: /api/app/bitacora (proxis_dev por persona_id).
+ * ESCRITURAS (POST /api/app/bitacora): nueva_semana, guardar_contactos (delete-all+reinsert),
+ * sin_actividad. NODOS/HOMÓNIMOS: detección/modal + conversión server-side (RPC guardar_contactos_v2).
+ * LOCK POR FECHA (divergencia deliberada, NO calco): editable ⇔ la semana es la EN CURSO
+ * (semana_inicio === dto.semana_actual, que viene del servidor); las anteriores quedan en solo
+ * lectura, ignorando 'confirmado'. No hay acción "Confirmar". El sellado es automático al cambiar
+ * de semana (cambia dto.semana_actual). Datos: /api/app/bitacora (proxis_dev por persona_id).
  */
 
 const MESES_NOM = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
@@ -19,7 +20,7 @@ type ContactoB = { id: string; reporte_id: string; nombre: string; vinculo: stri
 type ReporteB = { id: string; semana_inicio: string; semana_num: number; confirmado: boolean; sin_actividad: boolean; contactos: ContactoB[] }
 type NodoB = { id: string; nombre: string; vinculo: string | null; activaciones: number; total_prospectos: number; fecha_primer_contacto: string | null; fecha_conversion: string | null; ultima_activacion: string | null }
 type ActB = { id: string; nodo_id: string; semana_inicio: string; prospectos: number }
-export type BitacoraDTO = { mes: string; mesPrev: string; reportes: ReporteB[]; nodos: NodoB[]; activaciones: ActB[] }
+export type BitacoraDTO = { mes: string; mesPrev: string; semana_actual: string; reportes: ReporteB[]; nodos: NodoB[]; activaciones: ActB[] }
 
 // Fila editable del formulario (calco de leerForm: nombre, vinculo, tipo_contacto, llamo, reunion, prospectos).
 type Fila = { nombre: string; vinculo: string; tipo_contacto: string; llamo: boolean; reunion: boolean; prospectos: number }
@@ -77,12 +78,6 @@ export async function postBitacora(token: string, body: Record<string, unknown>)
 const _SEM1 = new Date('2026-03-30')
 const semNum = (f: string) => Math.round((+new Date(f) - +_SEM1) / (7 * 24 * 60 * 60 * 1000)) + 1
 const fmtLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-function getLunes(): string {
-  const now = new Date()
-  const day = now.getDay()
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-  return fmtLocal(new Date(now.getFullYear(), now.getMonth(), diff))
-}
 function lunesDelMes(mesISO: string): string[] {
   const [yy, mm] = mesISO.split('-').map(Number)
   const dow = new Date(yy, mm - 1, 1).getDay()
@@ -228,14 +223,6 @@ function SemanaEditable({ rep, num, token, onChanged, nodos, todosContactos }: {
     if (!r.ok) { setErr(r.error ?? 'Error'); return }
     await onChanged()
   }
-  async function confirmar() {
-    if (!window.confirm('¿Confirmar la semana? Quedará en solo lectura y no podrás editarla.')) return
-    setErr(''); setOk(''); setBusy(true)
-    const r = await postBitacora(token, { accion: 'confirmar', reporte_id: rep.id })
-    setBusy(false)
-    if (!r.ok) { setErr(r.error ?? 'Error'); return }
-    await onChanged()
-  }
 
   const totC = rep.contactos.length, totR = rep.contactos.filter((c) => c.reunion).length, totP = rep.contactos.reduce((a, c) => a + c.prospectos, 0)
 
@@ -290,7 +277,6 @@ function SemanaEditable({ rep, num, token, onChanged, nodos, todosContactos }: {
       <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
         <button className="bw-btn bw-btn-secondary" onClick={addFila} disabled={busy}>+ Agregar contacto</button>
         <button className="bw-btn bw-btn-primary" onClick={guardar} disabled={busy}>{busy ? 'Guardando…' : '💾 Guardar reporte'}</button>
-        <button className="bw-btn bw-btn-success" onClick={confirmar} disabled={busy} style={{ marginLeft: 'auto' }}>🔒 Confirmar semana</button>
       </div>
       {err && <div className="bw-msg rd">{err}</div>}
       {ok && <div className="bw-msg gn">{ok}</div>}
@@ -338,7 +324,7 @@ export default function BitacoraSemanal({ dto, token, onChanged }: { dto: Bitaco
   const reportesMes = dto.reportes.filter((r) => r.semana_inicio.slice(0, 7) === dto.mes)
   const semanaRef = reportesMes.length
     ? [...reportesMes].sort((a, b) => +new Date(b.semana_inicio) - +new Date(a.semana_inicio))[0].semana_inicio
-    : getLunes()
+    : dto.semana_actual
   const actsEstaSemana = dto.activaciones.filter((a) => a.semana_inicio === semanaRef)
   const nodosConAct = new Set(actsEstaSemana.map((a) => a.nodo_id))
 
@@ -378,7 +364,7 @@ export default function BitacoraSemanal({ dto, token, onChanged }: { dto: Bitaco
 
   // ── HISTORIAL: fechas de los dos meses ya pasadas (calco 786-805) ──
   const hoy = new Date()
-  const lunesHoy = getLunes()
+  const lunesHoy = dto.semana_actual // fuente única = servidor (DTO), no el reloj del navegador
   const repPorFecha: Record<string, ReporteB> = {}
   dto.reportes.forEach((r) => { repPorFecha[r.semana_inicio] = r })
   const todasFechas = [...new Set([...lunesDelMes(dto.mesPrev), ...lunesDelMes(dto.mes)])]
@@ -460,12 +446,12 @@ export default function BitacoraSemanal({ dto, token, onChanged }: { dto: Bitaco
             )
           }
 
-          // ── Semana NO confirmada → editable (calco A: editable mientras no se confirme) ──
-          if (!r.confirmado) {
+          // ── Semana EN CURSO → editable (lock por fecha: solo la semana actual; ignora 'confirmado') ──
+          if (fecha === dto.semana_actual) {
             return <SemanaEditable key={fecha} rep={r} num={num} token={token} onChanged={onChanged} nodos={dto.nodos} todosContactos={todosContactos} />
           }
 
-          // ── Semana confirmada → solo lectura ──
+          // ── Semana anterior → solo lectura ──
           const cs = r.contactos || []
           const totC = cs.length, totR = cs.filter((c) => c.reunion).length, totP = cs.reduce((a, c) => a + c.prospectos, 0)
           return (
@@ -475,7 +461,7 @@ export default function BitacoraSemanal({ dto, token, onChanged }: { dto: Bitaco
                   <div className="card-title" style={{ marginBottom: 0 }}>Semana {num} — {fecha}</div>
                   <p style={{ fontSize: 12, color: 'var(--g400)', marginTop: 4 }}>{totC} contactos · {totR} reuniones · {totP} prospectos</p>
                 </div>
-                <span style={{ fontSize: 11, color: 'var(--teal)', padding: '5px 10px', border: '0.5px solid var(--teal)', borderRadius: 'var(--r)' }}>🔒 Confirmada</span>
+                <span style={{ fontSize: 11, color: 'var(--g400)', padding: '5px 10px', border: '0.5px solid var(--g200)', borderRadius: 'var(--r)' }}>🔒 Semana cerrada</span>
               </div>
               {totC ? (
                 <table className="dt">

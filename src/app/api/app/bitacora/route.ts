@@ -99,6 +99,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     mes,
     mesPrev,
+    semana_actual: lunesActualChile(), // fuente única de "semana en curso" para el cliente (lock por fecha)
     reportes: reportesConContactos,
     nodos: nodoRows ?? [],
     activaciones: actRows ?? [],
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest) {
       p_institucion_id: id.institucion_id,
       p_reporte_id: reporte_id,
       p_contactos: Array.isArray(body?.contactos) ? body.contactos : [],
+      p_semana_actual: lunesActualChile(), // lock por fecha: la RPC rechaza (409) si el reporte no es de la semana en curso
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (data && data.ok === false) {
@@ -161,10 +163,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(data)
   }
 
-  // ── sin_actividad (calco B) ──
+  // ── sin_actividad (gate por fecha: solo la semana en curso) ──
   if (accion === 'sin_actividad') {
     const reporte_id = body?.reporte_id
     if (!reporte_id) return NextResponse.json({ error: 'reporte_id requerido' }, { status: 400 })
+    const { data: rep } = await sb.from('reportes')
+      .select('id, semana_inicio, persona_id').eq('id', reporte_id).maybeSingle()
+    if (!rep || rep.persona_id !== id.persona_id) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    if (rep.semana_inicio !== lunesActualChile()) return NextResponse.json({ error: 'Semana cerrada — solo la semana en curso es editable' }, { status: 409 })
     const { error } = await sb.from('reportes')
       .update({ sin_actividad: !!body?.value })
       .eq('id', reporte_id).eq('persona_id', id.persona_id)
@@ -172,27 +178,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  // ── confirmar (calco B) ──
-  if (accion === 'confirmar') {
-    const reporte_id = body?.reporte_id
-    if (!reporte_id) return NextResponse.json({ error: 'reporte_id requerido' }, { status: 400 })
-    const { error } = await sb.from('reportes')
-      .update({ confirmado: true })
-      .eq('id', reporte_id).eq('persona_id', id.persona_id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true })
-  }
-
-  // ── eliminar_contacto (calco A §1d: borra 1 contacto; 409 si la semana está confirmada) ──
+  // ── eliminar_contacto (borra 1 contacto; 409 si la semana NO es la en curso — lock por fecha) ──
   if (accion === 'eliminar_contacto') {
     const contacto_id = body?.contacto_id
     if (!contacto_id) return NextResponse.json({ error: 'contacto_id requerido' }, { status: 400 })
     const { data: c } = await sb.from('contactos').select('id, reporte_id').eq('id', contacto_id).maybeSingle()
     if (!c) return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
     const { data: rep } = await sb.from('reportes')
-      .select('id, confirmado, persona_id').eq('id', c.reporte_id).maybeSingle()
+      .select('id, semana_inicio, persona_id').eq('id', c.reporte_id).maybeSingle()
     if (!rep || rep.persona_id !== id.persona_id) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-    if (rep.confirmado) return NextResponse.json({ error: 'Semana ya confirmada' }, { status: 409 })
+    if (rep.semana_inicio !== lunesActualChile()) return NextResponse.json({ error: 'Semana cerrada — solo la semana en curso es editable' }, { status: 409 })
     const { error } = await sb.from('contactos').delete().eq('id', contacto_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })

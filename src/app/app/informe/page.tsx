@@ -266,7 +266,7 @@ export default function InformePage() {
                   </div>
                 </div>
                 <div style={{ marginTop: 14, fontSize: 11, opacity: .75, textAlign: 'center' }}>
-                  Puedes editar cualquier semana mientras no la confirmes · Al confirmar, la semana queda en solo lectura
+                  Solo la semana en curso es editable; las semanas anteriores quedan en solo lectura
                 </div>
               </div>
             </div>
