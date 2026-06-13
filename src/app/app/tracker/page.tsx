@@ -4,6 +4,7 @@ import MiInforme, { type Informe } from '@/components/MiInforme' // render compa
 import { useAuth } from '../AuthProvider'
 import { useRouter } from 'next/navigation'
 import { FUNNEL_CSS } from '../funnelCss'
+import LoginScreen from '../LoginScreen'
 
 /*
  * Tracker de Prospección — tenant CONSORCIO, vista SUPERVISOR. Calco del legacy
@@ -197,14 +198,6 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
   .module-bar{padding:0 14px}
   .header{padding:9px 14px}
 }
-
-/* Login (gate funcional) */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--g100)}
-.login-card{background:white;border:1px solid var(--g200);border-radius:var(--rx);padding:32px 30px;width:100%;max-width:400px;box-shadow:var(--shadow-1)}
-.login-card input{width:100%;padding:11px 14px;border:1px solid var(--g200);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--g900);outline:none;margin-bottom:12px}
-.login-card input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,10,9,0.08)}
-.login-btn{width:100%;padding:13px;border:none;border-radius:var(--r);background:#0b0a09;color:white;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer}
-.login-btn:disabled{opacity:.5;cursor:not-allowed}
 `
 
 function LogoProxis() {
@@ -308,13 +301,9 @@ function GapCard({ g }: { g: EquipoGap }) {
 }
 
 export default function TrackerConsorcioPage() {
-  const { token, ident, login: signIn, logout, loadIdentity } = useAuth()
+  const { token, ident, logout, loadIdentity } = useAuth()
   const router = useRouter()
   const [uf, setUf] = useState('…')
-  const [cargando, setCargando] = useState(false)
-  const [err, setErr] = useState('')
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
   // Tab activo del Tracker supervisor (calco de buildTrackerTabs/switchTrackerTab). Default: 'equipo'.
   const [tab, setTab] = useState('equipo')
   // Estado del panel "Equipo completo" (T2): DTO de /api/app/equipo + selectores.
@@ -440,40 +429,15 @@ export default function TrackerConsorcioPage() {
   )
   const pill = (cls: string, txt: React.ReactNode) => <span className={`pill ${cls}`}>{txt}</span>
 
-  async function login() {
-    setErr(''); setCargando(true)
-    const res = await signIn(email, pass)
-    if (!res.ok) setErr(res.error ?? 'Credenciales incorrectas')
-    setCargando(false)
-  }
-
-  // ── LOGIN ──
-  if (!token) {
-    return (
-      <>
-        <style>{CSS}</style>
-        <div className="login-wrap">
-          <div className="login-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <span style={{ fontWeight: 800, fontSize: 18 }}>Pro<span style={{ color: '#a8cc1a' }}>xis</span></span>
-              <span style={{ fontSize: 13, color: 'var(--g600)' }}>· Simulador de Metas</span>
-            </div>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.com" />
-            <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && login()} placeholder="••••••••" />
-            <button className="login-btn" onClick={login} disabled={cargando}>{cargando ? 'Ingresando…' : 'Ingresar'}</button>
-            {err && <div style={{ marginTop: 12, color: 'var(--red)', fontSize: 13 }}>{err}</div>}
-          </div>
-        </div>
-      </>
-    )
-  }
+  // ── LOGIN ── (pantalla compartida, tema negro + ojo)
+  if (!token) return <LoginScreen />
 
   // Mientras resuelve la identidad, o si es asesor (en plena redirección): NO renderizar el Tracker.
   if (!ident || ident.tipo === 'asesor') {
     return (
       <>
         <style>{CSS}</style>
-        <div className="login-wrap"><div style={{ color: 'var(--g400)', fontSize: 14 }}>Cargando…</div></div>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--g100)' }}><div style={{ color: 'var(--g400)', fontSize: 14 }}>Cargando…</div></div>
       </>
     )
   }

@@ -8,6 +8,7 @@ import {
 } from '@/lib/simulador/calculo'
 import { useAuth } from '../AuthProvider'
 import { useRouter } from 'next/navigation'
+import LoginScreen from '../LoginScreen'
 import { SIM_COMMON_CSS } from '../simuladorCss'
 
 /*
@@ -41,14 +42,6 @@ ${SIM_COMMON_CSS}
   .module-bar{padding:0 14px}
   .header{padding:9px 14px}
 }
-
-/* Login (gate funcional) */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--g100)}
-.login-card{background:white;border:1px solid var(--g200);border-radius:var(--rx);padding:32px 30px;width:100%;max-width:400px;box-shadow:var(--shadow-1)}
-.login-card input{width:100%;padding:11px 14px;border:1px solid var(--g200);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--g900);outline:none;margin-bottom:12px}
-.login-card input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,10,9,0.08)}
-.login-btn{width:100%;padding:13px;border:none;border-radius:var(--r);background:#0b0a09;color:white;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer}
-.login-btn:disabled{opacity:.5;cursor:not-allowed}
 `
 
 function LogoProxis() {
@@ -70,14 +63,10 @@ function LogoProxis() {
 const inpNum: React.CSSProperties = { padding: '5px 8px', border: '1.5px solid var(--g200)', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: 13, textAlign: 'center' }
 
 export default function SimuladorPage() {
-  const { token, ident, login: signIn, logout, loadIdentity } = useAuth()
+  const { token, ident, logout, loadIdentity } = useAuth()
   const router = useRouter()
   const [uf, setUf] = useState('…')
   const [ufVal, setUfVal] = useState<number>(UF_DEFAULT) // M2(a): UF numérica para el cálculo (fallback 39357)
-  const [cargando, setCargando] = useState(false)
-  const [err, setErr] = useState('')
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
   const [open, setOpen] = useState<Record<string, boolean>>({ mix: false, tramos: false, consol: false })
   const [s, setS] = useState<SimState>(() => initialStateZurich(ZURICH_ASESORES))
 
@@ -105,12 +94,6 @@ export default function SimuladorPage() {
     else if (ident && ident.institucion_nombre !== 'Zurich') router.push('/app/informe')
   }, [ident, router])
 
-  async function login() {
-    setErr(''); setCargando(true)
-    const res = await signIn(email, pass)
-    if (!res.ok) setErr(res.error ?? 'Credenciales incorrectas')
-    setCargando(false)
-  }
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
 
   // ── Grid de métodos (calco de buildSimMetodos: 3 encabezados intercalados + filas) ──
@@ -151,26 +134,8 @@ export default function SimuladorPage() {
     return out
   }
 
-  // ── LOGIN ──
-  if (!token) {
-    return (
-      <>
-        <style>{CSS}</style>
-        <div className="login-wrap">
-          <div className="login-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <span style={{ fontWeight: 800, fontSize: 18 }}>Pro<span style={{ color: '#a8cc1a' }}>xis</span></span>
-              <span style={{ fontSize: 13, color: 'var(--g600)' }}>· Simulador de Metas</span>
-            </div>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.com" />
-            <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && login()} placeholder="••••••••" />
-            <button className="login-btn" onClick={login} disabled={cargando}>{cargando ? 'Ingresando…' : 'Ingresar'}</button>
-            {err && <div style={{ marginTop: 12, color: 'var(--red)', fontSize: 13 }}>{err}</div>}
-          </div>
-        </div>
-      </>
-    )
-  }
+  // ── LOGIN ── (pantalla compartida, tema negro + ojo)
+  if (!token) return <LoginScreen />
 
   // ── Derivados (3.2): cálculo puro en cada render. Aún NO conectados al DOM (eso es 3.3-3.6). ──
   const campana = s.campana
@@ -191,7 +156,7 @@ export default function SimuladorPage() {
     return (
       <>
         <style>{CSS}</style>
-        <div className="login-wrap"><div style={{ color: 'var(--g400)', fontSize: 14 }}>Cargando…</div></div>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--g100)' }}><div style={{ color: 'var(--g400)', fontSize: 14 }}>Cargando…</div></div>
       </>
     )
   }

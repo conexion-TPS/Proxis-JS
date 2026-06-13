@@ -15,6 +15,8 @@ export const SHELL_CSS = `
   --font:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;--mono:'DM Mono',ui-monospace,monospace;
   --r:10px;--rl:14px;--rx:18px;
   --shadow-1:0 1px 2px rgba(20,18,12,0.04);
+  --shadow-3:0 24px 64px rgba(0,0,0,0.22),0 4px 12px rgba(0,0,0,0.08);
+  --ring:0 0 0 3px rgba(11,10,9,0.08);
 }
 .app-bg{min-height:100vh;background:var(--g100);color:var(--g900);font-family:var(--font);font-size:13.5px;line-height:1.55;letter-spacing:-0.005em;-webkit-font-smoothing:antialiased}
 .app-bg *,.app-bg *::before,.app-bg *::after{box-sizing:border-box}

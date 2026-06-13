@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import MiInforme, { getMesLabel, type Informe } from '@/components/MiInforme'
 import BitacoraSemanal, { postBitacora, type BitacoraDTO } from '@/components/BitacoraSemanal'
 import { useAuth } from '../AuthProvider'
+import LoginScreen from '../LoginScreen'
 
 /*
  * Mi Informe — calco fiel del legacy (panel-informe + app-shell de plataforma-core.js / plataforma/page.tsx).
@@ -67,14 +68,6 @@ table.dt{width:100%;border-collapse:collapse;font-size:13px}
 .copyright{text-align:center;font-size:11px;color:var(--g400);padding:28px 18px;border-top:1px solid var(--g200);margin-top:8px;display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap}
 
 @media(max-width:900px){.tab-panel{padding:16px}.module-bar,.tabs{padding:0 14px}.header{padding:9px 14px}.grid4{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
-
-/* Login (gate funcional) */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--g100)}
-.login-card{background:white;border:1px solid var(--g200);border-radius:var(--rx);padding:32px 30px;width:100%;max-width:400px;box-shadow:var(--shadow-1)}
-.login-card input{width:100%;padding:11px 14px;border:1px solid var(--g200);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--g900);outline:none;margin-bottom:12px}
-.login-card input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,10,9,0.08)}
-.login-btn{width:100%;padding:13px;border:none;border-radius:var(--r);background:#0b0a09;color:white;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer}
-.login-btn:disabled{opacity:.5;cursor:not-allowed}
 `
 
 // Logo SVG del header (calco exacto)
@@ -95,13 +88,11 @@ function LogoProxis() {
 }
 
 export default function InformePage() {
-  const { token, login: signIn, logout } = useAuth()
+  const { token, logout } = useAuth()
   const [mes, setMes] = useState(last6Meses()[0])
   const [data, setData] = useState<Informe | null>(null)
   const [cargando, setCargando] = useState(false)
   const [err, setErr] = useState('')
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
   const [uf, setUf] = useState<string>('…')
   // Pestañas del módulo asesor (Mi informe / Bitácora Semanal inerte read-only)
   const [tab, setTab] = useState<'informe' | 'bitacora'>('informe')
@@ -157,35 +148,11 @@ export default function InformePage() {
     await cargarBitacora(token, mes)
   }
 
-  async function login() {
-    setErr(''); setCargando(true)
-    const res = await signIn(email, pass)
-    if (!res.ok) setErr(res.error ?? 'Credenciales incorrectas')
-    setCargando(false)
-  }
   function salir() { logout(); setData(null) }
 
 
-  // ── LOGIN ──
-  if (!token) {
-    return (
-      <>
-        <style>{CSS}</style>
-        <div className="login-wrap">
-          <div className="login-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <span style={{ fontWeight: 800, fontSize: 18 }}>Pro<span style={{ color: '#a8cc1a' }}>xis</span></span>
-              <span style={{ fontSize: 13, color: 'var(--g600)' }}>· Mi Informe</span>
-            </div>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.com" />
-            <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && login()} placeholder="••••••••" />
-            <button className="login-btn" onClick={login} disabled={cargando}>{cargando ? 'Ingresando…' : 'Ingresar'}</button>
-            {err && <div style={{ marginTop: 12, color: 'var(--red)', fontSize: 13 }}>{err}</div>}
-          </div>
-        </div>
-      </>
-    )
-  }
+  // ── LOGIN ── (pantalla compartida, tema negro + ojo)
+  if (!token) return <LoginScreen />
 
   const rolTxt = data?.identidad?.tipo === 'mando' ? 'Supervisora' : 'Asesor/a'
 
@@ -235,6 +202,7 @@ export default function InformePage() {
 
           <div id="informe-content">
             {cargando && <div className="ib bl">Cargando informe…</div>}
+            {err && <div className="ib rd">{err}</div>}
 
             {!cargando && data && !data.hasReportes && (
               <div className="ib am"><strong>Sin reportes en {getMesLabel(mes)}.</strong> Ve a la pestaña <strong>Reporte semanal</strong> para ingresar tu actividad de la semana.</div>
