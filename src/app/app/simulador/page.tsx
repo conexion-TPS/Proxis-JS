@@ -69,6 +69,10 @@ export default function SimuladorPage() {
   const [ufVal, setUfVal] = useState<number>(UF_DEFAULT) // M2(a): UF numérica para el cálculo (fallback 39357)
   const [open, setOpen] = useState<Record<string, boolean>>({ mix: false, tramos: false, consol: false })
   const [s, setS] = useState<SimState>(() => initialStateZurich(ZURICH_ASESORES))
+  // Roster real de asesores del equipo (persona_id + nombre) para el dropdown (v2).
+  const [roster, setRoster] = useState<{ persona_id: string; nombre: string }[] | null>(null)
+  const [rosterErr, setRosterErr] = useState('')
+  const [asesorId, setAsesorId] = useState('') // persona_id del asesor seleccionado (para v3)
 
   // ── Updaters (calco del comportamiento del legacy; cálculo en calculo.ts) ──
   const upd = (patch: Partial<SimState>) => setS((p) => ({ ...p, ...patch }))
@@ -93,6 +97,23 @@ export default function SimuladorPage() {
     if (ident?.tipo === 'asesor') router.push('/app/informe')
     else if (ident && ident.institucion_nombre !== 'Zurich') router.push('/app/informe')
   }, [ident, router])
+
+  // Roster de asesores (persona_id + nombre) desde el servidor (gate supervisor en el endpoint).
+  // Puebla el dropdown; default = primer asesor. El persona_id queda en estado para la v3.
+  useEffect(() => {
+    if (!token) return
+    let cancel = false
+    fetch('/api/app/roster', { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (r) => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Error'); return d })
+      .then((d) => {
+        if (cancel) return
+        const rs = (d.roster ?? []) as { persona_id: string; nombre: string }[]
+        setRoster(rs)
+        if (rs[0]) { setAsesorId(rs[0].persona_id); setS((p) => ({ ...p, asesor: rs[0].nombre })) }
+      })
+      .catch((err) => { if (!cancel) setRosterErr(err?.message || 'No se pudo cargar el roster') })
+    return () => { cancel = true }
+  }, [token])
 
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
 
@@ -210,9 +231,21 @@ export default function SimuladorPage() {
             <div className="stitle">Selección de asesor</div>
             <div className="fg">
               <div className="flbl">Asesor a simular</div>
-              <select className="fsel" value={s.asesor} onChange={(e) => upd({ asesor: e.target.value })}>
-                {ZURICH_ASESORES.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
+              {rosterErr ? (
+                <div className="ib rd" style={{ fontSize: 11 }}>{rosterErr}</div>
+              ) : roster === null ? (
+                <select className="fsel" disabled><option>Cargando…</option></select>
+              ) : roster.length === 0 ? (
+                <div className="ib am" style={{ fontSize: 11 }}>Sin asesores en tu equipo.</div>
+              ) : (
+                <select className="fsel" value={asesorId} onChange={(e) => {
+                  const a = roster.find((x) => x.persona_id === e.target.value)
+                  setAsesorId(e.target.value)
+                  if (a) setS((p) => ({ ...p, asesor: a.nombre }))
+                }}>
+                  {roster.map((a) => <option key={a.persona_id} value={a.persona_id}>{a.nombre}</option>)}
+                </select>
+              )}
             </div>
 
             {/* 2 · Sliders base */}

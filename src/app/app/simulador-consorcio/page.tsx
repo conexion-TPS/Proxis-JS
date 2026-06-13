@@ -99,6 +99,10 @@ export default function SimuladorConsorcioPage() {
     saludUfa: 0,
     pcts: { ref1: 40, ref2: 40, ref3: 0, ref4: 0, dig: 10, frio: 10 },
   })
+  // Roster real de asesores del equipo (persona_id + nombre) para el dropdown (v2).
+  const [roster, setRoster] = useState<{ persona_id: string; nombre: string }[] | null>(null)
+  const [rosterErr, setRosterErr] = useState('')
+  const [asesorId, setAsesorId] = useState('') // persona_id del asesor seleccionado (para v3)
   const csSet = (patch: Partial<CsState>) => setCs((p) => ({ ...p, ...patch }))
   const csMp = (k: keyof CsMp, v: number) => setCs((p) => ({ ...p, mp: { ...p.mp, [k]: v } }))
   const csInv = (k: keyof CsInv, v: number) => setCs((p) => ({ ...p, inv: { ...p.inv, [k]: v } }))
@@ -134,6 +138,23 @@ export default function SimuladorConsorcioPage() {
     if (ident?.tipo === 'asesor') router.push('/app/informe')
     else if (ident && ident.institucion_nombre !== 'Consorcio') router.push('/app/informe')
   }, [ident, router])
+
+  // Roster de asesores (persona_id + nombre) desde el servidor (gate supervisor en el endpoint).
+  // Puebla el dropdown; default = primer asesor. El persona_id queda en estado para la v3.
+  useEffect(() => {
+    if (!token) return
+    let cancel = false
+    fetch('/api/app/roster', { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (r) => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || 'Error'); return d })
+      .then((d) => {
+        if (cancel) return
+        const rs = (d.roster ?? []) as { persona_id: string; nombre: string }[]
+        setRoster(rs)
+        if (rs[0]) { setAsesorId(rs[0].persona_id); setCs((p) => ({ ...p, asesor: rs[0].nombre })) }
+      })
+      .catch((err) => { if (!cancel) setRosterErr(err?.message || 'No se pudo cargar el roster') })
+    return () => { cancel = true }
+  }, [token])
 
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
 
@@ -247,7 +268,21 @@ export default function SimuladorConsorcioPage() {
             <div className="stitle">Selección de asesor</div>
             {/* cs-asesor: input de texto con class fsel (la CSS le pinta chevron), calco de sim.js:193 */}
             <div className="fg"><div className="flbl">Asesor a simular</div>
-              <input type="text" className="fsel" value={cs.asesor} onChange={(e) => csSet({ asesor: e.target.value })} placeholder="Nombre del asesor" style={{ width: '100%' }} /></div>
+              {rosterErr ? (
+                <div className="ib rd" style={{ fontSize: 11 }}>{rosterErr}</div>
+              ) : roster === null ? (
+                <select className="fsel" disabled style={{ width: '100%' }}><option>Cargando…</option></select>
+              ) : roster.length === 0 ? (
+                <div className="ib am" style={{ fontSize: 11 }}>Sin asesores en tu equipo.</div>
+              ) : (
+                <select className="fsel" value={asesorId} style={{ width: '100%' }} onChange={(e) => {
+                  const a = roster.find((x) => x.persona_id === e.target.value)
+                  setAsesorId(e.target.value)
+                  if (a) setCs((p) => ({ ...p, asesor: a.nombre }))
+                }}>
+                  {roster.map((a) => <option key={a.persona_id} value={a.persona_id}>{a.nombre}</option>)}
+                </select>
+              )}</div>
             <div className="fg"><div className="flbl">Antigüedad del asesor <span>{cs.ant + ' mes' + (cs.ant === 1 ? '' : 'es')}</span></div>
               <input type="range" min={1} max={120} step={1} value={cs.ant} onChange={(e) => csSet({ ant: +e.target.value })} /></div>
             <div className="fg"><div className="flbl">% Cartera vigente <span>{cs.cartera + '%'}</span></div>
