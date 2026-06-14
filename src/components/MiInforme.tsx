@@ -25,7 +25,8 @@ export type Semana = { semana: number; fecha: string; contactos: number; reunion
 export type Informe = {
   mes: string; hasReportes: boolean; semanasCount: number
   identidad?: { nombre: string; institucion: string | null; via: string; tipo: string }
-  meta?: { meta_contactos_semana: number; meta_prospectos_mes: number; meta_ventas_mes: number; meta_ingresos: number }
+  meta?: { meta_contactos_semana: number; meta_contactos_mes: number; meta_prospectos_mes: number; meta_ventas_mes: number; meta_ingresos: number }
+  meta_existe?: boolean
   ingreso?: number
   kpis?: { totC: number; totR: number; totP: number; totPot: number; promG: number; tasaReu: number; efic: number; brecha: number; prospReu: number; mejorV: [string, number] | null }
   semanas?: Semana[]
@@ -35,7 +36,7 @@ export type Informe = {
     lista: { nombre: string; activaciones: number; total_prospectos: number; fecha_conversion: string | null }[]
     chart: { labels: string[]; dAcum: number[]; dNuevos: number[]; dProspNodos: number[]; dProspTotal: number[]; dPct: number[] }
   }
-  avances?: { avMes: number; avC: number | null; avIng: number | null }
+  avances?: { avMes: number | null; avC: number | null; avIng: number | null }
 }
 type Tip = { show: boolean; x: number; y: number; title: string; body: string }
 
@@ -152,16 +153,21 @@ export default function MiInforme({ dto, mes }: { dto: Informe; mes: string }) {
   }
 
   // ── Tile (calco de mc / mcBad / mcOk / emptyMc) ──
-  function Tile({ label, info, value, sub, pct, explain, tone, valueSize }: {
+  function Tile({ label, info, value, sub, pct, explain, tone, valueSize, borderColor, bg, corner, bold }: {
     label: string; info?: string; value: React.ReactNode; sub?: React.ReactNode
     pct?: number | null; explain?: string; tone?: 'ok' | 'bad'; valueSize?: number
+    borderColor?: string; bg?: string; corner?: string; bold?: boolean
   }) {
     const cls = tone ? `mc ${tone}` : pct != null ? `mc ${semaforo(pct)}` : 'mc'
     const dot = tone === 'bad' ? 'bad' : tone === 'ok' ? null : pct != null ? semaforo(pct) : null
+    const style: React.CSSProperties = { position: 'relative' }
+    if (borderColor) style.border = `3px solid ${borderColor}`
+    if (bg) style.background = bg
     return (
-      <div className={cls}>
+      <div className={cls} style={style}>
+        {corner && <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 27, lineHeight: 1 }}>{corner}</div>}
         {dot && <div className={`semaforo ${dot}`} />}
-        <div className="mc-label">{label}{info && <Info k={info} />}</div>
+        <div className="mc-label" style={bold ? { fontWeight: 700 } : undefined}>{label}{info && <Info k={info} />}</div>
         <div className="mc-value" style={valueSize ? { fontSize: valueSize } : undefined}>{value}</div>
         {sub != null && sub !== '' && <div className="mc-sub">{sub}</div>}
         {explain && <div className="mc-explain">{explain}</div>}
@@ -221,7 +227,7 @@ export default function MiInforme({ dto, mes }: { dto: Informe; mes: string }) {
       <div className="card">
         <div className="card-title">Resumen del mes — {getMesLabel(mes)}</div>
         <div className="grid4" style={{ marginBottom: 12 }}>
-          <Tile label="Prospectos obtenidos" info="prospectos-obtenidos" value={k.totP} sub={`Meta: ${meta.meta_prospectos_mes} · ${av.avMes}% cumplido`} pct={av.avMes} explain="Total de prospectos que tus contactos te referenciaron este mes. Es el resultado central de toda la actividad de prospección." />
+          <Tile label="Prospectos obtenidos" info="prospectos-obtenidos" value={k.totP} sub={dto.meta_existe ? `Meta: ${meta.meta_prospectos_mes} · ${av.avMes}% cumplido` : 'Sin meta definida aún'} pct={av.avMes} explain="Total de prospectos que tus contactos te referenciaron este mes. Es el resultado central de toda la actividad de prospección." />
           <Tile label="Contactos realizados" info="contactos-realizados" value={k.totC} sub={`Meta: ${meta.meta_contactos_semana * dto.semanasCount} (${meta.meta_contactos_semana}/sem × ${dto.semanasCount} sem)`} pct={av.avC} explain="Número de nodos relacionales activados. Cada contacto es una persona que puede referirte entre 3 y 5 prospectos calificados." />
           <Tile label="Tasa de reunión" value={`${k.tasaReu}%`} sub={`${k.totR} reuniones de ${k.totC} contactos · Meta: ≥60%`} pct={Math.round(k.tasaReu / 60 * 100)} explain="Porcentaje de contactos que aceptaron reunirse. Mide tu capacidad de apertura y la confianza que genera tu acercamiento." />
           <Tile label="Eficiencia de Contactos" info="eficiencia-contactos" value={`${k.efic}%`} sub={`Prospectos reales vs. potencial (${k.totPot})`} pct={k.efic} explain={`¿Cuánto del potencial máximo aprovechas? Si cada contacto diera 5 referidos, el potencial sería ${k.totPot}. Meta: ≥80%.`} />
@@ -235,15 +241,34 @@ export default function MiInforme({ dto, mes }: { dto: Informe; mes: string }) {
             : <Tile label="Vínculo" value="—" sub="" valueSize={18} />}
         </div>
 
-        {av.avIng !== null && dto.ingreso != null && (
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--g200)' }}>
-            <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--g400)', marginBottom: 10 }}>CORRELACIÓN ACTIVIDAD → INGRESOS</p>
-            <div className="grid2">
-              <Tile label="Ingresos del mes" value={fmt(dto.ingreso)} sub={`Meta: ${fmt(meta.meta_ingresos)} · ${av.avIng}% cumplido`} pct={av.avIng} explain="Ingresos totales del mes vs. tu meta del simulador. La meta de ingresos es consecuencia directa de la actividad de prospección." />
-              <Tile label="Ingreso promedio por prospecto" value={k.totP ? fmt(dto.ingreso / k.totP) : '—'} valueSize={18} sub={`${k.totP} prospectos → ${fmt(dto.ingreso)}`} explain="Muestra cuánto vale en promedio cada prospecto generado. A mayor actividad consistente y mejor efectividad, mayor ingreso. Este indicador mejora con el tiempo." />
-            </div>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--g200)' }}>
+          <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--g400)', marginBottom: 10 }}>CORRELACIÓN ACTIVIDAD → INGRESOS</p>
+          <div className="grid2">
+            <Tile
+              label="Meta de ingresos proyectados del mes" bold
+              value={dto.meta_existe ? fmt(meta.meta_ingresos) : <span style={{ color: 'var(--g400)', fontWeight: 500 }}>Sin meta definida aún</span>}
+              valueSize={dto.meta_existe ? undefined : 15}
+              borderColor="#639922" corner="🏆"
+              explain="La meta de ingresos es consecuencia directa de la actividad de prospección."
+            />
+            <Tile
+              label="Meta de actividad mensual" bold
+              value={dto.meta_existe ? (
+                <div style={{ display: 'flex', gap: 24, justifyContent: 'center', alignItems: 'flex-start' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 36, fontWeight: 700, lineHeight: 1, color: '#185FA5' }}>{meta.meta_contactos_mes ?? 0}</div>
+                    <div style={{ fontSize: 11, color: 'var(--g400)', marginTop: 4 }}>contactos</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 36, fontWeight: 700, lineHeight: 1, color: '#161614' }}>{meta.meta_prospectos_mes ?? 0}</div>
+                    <div style={{ fontSize: 11, color: 'var(--g400)', marginTop: 4 }}>prospectos</div>
+                  </div>
+                </div>
+              ) : <span style={{ color: 'var(--g400)', fontWeight: 500 }}>Sin meta definida aún</span>}
+              borderColor="#85B7EB" bg="#E6F1FB" corner="🏁"
+            />
           </div>
-        )}
+        </div>
       </div>
 
       {/* Card: Evolución semanal */}

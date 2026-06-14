@@ -103,6 +103,8 @@ export default function SimuladorConsorcioPage() {
   const [roster, setRoster] = useState<{ persona_id: string; nombre: string }[] | null>(null)
   const [rosterErr, setRosterErr] = useState('')
   const [asesorId, setAsesorId] = useState('') // persona_id del asesor seleccionado (para v3)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const csSet = (patch: Partial<CsState>) => setCs((p) => ({ ...p, ...patch }))
   const csMp = (k: keyof CsMp, v: number) => setCs((p) => ({ ...p, mp: { ...p.mp, [k]: v } }))
   const csInv = (k: keyof CsInv, v: number) => setCs((p) => ({ ...p, inv: { ...p.inv, [k]: v } }))
@@ -210,6 +212,33 @@ export default function SimuladorConsorcioPage() {
   const diff = total - meta
   const emb = calcEmbudo(cs.pcts, nPolizas)
   const totC = emb.totContactos
+
+  // Guarda las metas del asesor seleccionado (embudo proyectado) vía POST /api/app/metas (v3-B).
+  async function guardarMeta() {
+    if (!asesorId) { setSaveMsg({ ok: false, text: 'Seleccioná un asesor antes de guardar.' }); return }
+    setSaving(true); setSaveMsg(null)
+    try {
+      const r = await fetch('/api/app/metas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          persona_id: asesorId,
+          meta_ingresos: Math.round(total),
+          meta_prospectos_mes: Math.round(emb.totProspectos),
+          meta_ventas_mes: Math.round(nPolizas),
+          meta_contactos_semana: Math.ceil(emb.totContactos / 4),
+          meta_contactos_mes: Math.round(emb.totContactos),
+        }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || 'No se pudo guardar')
+      setSaveMsg({ ok: true, text: `Meta guardada para ${asesor}` })
+    } catch (e) {
+      setSaveMsg({ ok: false, text: (e as Error).message || 'Error al guardar la meta' })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // Mientras resuelve la identidad, o si es asesor (en plena redirección): NO renderizar el Simulador.
   if (!ident || ident.tipo === 'asesor') {
@@ -345,10 +374,9 @@ export default function SimuladorConsorcioPage() {
                 : diff >= 0
                   ? <div className="ib gn" style={{ textAlign: 'center' }}><strong>Meta alcanzable.</strong> Ingreso: {fmtCLP(total)} · Excedente: {fmtCLP(diff)}</div>
                   : <div className="ib rd" style={{ textAlign: 'center' }}><strong>Meta no alcanzada.</strong> Ingreso: {fmtCLP(total)} · Brecha: {fmtCLP(Math.abs(diff))}.</div>}
-              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
-                {/* Guardado DESCONECTADO (stub inerte) — el legacy llama guardarMetasEnTracker() que escribe BD (sim.js:125).
-                    Se omite también root._simMeta (sim.js:127): sin consumidor al ser el botón inerte. */}
-                <button className="btn btn-success" onClick={() => { /* no-op: el simulador no toca BD */ }}>💾 Guardar metas de {asesor} en Tracker</button>
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <button className="btn btn-success" disabled={saving} onClick={guardarMeta}>{saving ? 'Guardando…' : `💾 Guardar metas de ${asesor} en Tracker`}</button>
+                {saveMsg && <div className={`ib ${saveMsg.ok ? 'gn' : 'rd'}`} style={{ textAlign: 'center' }}>{saveMsg.text}</div>}
               </div>
             </div>
 

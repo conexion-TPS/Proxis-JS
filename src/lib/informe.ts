@@ -115,7 +115,12 @@ export async function buildInforme(sb: SB, persona_id: string, mes: string, iden
     .select('meta_contactos_semana, meta_contactos_mes, meta_prospectos_mes, meta_ventas_mes, meta_ingresos')
     .eq('persona_id', persona_id)
     .limit(1)
-  const meta = metaRows?.[0] ?? DEFAULT_META
+  // meta_existe: "meta definida" = guardada desde el simulador nuevo, NO solo fila migrada
+  // (todos tienen fila por migraciones/backfill). Proxy: meta_contactos_mes poblado (columna v3-A,
+  // null en filas migradas/backfilled). El DTO lo expone para no pintar metas migradas como guardadas.
+  const metaReal = metaRows?.[0] ?? null
+  const meta = metaReal ?? DEFAULT_META
+  const metaExiste = metaReal != null && metaReal.meta_contactos_mes != null
 
   // REPORTES del mes — por persona_id. (semana_inicio es TEXT ISO → rango por string es válido.)
   const { data: repRows } = await sb
@@ -208,12 +213,13 @@ export async function buildInforme(sb: SB, persona_id: string, mes: string, iden
   }
 
   const k = calcKpis(reportesConContactos, mes)
+  // Sin meta REAL, los % de avance (avMes/avC/avIng) no se calculan (no mostrar avance falso contra el DEFAULT_META).
   const metaP = Math.max(meta.meta_prospectos_mes || 15, 5)
-  const avMes = Math.round((k.totP / metaP) * 100)
-  const avC = meta.meta_contactos_semana && k.semanasCount
+  const avMes = metaExiste ? Math.round((k.totP / metaP) * 100) : null
+  const avC = metaExiste && meta.meta_contactos_semana && k.semanasCount
     ? Math.round((k.totC / (meta.meta_contactos_semana * k.semanasCount)) * 100)
     : null
-  const avIng = ingreso && meta.meta_ingresos ? Math.round((ingreso / meta.meta_ingresos) * 100) : null
+  const avIng = metaExiste && ingreso && meta.meta_ingresos ? Math.round((ingreso / meta.meta_ingresos) * 100) : null
 
   return {
     mes,
@@ -221,6 +227,7 @@ export async function buildInforme(sb: SB, persona_id: string, mes: string, iden
     semanasCount: k.semanasCount,
     identidad,
     meta,
+    meta_existe: metaExiste,
     ingreso,
     kpis: {
       totC: k.totC, totR: k.totR, totP: k.totP, totPot: k.totPot,

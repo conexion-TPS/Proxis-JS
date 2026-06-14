@@ -73,6 +73,8 @@ export default function SimuladorPage() {
   const [roster, setRoster] = useState<{ persona_id: string; nombre: string }[] | null>(null)
   const [rosterErr, setRosterErr] = useState('')
   const [asesorId, setAsesorId] = useState('') // persona_id del asesor seleccionado (para v3)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   // ── Updaters (calco del comportamiento del legacy; cálculo en calculo.ts) ──
   const upd = (patch: Partial<SimState>) => setS((p) => ({ ...p, ...patch }))
@@ -169,6 +171,34 @@ export default function SimuladorPage() {
   const bonoNeto = bUF * fp * ufVal
   const total = SUELDO_BASE_DEFAULT + bonoNeto + comVenta + incMant + bonoApe + bonoCv
   const { totContactos, metaContactos, totProspectos, activos } = calcEmbudo(s.pcts, ventas)
+
+  // Guarda las metas del asesor seleccionado (embudo proyectado) vía POST /api/app/metas (v3-B).
+  async function guardarMeta() {
+    if (!asesorId) { setSaveMsg({ ok: false, text: 'Seleccioná un asesor antes de guardar.' }); return }
+    setSaving(true); setSaveMsg(null)
+    try {
+      const r = await fetch('/api/app/metas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          persona_id: asesorId,
+          meta_ingresos: Math.round(total),
+          meta_prospectos_mes: Math.round(totProspectos),
+          meta_ventas_mes: Math.round(ventas),
+          meta_contactos_semana: Math.ceil(totContactos / 4),
+          meta_contactos_mes: Math.round(totContactos),
+        }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || 'No se pudo guardar')
+      setSaveMsg({ ok: true, text: `Meta guardada para ${s.asesor}` })
+    } catch (e) {
+      setSaveMsg({ ok: false, text: (e as Error).message || 'Error al guardar la meta' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const mc = total >= s.meta ? 'ok' : 'ng'
   const diff = total - s.meta
 
@@ -415,9 +445,9 @@ export default function SimuladorPage() {
                 : diff >= 0
                   ? <div className="ib gn" style={{ textAlign: 'center' }}><strong>Meta alcanzable.</strong> Ingreso: {fmtCLP(total)} · Excedente: {fmtCLP(diff)}</div>
                   : <div className="ib rd" style={{ textAlign: 'center' }}><strong>Meta no alcanzada.</strong> Ingreso: {fmtCLP(total)} · Brecha: {fmtCLP(Math.abs(diff))}.</div>}
-              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
-                {/* Guardado DESCONECTADO (stub inerte) — la escritura va por API en Fase 3. */}
-                <button className="btn btn-success" onClick={() => { /* no-op: guardado de metas va por API en Fase 3 */ }}>💾 Guardar metas de {s.asesor} en Tracker</button>
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <button className="btn btn-success" disabled={saving} onClick={guardarMeta}>{saving ? 'Guardando…' : `💾 Guardar metas de ${s.asesor} en Tracker`}</button>
+                {saveMsg && <div className={`ib ${saveMsg.ok ? 'gn' : 'rd'}`} style={{ textAlign: 'center' }}>{saveMsg.text}</div>}
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
