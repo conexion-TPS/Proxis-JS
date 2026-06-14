@@ -9,7 +9,7 @@ import { supabaseAdmin } from './supabase'
 
 type SB = ReturnType<typeof supabaseAdmin>
 
-const DEFAULT_META = { meta_contactos_semana: 3, meta_prospectos_mes: 15, meta_ventas_mes: 5, meta_ingresos: 2_000_000 }
+const DEFAULT_META = { meta_contactos_semana: 3, meta_contactos_mes: 12, meta_prospectos_mes: 15, meta_ventas_mes: 5, meta_ingresos: 2_000_000 }
 const MESES_NOM = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 function mesSiguiente(mes: string): string {
@@ -112,7 +112,7 @@ export async function buildInforme(sb: SB, persona_id: string, mes: string, iden
   // META — por persona_id (defaults si no hay fila; Consorcio aún no tiene metas migradas)
   const { data: metaRows } = await sb
     .from('metas')
-    .select('meta_contactos_semana, meta_prospectos_mes, meta_ventas_mes, meta_ingresos')
+    .select('meta_contactos_semana, meta_contactos_mes, meta_prospectos_mes, meta_ventas_mes, meta_ingresos')
     .eq('persona_id', persona_id)
     .limit(1)
   const meta = metaRows?.[0] ?? DEFAULT_META
