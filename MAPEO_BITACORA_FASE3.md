@@ -32,6 +32,8 @@ contraste; **el calco se hace contra A.**
 en proxis_dev parecen un **volcado puntual del 2026-06-05** (ver §7). "Conectar el cable" = decidir si la
 bitácora del `/app` escribe directo en proxis_dev (por `persona_id`) o si hay sync. Esto es lo que define Fase 3.
 
+> **[Corregido 2026-06-15, verificado contra BD/código]** Confirmado: **NO hay sync automático** Viña→proxis_dev; las copias son **manuales (Management API)**. El `/app` **lee y escribe proxis_dev** por `persona_id` — la bitácora v1/v2 del `/app` ya escribe proxis_dev (`/api/app/bitacora` POST). Viña quedó **read-only** (RLS cerrado + escritura revocada el 06-15). El delta de Zurich de la semana 08-06 está presente en proxis_dev (verificado 06-15, 10 reportes con ids regenerados). La reconciliación del conteo exacto Viña↔proxis_dev (9 vs 12 según criterio de corte) queda pendiente.
+
 ---
 
 ## 1. Reconocedor de nombres similares (algoritmo exacto) — A
@@ -155,11 +157,11 @@ Lazcano, Jaime Caro Navarro, Paula Domínguez, Rocío Concha Silva) + Valeska Co
 ## 8. PENDIENTE (no determinable en read-only)
 1. **Mecanismo de sync Viña prod → proxis_dev.** Los 6 reportes / 48 contactos de Consorcio aparecen
    espejados en ambas BD (volcado aparente del 2026-06-05). No se determina si fue migración puntual o si
-   hay sync vivo. Crítico para Fase 3 ("conectar el cable").
+   hay sync vivo. Crítico para Fase 3 ("conectar el cable"). **[Corregido 2026-06-15: RESUELTO — no hay sync vivo; es copia MANUAL puntual por Management API. Ver el bloque corregido del Gap arquitectónico arriba.]**
 2. **Cómo llegaron a proxis_dev los nodos de la institución `16726d00`** (30 nodos con `persona_id` nativo):
    sugiere que **algún** tenant escribe nodos directo en proxis_dev (¿bitácora distinta / IMR?). Fuera de
    alcance de Consorcio, pero relevante como precedente del modelo de escritura nativo.
-3. Reglas de RLS / claves usadas por cada vía de escritura en producción (no inspeccionado).
+3. Reglas de RLS / claves usadas por cada vía de escritura en producción (no inspeccionado). **[Corregido 2026-06-15: inspeccionado — Viña RLS cerrado + INSERT/UPDATE/DELETE revocado (lectura-sólo).]**
 
 ## 9. Ambigüedades marcadas (no asumidas)
 - §0: A vs B — **RESUELTO por TPS: la fuente del calco es A.** B no se usa.

@@ -1,3 +1,4 @@
+-- ⚠️ SUPERSEDED 2026-06-15: el estado real de Viña difiere de esta migración (RLS estuvo abierto hasta el 06-15; vina_credentials tiene columnas empresa/rol; faltan tablas nodos/activaciones_nodo/ingresos creadas en Fase 0.1). Ver DISENO_CONSOLIDACION.md para el estado real.
 -- Consorcio Viña — bitácora aislada (Opción B: proyecto propio)
 -- Aplicar en el proyecto **sgu-vina-prospección** (NO en proxis-dev).
 -- Proyecto Supabase dedicado: el aislamiento de Zurich es a nivel de proyecto entero.

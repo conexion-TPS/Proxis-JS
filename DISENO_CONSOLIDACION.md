@@ -199,10 +199,10 @@ Cada persona es una fila en `persona` con un puntero de regreso a la tabla de or
 
 ### 0.4.a Crear las 18 personas reales — ✅ EJECUTADO
 - **`persona` ahora tiene 23 filas:** 5 demo (`Imrbrasil`, de 0.3.b) + **11 Zurich** + **7 Consorcio**.
-- **Zurich (11 = 10 asesor + 1 mando):** mando = *Alejandra Espinoza Morral*; asesores = Diego Pérez, Fernanda Grothusen, Francis Arancibia, Marcela Jara, María Francisca Lorenz, Mauricio Gana, Nazaret Johannesen, Oriana Jorquera, Sindy Martínez, Verónica Castillo. → `email = null` y `origen_* = null`: **no existen en ninguna tabla de credenciales**, viven hardcodeados en `public/plataforma-core.js` (objeto `USUARIOS`). Por eso `origen_*` se hizo nullable en 0.3.b.
+- **Zurich (11 = 10 asesor + 1 mando):** mando = *Alejandra Espinoza Morral*; asesores = Diego Pérez, Fernanda Grothusen, Francis Arancibia, Marcela Jara, María Francisca Lorenz, Mauricio Gana, Nazaret Johannesen, Oriana Jorquera, Sindy Martínez, Verónica Castillo. → `email = null` y `origen_* = null`: **no existen en ninguna tabla de credenciales**, viven hardcodeados en `public/plataforma-core.js` (objeto `USUARIOS`). Por eso `origen_*` se hizo nullable en 0.3.b. **[Corregido 2026-06-15, verificado contra BD: las 11 personas Zurich SÍ tienen `email` real poblado (alta 12-jun, ver `LOGIN_ZURICH.md`) y credenciales bcrypt reales en `vina_credentials` (empresa='zurich'); ya NO es `email=null` ni "sin BD". `origen_*` sigue null.]**
 - **Consorcio (7 = 6 asesor + 1 mando):** mando = *Valeska Comparini Cruells*; asesores = Angela Castillo Guzmán, Carla Ortiz Concha, Ignacio Hidalgo Lazcano, Jaime Caro Navarro, Paula Domínguez, Rocío Concha Silva. → `email` poblado (origen real `vina_credentials`, login por BD/bcrypt).
 
-> 🔴 **RIESGO DE SEGURIDAD anotado (no resuelto en Fase 0):** `public/plataforma-core.js` expone en **texto plano** en el bundle público las **10 claves de los asesores Zurich** (objeto `USUARIOS`) **y la anon key del proyecto Viña** (`SB_KEY`, líneas ~9-10). Cualquiera con "ver código fuente" en `/plataforma` las obtiene. Login Zurich = validación client-side contra ese objeto (no hay BD para Zurich). **A resolver al portar Zurich a credenciales reales (Fase 1/3), junto con RLS de Viña.**
+> 🔴 **RIESGO DE SEGURIDAD anotado (no resuelto en Fase 0):** `public/plataforma-core.js` expone en **texto plano** en el bundle público las **10 claves de los asesores Zurich** (objeto `USUARIOS`) **y la anon key del proyecto Viña** (`SB_KEY`, líneas ~9-10). Cualquiera con "ver código fuente" en `/plataforma` las obtiene. Login Zurich = validación client-side contra ese objeto (no hay BD para Zurich). **A resolver al portar Zurich a credenciales reales (Fase 1/3), junto con RLS de Viña.** **[Corregido 2026-06-15: Zurich YA tiene credenciales reales en BD (`vina_credentials`, bcrypt) desde el 12-jun y entra por `/api/vina/login`; "no hay BD para Zurich" quedó obsoleto. La exposición de claves en texto plano sigue como riesgo (D-LZ5) hasta la rotación post-corte. El RLS de Viña fue cerrado + escritura revocada el 06-15.]**
 
 ### 0.4.b Copiar datos de bitácora Viña → proxis_dev — ✅ EJECUTADO
 
@@ -354,7 +354,7 @@ Dos desviaciones, ambas en el **header del app-shell**:
 ## 8. Fases siguientes (resumen)
 - **Fase 1** → Portar al React (`/vina`→`/app`) lo que solo existe en legacy: Mi Informe, nodos, simulador de metas, tracker. → paridad funcional.
 - **Fase 2** → Conectar IA a la plataforma React: Sailor FAB en bitácora, cuestionarios dosificados (5 por tanda, cadencia 360° intercalada), captura de señales, informes por nivel de jerarquía.
-- **Fase 3** → Unificar Vercel: un proyecto, dominio real → React, keys de IA correctas. Apagar `/plataforma` legacy. Conmutar fuente de datos.
+- **Fase 3** → Unificar Vercel: un proyecto, dominio real → React, keys de IA correctas. Apagar `/plataforma` legacy. Conmutar fuente de datos. **[Corregido 2026-06-15: `/plataforma` YA apagado por redirect a `/app` (commit `4687418`), adelantado a Fase 3; código legacy conservado inerte.]**
 - **Fase 4** → Alta de tenant automática (1 min, sin tocar interfaz). Resuelve el riesgo del error de compensación.
 
 ---
@@ -386,7 +386,7 @@ Dos desviaciones, ambas en el **header del app-shell**:
 ## 11. Frentes futuros anotados (NO ahora)
 
 ### Deudas técnicas concretas (actualizado tras paso A — abordar en fases siguientes)
-- **🔴 Login de Zurich (11 filas):** los 10 asesores + Alejandra tienen `password_hash='LOGIN_PENDIENTE_MIGRACION'` y emails placeholder en proxis_dev; **siguen entrando por el JS hardcodeado** (`public/plataforma-core.js`, donde sus claves están en **texto plano** junto con la **anon key de Viña** → riesgo de seguridad vigente). **Frente de autenticación:** definir/hashear contraseñas reales, quitar `acceso_bloqueado`, reemplazar emails placeholder. **No es deuda estructural** — las filas están bien puestas (nodos/cargo correctos), solo falta activar el login.
+- **🔴 Login de Zurich (11 filas):** los 10 asesores + Alejandra tienen `password_hash='LOGIN_PENDIENTE_MIGRACION'` y emails placeholder en proxis_dev; **siguen entrando por el JS hardcodeado** (`public/plataforma-core.js`, donde sus claves están en **texto plano** junto con la **anon key de Viña** → riesgo de seguridad vigente). **Frente de autenticación:** definir/hashear contraseñas reales, quitar `acceso_bloqueado`, reemplazar emails placeholder. **No es deuda estructural** — las filas están bien puestas (nodos/cargo correctos), solo falta activar el login. **[Corregido 2026-06-15, verificado contra BD: RESUELTO — Zurich tiene hash bcrypt real en `vina_credentials` y emails reales en `persona` (12-jun, `LOGIN_ZURICH.md`); ya entran a `/app` por email. El `password_hash='LOGIN_PENDIENTE_MIGRACION'`/placeholder describía un estado superado. Pendiente solo: eliminar el `USUARIOS` hardcodeado (rotación D-LZ5 + apagado legacy, ya redirigido).]**
 - **`persona` ya NO está del todo dormida:** el endpoint de identidad (`identity.ts`, paso B) la lee. Pero la jerarquía/resolución de las **edge functions** aún corre por `asesor_credentials`/`org_usuarios` (no por `persona_id`) — cablear ahí es trabajo de fase posterior.
 - **Refinamientos anotados de `identity.ts`** (no urgentes): mover el mapa `empresa→institución` a config; endurecer el match de email con RPC `lower(btrim())`.
 - **PK por nombre:** `metas` (PK = `asesor`) e `ingresos` (PK = `asesor`,`mes`) en proxis_dev **no tienen `id`** y aún usan el nombre como clave. Migrar a `persona_id` en su momento.
@@ -408,10 +408,14 @@ Dos desviaciones, ambas en el **header del app-shell**:
 - **Anonimización:** los T&C (módulo legal) comprometen anonimizar usuarios al darse de baja. **Aún no en vigor → entra cuando se incorpore la IA a producción.** Existe maquinaria: `anonymized_profiles`, `anonymization_audit_log`. Revisar el flujo antes de que aplique.
 - **Autenticación:** login no uniformes, sin recuperar/ver contraseña. Auditar si es Supabase Auth, custom (`asesor_credentials`/`vina_credentials` sugieren custom), o mixto. Proyecto propio.
 - **Visión de largo plazo (no diseñar aún, solo dejar puerta abierta vía `instituciones`):** módulo de marketing (generación + publicación automática en redes), contabilidad/facturación/cobros, todo en un dashboard único.
-- **RLS:** tablas de Viña con anon key pública hardcodeada en `plataforma-core.js`. No urgente (datos no sensibles, 2 semanas). Se define correctamente sobre el modelo final.
+- **RLS:** tablas de Viña con anon key pública hardcodeada en `plataforma-core.js`. No urgente (datos no sensibles, 2 semanas). Se define correctamente sobre el modelo final. **[Corregido 2026-06-15, verificado contra BD: las tablas de Viña tenían política `acceso_total` abierta a `public` (NO cerrada). El 2026-06-15 se CERRÓ el RLS (DROP POLICY `acceso_total` en reportes/contactos/metas/nodos/activaciones_nodo/ingresos) y se REVOCÓ INSERT/UPDATE/DELETE para anon/authenticated/service_role → Viña es lectura-sólo. "No urgente / datos no sensibles" ya no aplica.]**
 - **`feedback`** sin tenant → verificar si debe ser tenant-aware.
 
-### Frente futuro — aislamiento de empresa en endpoints /api/vina/* (Fase 3)
+### ✅ RESUELTO 2026-06-15 — aislamiento de empresa en endpoints /api/vina/* (era "Frente futuro · Fase 3")
+
+> **[Corregido 2026-06-15, verificado contra BD]** El análisis de abajo (estado 06-08) quedó **superado**. Hechos reales: (1) `vina_credentials` **SÍ contiene Zurich** (10 asesores + 1 sup, empresa='zurich') además de Consorcio — la afirmación "solo contiene Consorcio; Zurich no está ahí" es **falsa**. (2) El riesgo de mezcla **NO era teórico: se materializó** (una supervisora Zurich veía el equipo Consorcio). (3) **Se corrigió el 06-15** (commit `eb0eba2`), **no en Fase 3**: el login lee `cred.empresa`, `/api/vina/equipo` filtra `.eq('empresa', s.empresa)` y el gate valida empresa∈{consorcio,zurich}+rol supervisor. El texto histórico de abajo se conserva como registro.
+
+### Frente futuro — aislamiento de empresa en endpoints /api/vina/* (Fase 3) — HISTÓRICO (superado, ver bloque RESUELTO arriba)
 
 Estado (2026-06-08): los endpoints /api/vina/* (login, equipo, bitacora)
 siguen acoplados al modelo legacy: filtran por la constante EMPRESA_VINA='vina'
@@ -436,7 +440,7 @@ en proxis_dev (persona/org_usuarios/asesor_credentials, segmentada por
 institucion_id), no en vina_credentials.
 
 Patrón correcto confirmado: derivar del token, no hardcodear. Su lugar es Fase 3.
-Plan detallado (transitorio, referencia): PLAN_AISLAMIENTO_EMPRESA.md.
+Plan detallado (transitorio, referencia): PLAN_AISLAMIENTO_EMPRESA.md. **[Corregido 2026-06-15: referencia colgante — ese archivo no existe en el repo; el arreglo definitivo ya se aplicó (ver bloque RESUELTO arriba).]**
 ---
 
 *Fin. **Fase 0 + Paso A + Paso B COMPLETOS** — **Mi Informe portado a React con calco fiel** (commit `9d43275`); el patrón legacy→React (leer de **proxis_dev** por `persona_id`/`institucion_id`, NO de Viña ni por nombre + UI idéntica) está probado **end-to-end sobre una pantalla completa**. Desviaciones del calco registradas en §7-quinquies (A dejada por decisión; B pendiente). Próximo paso (a decidir): portar la siguiente pantalla (**Simulador** / Nodos / Tracker) o endurecer el login de Zurich. Meta: paridad funcional antes de conectar IA (Fase 2) y conmutar la fuente de datos (Fase 3).*
