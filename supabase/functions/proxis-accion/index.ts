@@ -7,6 +7,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callAI } from '../_shared/ai-client.ts'
+import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -57,6 +58,13 @@ Deno.serve(async (req: Request) => {
     const remitente = cfgArr?.[0]?.value || 'Sailor Mentor (Proxis)'
     const now = new Date().toISOString()
     const asesor = d.asesor as string
+
+    // Gate por institución (lista blanca, fail-closed). Antes de cualquier envío/insert.
+    // El carve-out de canarios vive dentro de esAutorizado, así que __canary__ sigue pasando.
+    const autz = await getAsesoresAutorizados(sb)
+    if (!esAutorizado(asesor, autz)) {
+      return json({ ok: false, skipped: 'institucion_no_autorizada', asesor }, 200)
+    }
 
     // ── trigger → mensaje de coaching al asesor ──────────────────────────────
     if (d.accion_tipo === 'trigger') {

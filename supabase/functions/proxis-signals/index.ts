@@ -5,6 +5,7 @@
 // Entrada del pipeline: señales → proxis-analyzer → hipótesis → proxis-monitor → mensajes
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getAsesoresAutorizados, filtrarAutorizados } from '../_shared/tenant.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -352,7 +353,10 @@ Deno.serve(async (_req) => {
     if (metasErr) throw metasErr
 
     const asesores = [...new Set((metas || []).map((m: any) => m.asesor as string))]
-    log.push(`Asesores a evaluar: ${asesores.length}`)
+    // Gate por institución (lista blanca, fail-closed): autz vacío ⇒ ningún asesor (carve-out canarios).
+    const autz = await getAsesoresAutorizados(sb)
+    const asesoresG = filtrarAutorizados(asesores, autz)
+    log.push(`Asesores a evaluar: ${asesoresG.length} (de ${asesores.length} con metas)`)
 
     // 2. Pre-cargar señales de los últimos 20 días para deduplicación en memoria
     const cutoff20d = new Date(Date.now() - 20 * 86_400_000).toISOString()
@@ -366,7 +370,7 @@ Deno.serve(async (_req) => {
       recentSignals || []
 
     // 3. Procesar cada asesor de forma independiente
-    for (const asesor of asesores) {
+    for (const asesor of asesoresG) {
       try {
         const ctx     = await buildContext(asesor)
         const signals = evaluateSignals(ctx)

@@ -6,6 +6,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { callAI, callAIJson } from '../_shared/ai-client.ts'
+import { getAsesoresAutorizados } from '../_shared/tenant.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -443,6 +444,10 @@ Deno.serve(async (req: Request) => {
       .eq('procesada', false)
     asesores = [...new Set((pendingArr ?? []).map((r: any) => r.asesor as string))]
       .filter(a => !a.startsWith('__'))
+    // Gate por institución (lista blanca, fail-closed): solo se analizan asesores
+    // autorizados. Las señales de no-autorizados quedan procesada=false (reversibles).
+    const autz = await getAsesoresAutorizados(sb)
+    asesores = asesores.filter(a => autz.has(a))
   }
 
   if (!asesores.length) {

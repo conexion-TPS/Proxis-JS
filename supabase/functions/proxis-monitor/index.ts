@@ -6,6 +6,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { callAI } from '../_shared/ai-client.ts'
+import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -366,11 +367,15 @@ async function procesarPerfilesIncompletos(remitente: string, results: any[], dr
     .select('asesor, tps_progress, updated_at')
     .is('perfil_base', null)
 
+  // Gate por institución (lista blanca, fail-closed): autz vacío ⇒ ningún asesor.
+  const autz = await getAsesoresAutorizados(sb)
+
   for (const row of incompletos ?? []) {
     const asesor = row.asesor as string
     const horas  = (Date.now() - new Date(row.updated_at).getTime()) / 3600_000
     const prog   = row.tps_progress ?? 0
     const item: any = { asesor, trigger: 'perfil-incompleto' }
+    if (!esAutorizado(asesor, autz)) { item.status = 'inst_no_autorizada'; results.push(item); continue }
     try {
       if (horas >= 48 && activo48) {
         const cd = cfgMap.get('perfil-incompleto-48h')?.cooldown_dias || 7
@@ -431,8 +436,12 @@ async function procesarSupervisoresSinValorar(remitente: string, results: any[],
   const { data: sups } = await sb.from('org_usuarios')
     .select('nombre, email, org_nodo_id').eq('cargo', 'supervisor').eq('activo', true)
 
+  // Gate por institución (lista blanca, fail-closed): autz vacío ⇒ ningún supervisor.
+  const autz = await getAsesoresAutorizados(sb)
+
   for (const sup of sups ?? []) {
     const item: any = { supervisor: sup.nombre, trigger: 'supervisor-sin-valorar' }
+    if (!esAutorizado(sup.nombre, autz)) { item.status = 'inst_no_autorizada'; results.push(item); continue }
     try {
       if (!sup.email || !sup.org_nodo_id) { item.status = 'sin_email_o_nodo'; results.push(item); continue }
 
@@ -599,8 +608,10 @@ Deno.serve(async (req: Request) => {
     .select('*').eq('activo', true)
 
   // 2. Todos los asesores (excluyendo el namespace de canarios __*)
+  //    Gate por institución (lista blanca, fail-closed): autz vacío ⇒ ningún asesor.
+  const autz = await getAsesoresAutorizados(sb)
   const { data: metasArr } = await sb.from('metas').select('asesor')
-  const asesores = (metasArr || []).map((m: any) => m.asesor as string).filter(a => !a.startsWith('__'))
+  const asesores = (metasArr || []).map((m: any) => m.asesor as string).filter(a => !a.startsWith('__') && autz.has(a))
 
   // 3. Trigger × asesor
   for (const trigger of (triggers ?? [])) {

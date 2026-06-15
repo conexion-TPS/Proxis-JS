@@ -9,6 +9,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { callAIJson } from '../_shared/ai-client.ts'
+import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -23,6 +24,10 @@ Deno.serve(async (req: Request) => {
   try {
     const { asesor } = await req.json().catch(() => ({}))
     if (!asesor) return json({ error: 'asesor requerido' }, 400)
+
+    // Gate por institución (lista blanca, fail-closed). Espejo del guard de proxis-accion.
+    const autz = await getAsesoresAutorizados(sb)
+    if (!esAutorizado(asesor, autz)) return json({ ok: false, skipped: 'institucion_no_autorizada', asesor })
 
     // Freno: una observación a la vez por asesor + cooldown. Evita que el portal
     // pida lo mismo en cada expansión y se acumulen señales sin procesar.

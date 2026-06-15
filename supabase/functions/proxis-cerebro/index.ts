@@ -4,6 +4,7 @@
 // genera un registro diario de estado en system_health_log.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getAsesoresAutorizados, filtrarAutorizados } from '../_shared/tenant.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -706,9 +707,12 @@ async function repararAsesoresSinPerfil(): Promise<Reparacion> {
   const { data: activos } = await sb
     .from('asesor_credentials').select('asesor').eq('activo', true)
   const nombres: string[] = (activos ?? []).map((a: any) => a.asesor)
+  // Gate por institución (lista blanca, fail-closed): solo se siembra para autorizados.
+  const autz = await getAsesoresAutorizados(sb)
+  const nombresG = filtrarAutorizados(nombres, autz)
   const { data: conPerfil } = await sb
-    .from('tps_perfiles').select('asesor').in('asesor', nombres)
-  const sinPerfil = nombres.filter(n => !(conPerfil ?? []).some((p: any) => p.asesor === n))
+    .from('tps_perfiles').select('asesor').in('asesor', nombresG)
+  const sinPerfil = nombresG.filter(n => !(conPerfil ?? []).some((p: any) => p.asesor === n))
 
   if (!sinPerfil.length)
     return { tipo_alerta: 'asesores_sin_perfil', accion: 'crear_perfil_default', exito: true, detalle: 'Sin acción necesaria' }
@@ -735,9 +739,12 @@ async function repararAsesoresSinMetas(): Promise<Reparacion> {
   const { data: activos } = await sb
     .from('asesor_credentials').select('asesor').eq('activo', true)
   const nombres: string[] = (activos ?? []).map((a: any) => a.asesor)
+  // Gate por institución (lista blanca, fail-closed): solo se siembra para autorizados.
+  const autz = await getAsesoresAutorizados(sb)
+  const nombresG = filtrarAutorizados(nombres, autz)
   const { data: conMetas } = await sb
-    .from('metas').select('asesor').in('asesor', nombres)
-  const sinMetas = nombres.filter(n => !(conMetas ?? []).some((m: any) => m.asesor === n))
+    .from('metas').select('asesor').in('asesor', nombresG)
+  const sinMetas = nombresG.filter(n => !(conMetas ?? []).some((m: any) => m.asesor === n))
 
   if (!sinMetas.length)
     return { tipo_alerta: 'asesores_sin_metas', accion: 'crear_metas_default', exito: true, detalle: 'Sin acción necesaria' }
