@@ -1,22 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-import { supabaseVina, EMPRESA_VINA } from '@/lib/supabaseVina'
+import { supabaseVina } from '@/lib/supabaseVina'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const SECRET = process.env.VINA_JWT_SECRET ?? process.env.SAILOR_JWT_SECRET ?? 'proxis-vina-secret'
 
+// Empresas válidas en Viña. El aislamiento entre ellas lo da el filtro
+// .eq('empresa', s.empresa) de la query, no una constante hardcodeada.
+const EMPRESAS_VALIDAS: string[] = ['consorcio', 'zurich']
+
 type Sesion = { asesor: string; email: string; empresa: string; rol?: string }
 
-// Solo un token de SUPERVISOR de empresa 'consorcio' puede ver el roster del equipo.
+// Solo un token de SUPERVISOR con empresa válida puede ver el roster de SU empresa.
 function verifySupervisor(req: NextRequest): Sesion | null {
   const auth = req.headers.get('authorization') ?? ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
   if (!token) return null
   try {
     const s = jwt.verify(token, SECRET) as Sesion
-    if (s.empresa !== EMPRESA_VINA) return null
+    if (!EMPRESAS_VALIDAS.includes(s.empresa)) return null
     if (s.rol !== 'supervisor') return null
     return s
   } catch {
@@ -37,6 +41,7 @@ export async function GET(req: NextRequest) {
     .select('asesor')
     .eq('rol', 'asesor')
     .eq('activo', true)
+    .eq('empresa', s.empresa)
     .order('asesor', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
