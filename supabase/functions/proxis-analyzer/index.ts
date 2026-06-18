@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { callAI, callAIJson } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados } from '../_shared/tenant.ts'
+import { codigoOrigenAIdTipo } from '../_shared/tipo-catalogo.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -94,10 +95,12 @@ async function analizarAsesor(asesor: string): Promise<{
   const perfil: PerfilActual = perfilArr?.[0] ?? {}
 
   // 3. Conocimiento conductual relevante (para contexto)
+  // Traducir la letra histórica (E/S/R/A) al id_tipo ERRIM vía tipo_catalogo.
+  const tipoErrim = await codigoOrigenAIdTipo(sb, perfil.perfil_dominante ?? null)
   const { data: conocimiento } = await sb
     .from('knowledge_base_conductual')
     .select('categoria, titulo, contenido')
-    .or(`perfil.is.null,perfil.eq.${perfil.perfil_dominante ?? 'GEN'}`)
+    .or(`perfil.is.null,perfil.eq.${tipoErrim}`)
     .limit(20)
 
   // 4. Construir prompt analítico

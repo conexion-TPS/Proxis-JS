@@ -4,6 +4,7 @@
 // usa Gemini para sintetizar conocimiento conductual y crear una knowledge_proposal.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { codigoOrigenAIdTipo } from '../_shared/tipo-catalogo.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -91,11 +92,13 @@ async function investigarGap(gap: {
 
   const perfil = perfilArr?.[0] ?? {}
 
-  // Conocimiento existente en la dimensión
+  // Conocimiento existente para el tipo del asesor.
+  // Traducir la letra histórica (E/S/R/A) al id_tipo ERRIM vía tipo_catalogo.
+  const tipoErrim = await codigoOrigenAIdTipo(sb, perfil.perfil_dominante ?? null)
   const { data: conocimientoExistente } = await sb
     .from('knowledge_base_conductual')
     .select('titulo,contenido,perfil,categoria')
-    .eq('dimension', gap.dimension)
+    .eq('perfil', tipoErrim)
     .limit(10)
 
   const senalesTexto = (senales ?? []).map(s =>
