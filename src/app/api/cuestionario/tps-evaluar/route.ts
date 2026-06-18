@@ -56,6 +56,9 @@ export async function POST(req: NextRequest) {
   const modC: Record<string, number[]> = {
     tps_c_f1: [], tps_c_f2: [], tps_c_f3: [], tps_c_f4: [], tps_c_f5: [],
   }
+  // Acumulador dedicado para tps_c_adapt (ERRIM Equilibrio Adaptativo). Separado de modC
+  // a propósito: NO entra a factorSums, deseabilidad_social ni al jsonb rasgos_comerciales.
+  const modAdapt: number[] = []
   const dPerfiles: string[] = []
   let backupStyleActivo = false
 
@@ -72,6 +75,11 @@ export async function POST(req: NextRequest) {
       if (!isNaN(val)) modA.push(val)
     } else if (dim === 'tps_b') {
       if (!isNaN(val)) modB.push(val)
+    } else if (dim === 'tps_c_adapt') {
+      if (!isNaN(val)) {
+        const negativo = p.opciones?.negativo === true
+        modAdapt.push(negativo ? 6 - val : val)
+      }
     } else if (dim?.startsWith('tps_c_')) {
       if (!isNaN(val) && modC[dim]) {
         const negativo = p.opciones?.negativo === true
@@ -140,6 +148,21 @@ export async function POST(req: NextRequest) {
     { onConflict: 'asesor' }
   )
 
+  // ── Puente Resiliencia (ERRIM): f4 crudo → asesor_perfil.resiliencia "suma/base/n_items" ──
+  // n_items = ítems de tps_c_f4 efectivamente respondidos (longitud del acumulador), NO se asume 5.
+  const resF4Items  = modC['tps_c_f4'].length
+  const resiliencia = resF4Items > 0
+    ? `${rasgosComer['f4']}/${resF4Items * 5}/${resF4Items}`
+    : null
+
+  // ── Puente Equilibrio Adaptativo (ERRIM): tps_c_adapt crudo → asesor_perfil.equilibrio_adaptativo ──
+  // Acumulador propio (modAdapt); NO toca modC, factorSums, deseabilidad_social ni el jsonb.
+  const sumaAdapt = modAdapt.reduce((a, b) => a + b, 0)
+  const nAdapt    = modAdapt.length
+  const equilibrio_adaptativo = nAdapt > 0
+    ? `${sumaAdapt}/${nAdapt * 5}/${nAdapt}`
+    : null
+
   // ── Sincronizar con tabla asesor_perfil existente ──
   await sb.from('asesor_perfil').upsert(
     {
@@ -147,6 +170,8 @@ export async function POST(req: NextRequest) {
       assertividad_score: puntajeA,
       sociabilidad_score: puntajeB,
       perfil_dominante:   perfilFinal,
+      ...(resiliencia !== null ? { resiliencia } : {}),
+      ...(equilibrio_adaptativo !== null ? { equilibrio_adaptativo } : {}),
       updated_at:         new Date().toISOString(),
     },
     { onConflict: 'asesor' }

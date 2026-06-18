@@ -522,6 +522,8 @@ function dimensionToColumn(dim: string): string | null {
     'relacion_feedback':      'relacion_feedback',
     'perfil_conductual_notas':'perfil_conductual_notas',
     'contexto_situacional':   'contexto_situacional',
+    'equilibrio_adaptativo':  'equilibrio_adaptativo',
+    'resiliencia':            'resiliencia',
   }
   return map[dim] ?? null
 }
