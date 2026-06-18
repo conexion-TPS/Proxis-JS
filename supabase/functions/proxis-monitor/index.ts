@@ -152,7 +152,7 @@ async function buildContext(asesor: string) {
     ingreso_mes_anterior:    ingresoPrevRes.data?.ingreso_real ?? 0,
     es_primer_mes:           reportesPrev.length === 0 && reportes.length === 0,
     hipotesis_pendientes:    (hipRes.data ?? []).length,
-    hipotesis_alta_confianza:(hipRes.data ?? []).filter((h: any) => (h.confianza ?? 0) >= 0.8).length,
+    hipotesis_alta_confianza:(hipRes.data ?? []).filter((h: any) => (h.confianza ?? 0) >= 80).length,
     nivel_riesgo:            riesgoRes.data?.nivel_riesgo      ?? null,
     nivel_riesgo_nota:       riesgoRes.data?.nivel_riesgo_nota ?? null,
     dias_sin_mensaje:        (() => {
@@ -529,7 +529,8 @@ async function decidirCapturaEmail(asesor: string): Promise<{
     conteo[d] = (conteo[d] || 0) + 1
   }
   const DIMS = ['identidad_vendedora','relacion_prospeccion','modelos_mentales',
-                'relacion_feedback','perfil_conductual_notas','contexto_situacional']
+                'relacion_feedback','perfil_conductual_notas','contexto_situacional',
+                'equilibrio_adaptativo','resiliencia']
   const sorted = DIMS.sort((a, b) => (conteo[a] || 0) - (conteo[b] || 0))
   const targetDim = sorted[0]
 

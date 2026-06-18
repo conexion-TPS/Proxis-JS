@@ -1,8 +1,8 @@
 -- Fase 2.2 — Ampliar asesor_perfil con campos del sistema avanzado
 
 ALTER TABLE asesor_perfil
-  ADD COLUMN IF NOT EXISTS assertividad_score    float,        -- eje X Merrill-Reid (0-10)
-  ADD COLUMN IF NOT EXISTS sociabilidad_score    float,        -- eje Y Merrill-Reid (0-10)
+  ADD COLUMN IF NOT EXISTS assertividad_score    float,        -- eje X Merrill-Reid (1-4)
+  ADD COLUMN IF NOT EXISTS sociabilidad_score    float,        -- eje Y Merrill-Reid (1-4)
   ADD COLUMN IF NOT EXISTS perfil_dominante      text          -- 'E'|'S'|'R'|'A' calculado
     CHECK (perfil_dominante IN ('E','S','R','A') OR perfil_dominante IS NULL),
   ADD COLUMN IF NOT EXISTS backup_style_doc      text,         -- descripción del estilo backup

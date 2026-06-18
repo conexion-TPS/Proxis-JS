@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
     // Hipótesis activas, la de MENOR confianza primero (es la que más necesita evidencia)
     const { data: hips } = await sb
       .from('deductions_log')
-      .select('id, dimension, hipotesis, confianza, estado')
+      .select('id, dimension_afectada, hipotesis, confianza, estado')
       .eq('asesor', asesor)
       .in('estado', ['pendiente', 'validada', 'editada'])
       .order('confianza', { ascending: true })
@@ -73,7 +73,7 @@ Deno.serve(async (req: Request) => {
       : '(sin perfil previo)'
 
     const hipTexto = objetivo
-      ? `Hipótesis a poner a prueba (dimensión: ${objetivo.dimension ?? '?'}, confianza actual: ${objetivo.confianza ?? '?'}%):\n"${objetivo.hipotesis}"`
+      ? `Hipótesis a poner a prueba (dimensión: ${objetivo.dimension_afectada ?? '?'}, confianza actual: ${objetivo.confianza ?? '?'}%):\n"${objetivo.hipotesis}"`
       : '(aún no hay hipótesis formal; usa el perfil para elegir la dimensión más incierta)'
 
     const prompt = `Eres "Sailor Mentor". Le pides a un SUPERVISOR una observación de primera mano sobre uno de sus asesores, para AFINAR (nunca concluir) tu lectura de cómo trabaja. El supervisor lo ve a diario: es una fuente valiosa que cruzarás con el autoreporte del asesor y su desempeño. Hablas en primera persona, como mentor que pide ayuda a un colega.
@@ -96,7 +96,7 @@ Formula UNA sola observación que el supervisor pueda reconocer de haber visto. 
 
 ## Formato de salida (SOLO JSON, sin texto extra)
 {
-  "dimension": "${objetivo?.dimension ?? 'contexto_situacional'}",
+  "dimension": "${objetivo?.dimension_afectada ?? 'contexto_situacional'}",
   "stem": "la pregunta/observación situacional, una sola frase",
   "basis": "1 frase en primera persona (yo, Sailor Mentor) explicando por qué te lo pregunto (sin jerga, sin nombrar perfiles)",
   "opciones": [
@@ -121,7 +121,7 @@ Formula UNA sola observación que el supervisor pueda reconocer de haber visto. 
     return json({
       ok: true,
       item: {
-        dimension:    item.dimension ?? objetivo?.dimension ?? 'contexto_situacional',
+        dimension:    item.dimension ?? objetivo?.dimension_afectada ?? 'contexto_situacional',
         stem:         item.stem,
         basis:        item.basis ?? null,
         opciones:     item.opciones.slice(0, 4),

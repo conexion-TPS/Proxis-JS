@@ -116,8 +116,8 @@ Prioridad: ${gap.prioridad}/5
 
 ## Perfil actual del asesor
 Perfil dominante: ${perfil.perfil_dominante ?? 'desconocido'}
-Assertividad: ${perfil.assertividad_score ?? '?'}/10
-Sociabilidad: ${perfil.sociabilidad_score ?? '?'}/10
+Assertividad: ${perfil.assertividad_score ?? '?'}/4
+Sociabilidad: ${perfil.sociabilidad_score ?? '?'}/4
 Resumen IA: ${perfil.resumen_ia?.slice(0, 300) ?? '(sin resumen)'}
 
 ## Señales conductuales disponibles en esta dimensión

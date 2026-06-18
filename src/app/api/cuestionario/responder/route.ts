@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 
   if (esOnboarding && (assertividades.length || sociabilidades.length)) {
     const avg = (arr: number[]) =>
-      arr.length ? +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : 5
+      arr.length ? +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : 2.5
 
     const assertividad = avg(assertividades)
     const sociabilidad = avg(sociabilidades)
