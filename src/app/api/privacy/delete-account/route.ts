@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEliminacionCuenta, sendLegalEmail } from '@/lib/resend'
 import { corsHeaders, handleOptions } from '@/lib/cors'
 import { logLegalEvent, sha256 } from '@/lib/legal'
+import { isAdminGoTrueSession } from '@/lib/adminAuth'
 
 const ADMIN_ALERT_EMAIL = process.env.PRIVACY_ADMIN_EMAIL ?? 'privacidad@theprecisionselling.com'
 
@@ -26,9 +27,13 @@ export async function POST(req: NextRequest) {
   let canal: 'sailor' | 'admin' = 'sailor'
 
   const adminKey = req.headers.get('x-admin-key')
+  const adminPassword = process.env.ADMIN_PASSWORD   // sin literal: fail-closed si falta
+  // R3: canal admin por sesión GoTrue (Bearer) O x-admin-key vieja (DEPRECADA — quitar tras R4).
+  const viaGoTrueAdmin = await isAdminGoTrueSession(req.headers.get('authorization'))
   const body = await req.json().catch(() => ({} as Record<string, unknown>))
 
-  if (adminKey && adminKey === (process.env.ADMIN_PASSWORD ?? 'proxis-admin-2026')) {
+  const viaKeyAdmin = !!(adminKey && adminPassword && adminKey === adminPassword)   // DEPRECADO: quitar tras R4
+  if (viaGoTrueAdmin || viaKeyAdmin) {
     asesor = typeof body.asesor === 'string' ? body.asesor : null
     canal  = 'admin'
     if (!asesor) return NextResponse.json({ error: 'asesor requerido' }, { status: 400, headers: cors })

@@ -10,6 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { callAIJson } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
+import { proyectarPerfilParaSupervisor } from '../_shared/proyeccion-segura.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -65,8 +66,10 @@ Deno.serve(async (req: Request) => {
     // Sin perfil ni hipótesis no hay base sobre la cual preguntar
     if (!perfil && !objetivo) return json({ ok: true, item: null, motivo: 'sin_base' })
 
-    const perfilTexto = perfil
-      ? Object.entries(perfil)
+    // Etapa 3: proyectar el perfil quitando campos sensibles ANTES de volcarlo al prompt del supervisor.
+    const perfilSeguro = perfil ? await proyectarPerfilParaSupervisor(sb, perfil) : null
+    const perfilTexto = perfilSeguro
+      ? Object.entries(perfilSeguro)
           .filter(([k]) => !['id', 'asesor', 'created_at', 'updated_at', 'resumen_ia'].includes(k))
           .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
           .join('\n')

@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { callAI } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
+import { proyectarTpsParaSupervisor } from '../_shared/proyeccion-segura.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -308,7 +309,9 @@ async function notificarSupervisor(asesor: string, ctx: any, remitente: string, 
   if (!prompts?.length) return
 
   const compiled = compileTemplate(prompts[0].body, ctx)
-  const tpsBlock = ctx.tps_perfil ? formatTpsPerfil(ctx.tps_perfil) + '\n\n' : ''
+  // Etapa 3: quitar campos sensibles del perfil TPS ANTES de armar el prompt al supervisor.
+  const tpsSeguro = ctx.tps_perfil ? await proyectarTpsParaSupervisor(sb, ctx.tps_perfil) : null
+  const tpsBlock = tpsSeguro ? formatTpsPerfil(tpsSeguro) + '\n\n' : ''
   const msg = await callAI(REGLAS_MENTOR + tpsBlock + compiled, {
     maxTokens:   2500,
     temperature: 0.7,

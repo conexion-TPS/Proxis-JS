@@ -2,26 +2,28 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-
-const ADMIN_PASSWORD = 'proxis-admin-2026'
+import { supabase } from '@/lib/supabase'
 
 export default function AdminLogin() {
   const router = useRouter()
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [shake, setShake]       = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (password === ADMIN_PASSWORD) {
-      // `key` se guarda para canjear el token del Portal equipo (la clave ya vive en este bundle cliente).
-      localStorage.setItem('proxis_admin', JSON.stringify({ name: 'Coach', role: 'admin', key: ADMIN_PASSWORD }))
-      router.push('/admin/dashboard')
-    } else {
-      setError('Contraseña incorrecta.')
-      setShake(true)
-      setTimeout(() => setShake(false), 400)
+    setError('')
+    // R4: autenticación vía Supabase Auth (GoTrue). supabase-js persiste la sesión solo.
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+    if (err || !data?.session) {
+      setError('Credenciales incorrectas.'); setShake(true); setTimeout(() => setShake(false), 400); return
     }
+    if (data.user?.app_metadata?.cargo !== 'admin') {
+      await supabase.auth.signOut()
+      setError('Esta cuenta no tiene acceso de administrador.'); setShake(true); setTimeout(() => setShake(false), 400); return
+    }
+    router.push('/admin/dashboard')
   }
 
   return (
@@ -59,6 +61,24 @@ export default function AdminLogin() {
         )}
 
         <form onSubmit={handleSubmit} style={{ animation: shake ? 'shake 0.35s ease' : 'none' }}>
+          <label style={{
+            display: 'block', fontSize: 11, fontWeight: 600,
+            letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.5)', marginBottom: 6,
+          }}>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="admin@…"
+            style={{
+              width: '100%', padding: '13px 16px',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 10, fontSize: 14, color: '#fff',
+              outline: 'none', fontFamily: 'inherit', marginBottom: 16,
+            }}
+          />
           <label style={{
             display: 'block', fontSize: 11, fontWeight: 600,
             letterSpacing: '0.08em', textTransform: 'uppercase',

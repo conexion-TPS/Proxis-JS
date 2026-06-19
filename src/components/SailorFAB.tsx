@@ -26,10 +26,15 @@ export function SailorFAB() {
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('proxis_admin')
-      if (stored) setUser(JSON.parse(stored))
-    } catch {}
+    // R4: presencia de admin vía sesión GoTrue (app_metadata.cargo==='admin').
+    supabaseBrowser.auth.getSession().then(({ data }) => {
+      const s = data.session
+      if (s && s.user?.app_metadata?.cargo === 'admin') {
+        setUser({ name: (s.user.user_metadata?.name as string) || s.user.email || 'Admin', role: 'admin' })
+      } else {
+        setUser(null)
+      }
+    })
   }, [])
 
   const hidden = !user || HIDDEN_ROUTES.some(r => pathname.startsWith(r))

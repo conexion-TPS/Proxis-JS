@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import LegalGate from '@/components/LegalGate'
+import { supabase } from '@/lib/supabase'
 
 type AsesorRow = {
   asesor: string; daysSince: number; msgs7d: number
@@ -98,25 +99,26 @@ export default function EquipoDashboard() {
     const raw = localStorage.getItem('equipo_session')
     if (raw) { arrancar(JSON.parse(raw)); return }
 
-    // Puente admin → portal equipo: si hay sesión de admin, canjear un token de vista total
-    const adminRaw = localStorage.getItem('proxis_admin')
-    if (adminRaw) {
-      const admin = JSON.parse(adminRaw)
-      fetch('/api/equipo/admin-token', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: admin.key }),
-      })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then(j => {
-          const session: Session = { token: j.token, nombre: j.nombre, email: j.email, usuario_id: j.usuario_id, cargo: j.cargo, isAdmin: true }
-          localStorage.setItem('equipo_session', JSON.stringify(session))
-          arrancar(session)
+    // Puente admin → portal equipo: si hay sesión GoTrue admin, canjear un token de vista total.
+    supabase.auth.getSession().then(({ data }) => {
+      const s = data.session
+      if (s && s.user?.app_metadata?.cargo === 'admin') {
+        fetch('/api/equipo/admin-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.access_token}` },
+          body: '{}',
         })
-        .catch(() => router.push('/equipo/login'))
-      return
-    }
-
-    router.push('/equipo/login')
+          .then(r => r.ok ? r.json() : Promise.reject())
+          .then(j => {
+            const session: Session = { token: j.token, nombre: j.nombre, email: j.email, usuario_id: j.usuario_id, cargo: j.cargo, isAdmin: true }
+            localStorage.setItem('equipo_session', JSON.stringify(session))
+            arrancar(session)
+          })
+          .catch(() => router.push('/equipo/login'))
+      } else {
+        router.push('/equipo/login')
+      }
+    })
   }, [router, cargarDashboard])
 
   function salir() {

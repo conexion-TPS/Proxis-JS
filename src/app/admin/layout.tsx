@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 const NAV_ITEMS: { href: string; icon: string; label: string; group: string | null; external?: boolean }[] = [
   { href: '/admin/dashboard',    icon: '⊞',  label: 'Dashboard',   group: null },
@@ -37,15 +38,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (pathname === '/admin/login') { setReady(true); return }
-    const stored = localStorage.getItem('proxis_admin')
-    if (!stored) { router.replace('/admin/login'); return }
-    const parsed = JSON.parse(stored)
-    setUser(parsed.name || 'Admin')
-    setReady(true)
+    let active = true
+    // R4: sesión vía Supabase Auth (GoTrue); exige app_metadata.cargo==='admin'.
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return
+      const session = data.session
+      const esAdmin = !!session && session.user?.app_metadata?.cargo === 'admin'
+      if (!esAdmin) { router.replace('/admin/login'); return }
+      setUser((session!.user.user_metadata?.name as string) || session!.user.email || 'Admin')
+      setReady(true)
+    })
+    return () => { active = false }
   }, [router, pathname])
 
-  function logout() {
-    localStorage.removeItem('proxis_admin')
+  async function logout() {
+    await supabase.auth.signOut()
     router.push('/admin/login')
   }
 

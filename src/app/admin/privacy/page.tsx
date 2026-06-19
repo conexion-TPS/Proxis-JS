@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 /* Dashboard de Administración de Privacidad (Ley 21.719) — spec doc 7, Parte 3.
    Cinco módulos en pestañas: A ARCOP+, B Anonimizaciones, C Informes, D Consentimientos, E Brechas.
@@ -245,9 +246,12 @@ function ModuloInformes() {
   }
 
   async function auditReport() {
-    const key = (typeof window !== 'undefined' && localStorage.getItem('proxis_admin')) || ''
+    // R4: autorizar con la sesión GoTrue (Bearer), no con x-admin-key de localStorage.
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) { alert('Sesión expirada. Vuelve a iniciar sesión.'); return }
     const qs = new URLSearchParams({ format: 'pdf', ...(desde ? { date_from: desde } : {}), ...(hasta ? { date_to: hasta } : {}) })
-    const r = await fetch(`/api/admin/privacy/audit-report?${qs}`, { headers: { 'x-admin-key': key } })
+    const r = await fetch(`/api/admin/privacy/audit-report?${qs}`, { headers: { Authorization: `Bearer ${token}` } })
     if (!r.ok) { alert('Acceso restringido (ADMIN / PRIVACY_OFFICER).'); return }
     const html = await r.text()
     const w = window.open('', '_blank')

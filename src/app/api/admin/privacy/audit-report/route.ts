@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logLegalEvent } from '@/lib/legal'
+import { isAdminGoTrueSession } from '@/lib/adminAuth'
 
 /* Ítem 17C — Generador de reportes de auditoría de cumplimiento legal.
    Acceso restringido: requiere x-admin-key (ADMIN/PRIVACY_OFFICER). Lee legal_event_log
@@ -22,8 +23,12 @@ const EVENT_LABEL: Record<string, string> = {
 }
 
 export async function GET(req: NextRequest) {
-  const adminKey = req.headers.get('x-admin-key')
-  if (adminKey !== (process.env.ADMIN_PASSWORD ?? 'proxis-admin-2026'))
+  // R3: aceptar sesión GoTrue admin (Bearer) O la x-admin-key vieja (DEPRECADA — quitar tras R4).
+  const viaGoTrue = await isAdminGoTrueSession(req.headers.get('authorization'))
+  const adminKey  = req.headers.get('x-admin-key')
+  const expected  = process.env.ADMIN_PASSWORD   // sin literal: fail-closed si falta
+  const viaKey    = !!(expected && adminKey === expected)   // DEPRECADO: quitar tras R4
+  if (!viaGoTrue && !viaKey)
     return NextResponse.json({ error: 'Acceso restringido a ADMIN / PRIVACY_OFFICER' }, { status: 403 })
 
   const sb = supabaseAdmin()
