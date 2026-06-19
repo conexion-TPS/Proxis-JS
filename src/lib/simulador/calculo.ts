@@ -278,9 +278,16 @@ export function simCalcZ(ss: SimState, campana: boolean, ufVal: number) {
 }
 
 // ── simCalcBonoUF (renta.js:185-203) — bono UF por tramos AE ──
-export function simCalcBonoUF(z: number, ant: number, campana: boolean, ss: SimState) {
+export function simCalcBonoUF(z: number, ant: number, campana: boolean, ss: SimState, flagD13a = false) {
   const tope_t5 = TOPE_T5(ant, campana)
-  const cumpleT5 = Object.values(ss.t5).some((v) => v) && (ss.persist / 100) >= 0.85
+  // D13a (FLAG, default OFF = comportamiento vivo idéntico): gate de persistencia del tramo 5.
+  //   OFF → persistencia ABSOLUTA (ss.persist ≥ 85%), tal como está vivo hoy.
+  //   ON  → persistencia RELATIVA al objetivo: cumplimiento = (persist_real / persist_objetivo) ≥ 85%,
+  //         reutilizando el MISMO objetivo PMIN(ant) que el motor usa para el factor de persistencia.
+  //         (Nota de unidades: persist_real = ss.persist/100 [0–1]; persist_objetivo = PMIN(ant) [0–1].)
+  // Solo cambia esta condición. NO se toca la fórmula del tramo 5 (D2), ni el requisito de flags (D13b/c).
+  const cumpleT5 = Object.values(ss.t5).some((v) => v) &&
+    (flagD13a ? (ss.persist / 100) / PMIN(ant) >= 0.85 : (ss.persist / 100) >= 0.85)
   let uf = 0
   const det: TramoDet[] = []
   for (const t of SIM_TRAMOS) {

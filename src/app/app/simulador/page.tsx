@@ -69,6 +69,9 @@ export default function SimuladorPage() {
   const [ufVal, setUfVal] = useState<number>(UF_DEFAULT) // M2(a): UF numérica para el cálculo (fallback 39357)
   const [open, setOpen] = useState<Record<string, boolean>>({ mix: false, tramos: false, consol: false })
   const [s, setS] = useState<SimState>(() => initialStateZurich(ZURICH_ASESORES))
+  // D13a (FLAG de comparación, default OFF = vivo): gate del tramo 5 por persistencia relativa.
+  // Inicializa de ?d13a=1 en la URL; togglea sin reiniciar con el checkbox de la tarjeta de tramos.
+  const [flagD13a, setFlagD13a] = useState<boolean>(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('d13a') === '1')
   // Roster real de asesores del equipo (persona_id + nombre) para el dropdown (v2).
   const [roster, setRoster] = useState<{ persona_id: string; nombre: string }[] | null>(null)
   const [rosterErr, setRosterErr] = useState('')
@@ -167,7 +170,7 @@ export default function SimuladorPage() {
   const pM = PMIN(ant)
   const fp = FP(pR, pM, ant)
   const { zVI, zGIBruto, zGI, zGITopado, zTotal, det, detGI, comVenta, incMant, ventas, bonoApe, bonoCv } = simCalcZ(s, campana, ufVal)
-  const { uf: bUF, det: trDet, t5Hab, tope_t5 } = simCalcBonoUF(zTotal, ant, campana, s)
+  const { uf: bUF, det: trDet, t5Hab, tope_t5 } = simCalcBonoUF(zTotal, ant, campana, s, flagD13a)
   const bonoNeto = bUF * fp * ufVal
   const total = SUELDO_BASE_DEFAULT + bonoNeto + comVenta + incMant + bonoApe + bonoCv
   const { totContactos, metaContactos, totProspectos, activos } = calcEmbudo(s.pcts, ventas)
@@ -617,6 +620,13 @@ export default function SimuladorPage() {
                   </tfoot>
                 </table>
               </div>
+            </div>
+            {/* D13a — toggle de comparación (debug). OFF = comportamiento vivo. No altera producción. */}
+            <div style={{ margin: '10px 0', padding: '8px 12px', border: '1px dashed #5B36AB', borderRadius: 8, background: '#F5F1FE', fontSize: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={flagD13a} onChange={(e) => setFlagD13a(e.target.checked)} />
+                <span><strong>D13a (debug)</strong> — gate del tramo 5 por persistencia <strong>relativa</strong> al objetivo (cumplimiento ≥ 85%). Apagado = vivo. <strong>{flagD13a ? '🟢 ON' : '⚪ OFF'}</strong></span>
+              </label>
             </div>
             <div className={`card card-collapsible${open.tramos ? ' open' : ''}`}>
               <div className="card-title" onClick={() => toggle('tramos')}>Transformación AE Puntos → Bono UF <span className="coll-arrow">▾</span></div>
