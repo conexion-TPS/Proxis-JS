@@ -15,7 +15,7 @@ const JWT_SECRET = process.env.SAILOR_JWT_SECRET ?? process.env.ADMIN_PASSWORD ?
 /* POST /api/privacy/delete-account
    Flujo de eliminación de cuenta + anonimización real (spec doc 7, Parte 2).
    - Autoservicio (Sailor): requiere JWT del asesor.
-   - Admin: { asesor } en el body + header x-admin-key con la clave admin.
+   - Admin: { asesor } en el body + Authorization Bearer de la sesión admin GoTrue (app_metadata.cargo=admin).
    La anonimización corre en una sola transacción SQL (RPC anonimizar_asesor). */
 export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin')
@@ -26,14 +26,11 @@ export async function POST(req: NextRequest) {
   let asesor: string | null = null
   let canal: 'sailor' | 'admin' = 'sailor'
 
-  const adminKey = req.headers.get('x-admin-key')
-  const adminPassword = process.env.ADMIN_PASSWORD   // sin literal: fail-closed si falta
-  // R3: canal admin por sesión GoTrue (Bearer) O x-admin-key vieja (DEPRECADA — quitar tras R4).
+  // Canal admin: solo sesión GoTrue admin (Bearer). x-admin-key eliminado tras R4.
   const viaGoTrueAdmin = await isAdminGoTrueSession(req.headers.get('authorization'))
   const body = await req.json().catch(() => ({} as Record<string, unknown>))
 
-  const viaKeyAdmin = !!(adminKey && adminPassword && adminKey === adminPassword)   // DEPRECADO: quitar tras R4
-  if (viaGoTrueAdmin || viaKeyAdmin) {
+  if (viaGoTrueAdmin) {
     asesor = typeof body.asesor === 'string' ? body.asesor : null
     canal  = 'admin'
     if (!asesor) return NextResponse.json({ error: 'asesor requerido' }, { status: 400, headers: cors })

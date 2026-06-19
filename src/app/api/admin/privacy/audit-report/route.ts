@@ -4,8 +4,8 @@ import { logLegalEvent } from '@/lib/legal'
 import { isAdminGoTrueSession } from '@/lib/adminAuth'
 
 /* Ítem 17C — Generador de reportes de auditoría de cumplimiento legal.
-   Acceso restringido: requiere x-admin-key (ADMIN/PRIVACY_OFFICER). Lee legal_event_log
-   (vía service_role, que hace bypass de RLS), filtra por fecha y tipo, calcula métricas. */
+   Acceso restringido: requiere sesión admin GoTrue (Authorization Bearer, app_metadata.cargo=admin).
+   Lee legal_event_log (vía service_role, que hace bypass de RLS), filtra por fecha y tipo, calcula métricas. */
 
 const EVENT_LABEL: Record<string, string> = {
   TERMS_ACCEPTED: 'Aceptación de términos', TERMS_COPY_SENT: 'Copia de términos enviada',
@@ -23,12 +23,9 @@ const EVENT_LABEL: Record<string, string> = {
 }
 
 export async function GET(req: NextRequest) {
-  // R3: aceptar sesión GoTrue admin (Bearer) O la x-admin-key vieja (DEPRECADA — quitar tras R4).
+  // Solo sesión GoTrue admin (Bearer). x-admin-key eliminado tras R4.
   const viaGoTrue = await isAdminGoTrueSession(req.headers.get('authorization'))
-  const adminKey  = req.headers.get('x-admin-key')
-  const expected  = process.env.ADMIN_PASSWORD   // sin literal: fail-closed si falta
-  const viaKey    = !!(expected && adminKey === expected)   // DEPRECADO: quitar tras R4
-  if (!viaGoTrue && !viaKey)
+  if (!viaGoTrue)
     return NextResponse.json({ error: 'Acceso restringido a ADMIN / PRIVACY_OFFICER' }, { status: 403 })
 
   const sb = supabaseAdmin()

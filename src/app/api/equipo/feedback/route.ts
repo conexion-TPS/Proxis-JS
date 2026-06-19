@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyEquipoToken } from '../auth/route'
+import { asesorEnSubarbol } from '@/lib/equipoSubarbol'
 
 export async function POST(req: NextRequest) {
   const session = verifyEquipoToken(req)
@@ -11,6 +12,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'message_id y score (1 ó -1) requeridos' }, { status: 400 })
 
   const sb = supabaseAdmin()
+
+  // Etapa 3 — autorización horizontal: resolver el asesor del mensaje y validar subárbol.
+  const { data: msg } = await sb
+    .from('message_log').select('asesor').eq('id', message_id).maybeSingle()
+  if (!msg || !await asesorEnSubarbol(sb, session, msg.asesor as string))
+    return NextResponse.json({ error: 'No autorizado para este mensaje' }, { status: 403 })
 
   const { data: existing } = await sb
     .from('feedback').select('id').eq('message_id', message_id).maybeSingle()

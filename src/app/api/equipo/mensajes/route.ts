@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyEquipoToken } from '../auth/route'
+import { asesorEnSubarbol } from '@/lib/equipoSubarbol'
 
 // Triggers que son ALERTA INTERNA AL ADMIN — nunca deben aparecer en el portal del
 // supervisor (antes se filtraban y se veía hasta "no al asesor ni al supervisor").
@@ -43,6 +44,10 @@ export async function GET(req: NextRequest) {
   if (!asesor) return NextResponse.json({ error: 'asesor requerido' }, { status: 400 })
 
   const sb = supabaseAdmin()
+
+  // Etapa 3 — autorización horizontal: el asesor debe estar en el subárbol del token.
+  if (!await asesorEnSubarbol(sb, session, asesor))
+    return NextResponse.json({ error: 'No autorizado para este asesor' }, { status: 403 })
 
   // Traemos algunos de más y filtramos los solo-admin en memoria, para no mostrar
   // menos de 3 cuando los últimos sean internos.

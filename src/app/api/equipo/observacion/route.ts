@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyEquipoToken } from '../auth/route'
+import { asesorEnSubarbol } from '@/lib/equipoSubarbol'
 
 // Mapea la frecuencia declarada por el supervisor a un nivel de confianza (0-100)
 const FREQ_CONFIANZA: Record<string, number> = { una_vez: 30, a_veces: 60, casi_siempre: 85 }
@@ -12,6 +13,11 @@ export async function GET(req: NextRequest) {
 
   const asesor = req.nextUrl.searchParams.get('asesor')
   if (!asesor) return NextResponse.json({ error: 'asesor requerido' }, { status: 400 })
+
+  // Etapa 3 — autorización horizontal: el asesor debe estar en el subárbol del token.
+  const sbAuth = supabaseAdmin()
+  if (!await asesorEnSubarbol(sbAuth, session, asesor))
+    return NextResponse.json({ error: 'No autorizado para este asesor' }, { status: 403 })
 
   try {
     const r = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/proxis-observacion`, {
@@ -37,6 +43,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'asesor y opcion_texto requeridos' }, { status: 400 })
 
   const sb = supabaseAdmin()
+
+  // Etapa 3 — autorización horizontal: el asesor debe estar en el subárbol del token.
+  if (!await asesorEnSubarbol(sb, session, asesor))
+    return NextResponse.json({ error: 'No autorizado para este asesor' }, { status: 403 })
+
   const hint = ['E', 'S', 'R', 'A', 'I'].includes(perfil_hint) ? perfil_hint : null
 
   const { error } = await sb.from('behavioral_signals').insert({
