@@ -8,6 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callAI, callAIJson } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados } from '../_shared/tenant.ts'
 import { codigoOrigenAIdTipo } from '../_shared/tipo-catalogo.ts'
+import { logUsoSensible, type UsoSensibleEvento } from '../_shared/log-uso-sensible.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -112,6 +113,20 @@ async function analizarAsesor(asesor: string): Promise<{
     .filter(([k]) => !['id','asesor','created_at','updated_at','resumen_ia'].includes(k))
     .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
     .join('\n')
+
+  // Etapa 3 §5.6(b) — log de uso. ⚠️ Este consumidor LEE el crudo sin filtrar: el perfil se
+  // serializa entero (incl. resiliencia=f4 y backup_style_doc=d8) al prompt del LLM, SIN pasar
+  // por proyeccion-segura. Se registra la fuga TAL CUAL (salida='prompt_llm_sin_filtrar'); la
+  // CORRECCIÓN del filtro es ítem aparte, NO en este commit.
+  {
+    const p = perfil as Record<string, unknown>
+    const usos: UsoSensibleEvento[] = []
+    if (p.resiliencia !== null && p.resiliencia !== undefined)
+      usos.push({ asesor, dimension: 'f4', salida: 'prompt_llm_sin_filtrar', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' })
+    if (p.backup_style_doc !== null && p.backup_style_doc !== undefined)
+      usos.push({ asesor, dimension: 'd8', salida: 'prompt_llm_sin_filtrar', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' })
+    await logUsoSensible(sb, usos)
+  }
 
   const conocimientoTexto = (conocimiento ?? [])
     .map(k => `[${k.categoria}] ${k.titulo}: ${String(k.contenido).slice(0, 200)}`)

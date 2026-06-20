@@ -9,6 +9,7 @@ import { callAI } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
 import { proyectarTpsSinSensibles } from '../_shared/proyeccion-segura.ts'
 import { interpretarSensibleParaAsesor } from '../_shared/interpretacion-asesor.ts'
+import { logUsoSensible, type UsoSensibleEvento } from '../_shared/log-uso-sensible.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -148,6 +149,29 @@ async function buildContext(asesor: string) {
     // Solo lectura. (Una mutación futura cruzaría datos entre las dos salidas.)
     base:           perfilSupervisor,                       // misma proyección sin sensibles
     interpretacion: interpretarSensibleParaAsesor(tpsRow),  // puerta (no lee catálogo)
+  }
+
+  // Etapa 3 §5.6(b) — log de uso del dato sensible. Una fila por (asesor,dimension,salida,actor)
+  // SOLO cuando el dato estaba presente (= hubo lectura real). Dos consumos de tpsRow:
+  //   · interpretacion-asesor: f4→banda + f4→frase_puerta; d8→frase_puerta.
+  //   · proyectarTpsSinSensibles: f4 y d8 leídos para ELIMINARLOS (salida-supervisor).
+  const f4Presente = (() => {
+    const r = (tpsRow?.rasgos_comerciales ?? null) as Record<string, unknown> | null
+    return !!r && typeof r === 'object' && Number.isFinite(Number(r.f4))
+  })()
+  const d8Activo = tpsRow?.backup_style_activo === true
+  if (tpsRow) {
+    const usos: UsoSensibleEvento[] = []
+    if (f4Presente) {
+      usos.push({ asesor, dimension: 'f4', salida: 'banda_resiliencia',     finalidad: 'coaching_asesor',       actor: 'proxis-monitor' })
+      usos.push({ asesor, dimension: 'f4', salida: 'frase_puerta',          finalidad: 'coaching_asesor',       actor: 'proxis-monitor' })
+      usos.push({ asesor, dimension: 'f4', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-monitor' })
+    }
+    if (d8Activo) {
+      usos.push({ asesor, dimension: 'd8', salida: 'frase_puerta',          finalidad: 'coaching_asesor',       actor: 'proxis-monitor' })
+      usos.push({ asesor, dimension: 'd8', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-monitor' })
+    }
+    await logUsoSensible(sb, usos)
   }
 
   return {

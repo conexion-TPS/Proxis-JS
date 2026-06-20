@@ -11,6 +11,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callAIJson } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
 import { proyectarPerfilParaSupervisor } from '../_shared/proyeccion-segura.ts'
+import { logUsoSensible, type UsoSensibleEvento } from '../_shared/log-uso-sensible.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -68,6 +69,18 @@ Deno.serve(async (req: Request) => {
 
     // Etapa 3: proyectar el perfil quitando campos sensibles ANTES de volcarlo al prompt del supervisor.
     const perfilSeguro = perfil ? await proyectarPerfilParaSupervisor(sb, perfil) : null
+
+    // Etapa 3 §5.6(b) — log de uso: la proyección lee del crudo asesor_perfil las columnas
+    // sensibles (resiliencia=f4, backup_style_doc=d8) para eliminarlas. Una fila por dimensión
+    // presente. consentimiento_estado lo resuelve el logger desde tps_perfiles por asesor.
+    if (perfil) {
+      const usos: UsoSensibleEvento[] = []
+      if (perfil.resiliencia !== null && perfil.resiliencia !== undefined)
+        usos.push({ asesor, dimension: 'f4', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-observacion' })
+      if (perfil.backup_style_doc !== null && perfil.backup_style_doc !== undefined)
+        usos.push({ asesor, dimension: 'd8', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-observacion' })
+      await logUsoSensible(sb, usos)
+    }
     const perfilTexto = perfilSeguro
       ? Object.entries(perfilSeguro)
           .filter(([k]) => !['id', 'asesor', 'created_at', 'updated_at', 'resumen_ia'].includes(k))
