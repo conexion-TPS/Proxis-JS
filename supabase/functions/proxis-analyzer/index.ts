@@ -9,6 +9,7 @@ import { callAI, callAIJson } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados } from '../_shared/tenant.ts'
 import { codigoOrigenAIdTipo } from '../_shared/tipo-catalogo.ts'
 import { logUsoSensible, type UsoSensibleEvento } from '../_shared/log-uso-sensible.ts'
+import { proyectarPerfilParaSupervisor } from '../_shared/proyeccion-segura.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -109,22 +110,26 @@ async function analizarAsesor(asesor: string): Promise<{
     `[${s.fuente}] ${s.tipo}: ${s.valor ?? '—'} | dimensión: ${s.dimension_target ?? '?'} | perfil_hint: ${s.perfil_hint ?? '?'} | confianza: ${s.confianza_hint ?? '?'}% | fecha: ${s.created_at.slice(0,10)}`
   ).join('\n')
 
-  const perfilTexto = Object.entries(perfil)
+  // Etapa 3 — blindaje: proyectar el perfil quitando columnas sensibles (resiliencia=f4,
+  // backup_style_doc=d8) ANTES de serializarlo al prompt del LLM. Mismo patrón que
+  // proxis-observacion:70. Solo se proyecta para perfilTexto; el resto del flujo sigue
+  // usando `perfil` tipado (perfil.perfil_dominante, etc.) sin cambios.
+  const perfilSeguro = await proyectarPerfilParaSupervisor(sb, perfil as Record<string, unknown>)
+  const perfilTexto = Object.entries(perfilSeguro ?? {})
     .filter(([k]) => !['id','asesor','created_at','updated_at','resumen_ia'].includes(k))
     .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
     .join('\n')
 
-  // Etapa 3 §5.6(b) — log de uso. ⚠️ Este consumidor LEE el crudo sin filtrar: el perfil se
-  // serializa entero (incl. resiliencia=f4 y backup_style_doc=d8) al prompt del LLM, SIN pasar
-  // por proyeccion-segura. Se registra la fuga TAL CUAL (salida='prompt_llm_sin_filtrar'); la
-  // CORRECCIÓN del filtro es ítem aparte, NO en este commit.
+  // Etapa 3 §5.6(b) — log de uso. El select * aún trae el crudo a memoria, pero la proyección
+  // de arriba lo retira ANTES del prompt: ya NO llega al LLM. salida='proyeccion_supervisor_post_fix'
+  // deja trazable que aquí hubo una fuga corregida (NO se iguala a observacion a propósito).
   {
     const p = perfil as Record<string, unknown>
     const usos: UsoSensibleEvento[] = []
     if (p.resiliencia !== null && p.resiliencia !== undefined)
-      usos.push({ asesor, dimension: 'f4', salida: 'prompt_llm_sin_filtrar', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' })
+      usos.push({ asesor, dimension: 'f4', salida: 'proyeccion_supervisor_post_fix', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' })
     if (p.backup_style_doc !== null && p.backup_style_doc !== undefined)
-      usos.push({ asesor, dimension: 'd8', salida: 'prompt_llm_sin_filtrar', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' })
+      usos.push({ asesor, dimension: 'd8', salida: 'proyeccion_supervisor_post_fix', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' })
     await logUsoSensible(sb, usos)
   }
 
