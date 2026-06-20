@@ -141,6 +141,31 @@ Deno.serve(async (req: Request) => {
     const riesgoPorAsesor = new Map(perfiles.map((p: { asesor: string; nivel_riesgo: string | null }) => [p.asesor, p.nivel_riesgo]))
     const activosSet  = new Set(reportes.map((r: { asesor: string }) => r.asesor))
 
+    // Etapa 3 — partición directo/agregado para nivel_riesgo: el NOMBRE del asesor en
+    // riesgo va SOLO a su supervisor DIRECTO; hacia arriba (gerencias) va un conteo anónimo.
+    // "Directo" = el destinatario sentado en el nodo del asesor. Si ese nodo no tiene
+    // ningún destinatario, se sube por ancestros hasta el primer nodo que sí tenga uno
+    // (matiz 1: un asesor sin supervisor inmediato no queda invisible). incompletosTps NO
+    // se toca (matiz 2: "no completó el test" es operativo, no psicometría).
+    const nodosConDestinatario = new Set(
+      gerentes.filter((u: { org_nodo_id: string | null }) => u.org_nodo_id)
+              .map((u: { org_nodo_id: string }) => u.org_nodo_id),
+    )
+    const parentPorNodo = new Map(nodos.map((n: { id: string; parent_id: string | null }) => [n.id, n.parent_id]))
+    function nodoDirecto(nodoId: string | null): string | null {
+      let cur = nodoId
+      const visto = new Set<string>()
+      while (cur && !visto.has(cur)) {
+        if (nodosConDestinatario.has(cur)) return cur
+        visto.add(cur)
+        cur = parentPorNodo.get(cur) ?? null
+      }
+      return null
+    }
+    const directoNodePorAsesor = new Map(
+      asesores.map((a: { asesor: string; org_nodo_id: string }) => [a.asesor, nodoDirecto(a.org_nodo_id)]),
+    )
+
     const informes: { destinatario: string; email: string; asunto: string; cuerpo: string }[] = []
 
     for (const g of gerentes) {
@@ -168,10 +193,19 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // En riesgo
-      const enRiesgo = misAsesores
+      // En riesgo — NOMBRE solo de los asesores cuyo supervisor directo es este destinatario
+      const directosDeG = misAsesores.filter(
+        (a: { asesor: string }) => directoNodePorAsesor.get(a.asesor) === g.org_nodo_id,
+      )
+      const enRiesgo = directosDeG
         .filter((a: { asesor: string }) => ['en_riesgo', 'critico'].includes(riesgoPorAsesor.get(a.asesor) ?? ''))
         .map((a: { asesor: string }) => `${a.asesor}${riesgoPorAsesor.get(a.asesor) === 'critico' ? ' (urgente)' : ''}`)
+      // Agregado ANÓNIMO hacia arriba: en riesgo del subárbol cuyo directo es otro (nivel inferior)
+      const enRiesgoIndirecto = misAsesores.filter(
+        (a: { asesor: string }) =>
+          directoNodePorAsesor.get(a.asesor) !== g.org_nodo_id &&
+          ['en_riesgo', 'critico'].includes(riesgoPorAsesor.get(a.asesor) ?? ''),
+      ).length
 
       // Sin perfil TPS / participación inconsistente (no han completado la evaluación)
       const incompletosTps = misAsesores
@@ -194,6 +228,13 @@ Deno.serve(async (req: Request) => {
         : '   (sin mensajes esta semana)'
 
       const cargoTxt = CARGO_LABEL[g.cargo] ?? g.cargo
+      // Riesgo: nombres para directos; conteo anónimo para los de niveles inferiores.
+      const lineaRiesgo = enRiesgo.length
+        ? `⚠️ Necesitan tu atención (${enRiesgo.length}): ${enRiesgo.join(', ')}`
+        : '✅ Nadie de tu equipo directo pidiendo atención especial'
+      const lineaRiesgoAgregado = enRiesgoIndirecto
+        ? `\n📊 En equipos a cargo: ${enRiesgoIndirecto} en seguimiento por su supervisor directo`
+        : ''
       const cuerpo =
 `Hola ${g.nombre?.split(' ')[0] ?? g.nombre},
 
@@ -204,7 +245,7 @@ Tu mirada: ${cargoTxt} · ${nombreNodo.get(g.org_nodo_id) ?? ''} y equipos a car
 ✉️ Acompañamientos de Sailor Mentor: ${misMsgs.length}
 ${triggerLines}
 👍 Valoraciones: ${pos} positivas · ${neg} negativas
-${enRiesgo.length ? `⚠️ Necesitan tu atención (${enRiesgo.length}): ${enRiesgo.join(', ')}` : '✅ Nadie pidiendo atención especial'}
+${lineaRiesgo}${lineaRiesgoAgregado}
 ${incompletosTps.length ? `📋 Perfil TPS sin completar (${incompletosTps.length}/${totalAsesores}): ${incompletosTps.join(', ')}` : '✅ Todos con perfil TPS completo'}
 
 Detalle por equipo:

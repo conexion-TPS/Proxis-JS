@@ -52,8 +52,10 @@ export async function proyectarPerfilParaSupervisor(
 
 // tps_perfiles → copia sin booleanos sensibles (backup_style_activo→tps_d8) y sin
 // la sub-key sensible del jsonb (rasgos_comerciales.f4→tps_c_f4). Además quita
-// deseabilidad_social por REGLA APARTE (metadato de validez del test, no va al supervisor).
-export async function proyectarTpsParaSupervisor(
+// deseabilidad_social por REGLA APARTE (metadato de validez del test, no es dato de salida).
+// Describe la OPERACIÓN (quitar sensibles), no el destinatario: la usan el camino del
+// supervisor (elimina) y el del asesor (que luego interpreta el crudo aparte).
+export async function proyectarTpsSinSensibles(
   sb: SupabaseClient,
   tpsRow: Record<string, unknown> | null,
 ): Promise<Record<string, unknown> | null> {
@@ -76,7 +78,7 @@ export async function proyectarTpsParaSupervisor(
     out.rasgos_comerciales = copia
   }
 
-  // Regla aparte (no por catálogo): validez del test → nunca al supervisor.
+  // Regla aparte (no por catálogo): validez del test → nunca es dato de salida.
   delete out.deseabilidad_social
 
   return out

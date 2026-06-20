@@ -7,7 +7,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { callAI } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
-import { proyectarTpsParaSupervisor } from '../_shared/proyeccion-segura.ts'
+import { proyectarTpsSinSensibles } from '../_shared/proyeccion-segura.ts'
+import { interpretarSensibleParaAsesor } from '../_shared/interpretacion-asesor.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -310,7 +311,7 @@ async function notificarSupervisor(asesor: string, ctx: any, remitente: string, 
 
   const compiled = compileTemplate(prompts[0].body, ctx)
   // Etapa 3: quitar campos sensibles del perfil TPS ANTES de armar el prompt al supervisor.
-  const tpsSeguro = ctx.tps_perfil ? await proyectarTpsParaSupervisor(sb, ctx.tps_perfil) : null
+  const tpsSeguro = ctx.tps_perfil ? await proyectarTpsSinSensibles(sb, ctx.tps_perfil) : null
   const tpsBlock = tpsSeguro ? formatTpsPerfil(tpsSeguro) + '\n\n' : ''
   const msg = await callAI(REGLAS_MENTOR + tpsBlock + compiled, {
     maxTokens:   2500,
@@ -723,7 +724,15 @@ Deno.serve(async (req: Request) => {
         }
 
         const compilado    = compileTemplate(prompts[0].body, ctx)
-        const tpsBlock     = ctx.tps_perfil ? formatTpsPerfil(ctx.tps_perfil) + '\n\n' : ''
+        // Etapa 3 §5.4 — al ASESOR el dato sensible va INTERPRETADO (puerta), no crudo:
+        //   1) se quita el crudo (f4/backup_style/deseabilidad) del bloque TPS con la MISMA
+        //      proyección que al supervisor (deja perfil, ejes y f1/f2/f3/f5);
+        //   2) se antepone la lectura crudo→puerta del propio dato del asesor.
+        // El call-site del supervisor (notificarSupervisor) NO se toca: ahí se ELIMINA.
+        const tpsSinCrudo  = ctx.tps_perfil ? await proyectarTpsSinSensibles(sb, ctx.tps_perfil) : null
+        const tpsBlock     = tpsSinCrudo ? formatTpsPerfil(tpsSinCrudo) + '\n\n' : ''
+        const puertaTexto  = interpretarSensibleParaAsesor(ctx.tps_perfil ?? null)
+        const puertaBlock  = puertaTexto ? puertaTexto + '\n\n' : ''
         const perfilBlock  = ctx.perfil_resumen
           ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n`
           : ''
@@ -733,7 +742,7 @@ Deno.serve(async (req: Request) => {
           formal:  '[TONO SOLICITADO] Profesional y respetuoso. Mantén una distancia apropiada y usa lenguaje formal.\n\n',
         }
         const tonoBlock = ctx.coach_tono ? (TONOS[ctx.coach_tono] ?? '') : ''
-        const body         = await callAI(REGLAS_MENTOR + tonoBlock + tpsBlock + perfilBlock + compilado, {
+        const body         = await callAI(REGLAS_MENTOR + tonoBlock + tpsBlock + puertaBlock + perfilBlock + compilado, {
           maxTokens:   2500,
           temperature: 0.7,
           componente:  'proxis-monitor',
