@@ -7,6 +7,10 @@ export async function OPTIONS(req: Request) { return handleOptions(req) }
 const UMBRAL_ALTO = 2.6
 const UMBRAL_BAJO = 2.4
 
+// Etapa 3 §5.5 — dimensiones cuyos ítems alimentan el dato sensible (f4=resiliencia, d8=backup).
+// Mismas ids que usa el scoring (modC['tps_c_f4'], rama dim==='tps_d8'). Único lugar de la lista.
+const DIMENSIONES_SENSIBLES = new Set(['tps_c_f4', 'tps_d8'])
+
 function perfilDesdeEjes(a: number, b: number): string {
   if (a >= UMBRAL_ALTO && b <= UMBRAL_BAJO) return 'E'
   if (a >= UMBRAL_ALTO && b >= UMBRAL_ALTO) return 'S'
@@ -37,6 +41,17 @@ export async function POST(req: NextRequest) {
   }
 
   const sb = supabaseAdmin()
+
+  // ── Etapa 3 §5.5 — Gate de consentimiento ANTES de persistir el dato sensible (f4/d8) ──
+  // Estado de 3 valores (NUNCA booleano). Bloqueo por defecto: sin consentimiento NO se escribe
+  // el crudo sensible (sin flag global de transición). qa_interno permite captura para pruebas
+  // internas, marcada como tal. Fuente: header x-contexto o payload.contexto; payload.consentimiento.
+  const contexto = (req.headers.get('x-contexto') ?? body.contexto ?? '').toString()
+  const consentimiento_estado: 'consentido' | 'no_consentido' | 'qa_interno' =
+    contexto === 'qa_interno'      ? 'qa_interno'
+    : body.consentimiento === true ? 'consentido'
+    :                                'no_consentido'
+  const persistirSensibles = consentimiento_estado !== 'no_consentido'
 
   // Obtener metadata de todas las preguntas de este cuestionario
   const { data: preguntas } = await sb
@@ -93,12 +108,16 @@ export async function POST(req: NextRequest) {
       if (String(r.respuesta) === 'backup') backupStyleActivo = true
     }
 
-    respuestasParaGuardar.push({
-      asesor,
-      cuestionario_id,
-      pregunta_id: r.pregunta_id,
-      respuesta:   String(r.respuesta),
-    })
+    // Gate §5.5: sin consentimiento NO se guarda el crudo de los ítems f4/d8 (mismo mapeo por
+    // dimensión que el scoring). El resto de respuestas se guarda normal. consentido/qa_interno → todo.
+    if (persistirSensibles || !DIMENSIONES_SENSIBLES.has(dim)) {
+      respuestasParaGuardar.push({
+        asesor,
+        cuestionario_id,
+        pregunta_id: r.pregunta_id,
+        respuesta:   String(r.respuesta),
+      })
+    }
   }
 
   // ── Scoring Módulo A y B ──
@@ -130,6 +149,13 @@ export async function POST(req: NextRequest) {
   const perfilFinal    = perfilAB === 'AMB' && dDominante ? dDominante : perfilAB
   const confianza      = calcularConfianza(perfilAB, dDominante)
 
+  // ── Gate de consentimiento: si no hay consentimiento, el crudo sensible NO se persiste ──
+  // f4 (resiliencia) se quita del jsonb rasgos_comerciales; d8 (backup_style) se fija en false
+  // (señal sensible no almacenada). f1/f2/f3/f5 y deseabilidad_social no son f4/d8 → se conservan.
+  const rasgosParaGuardar = persistirSensibles
+    ? rasgosComer
+    : Object.fromEntries(Object.entries(rasgosComer).filter(([k]) => k !== 'f4'))
+
   // ── Guardar perfil en tps_perfiles ──
   await sb.from('tps_perfiles').upsert(
     {
@@ -139,9 +165,10 @@ export async function POST(req: NextRequest) {
       confianza_diagnostico: confianza,
       puntaje_a:             puntajeA,
       puntaje_b:             puntajeB,
-      rasgos_comerciales:    rasgosComer,
-      backup_style_activo:   backupStyleActivo,
+      rasgos_comerciales:    rasgosParaGuardar,
+      backup_style_activo:   persistirSensibles ? backupStyleActivo : false,
       deseabilidad_social:   deseabilidadSocial,
+      consentimiento_estado,
       tps_progress:          100,
       updated_at:            new Date().toISOString(),
     },
@@ -170,7 +197,8 @@ export async function POST(req: NextRequest) {
       assertividad_score: puntajeA,
       sociabilidad_score: puntajeB,
       perfil_dominante:   perfilFinal,
-      ...(resiliencia !== null ? { resiliencia } : {}),
+      // resiliencia (puente de f4) solo si hay consentimiento; equilibrio_adaptativo no es sensible.
+      ...(persistirSensibles && resiliencia !== null ? { resiliencia } : {}),
       ...(equilibrio_adaptativo !== null ? { equilibrio_adaptativo } : {}),
       updated_at:         new Date().toISOString(),
     },
@@ -194,16 +222,18 @@ export async function POST(req: NextRequest) {
     procesada:        false,
   })
 
-  const resultado = {
+  // Respuesta 200 con el resto del perfil; los campos sensibles solo si se persistieron.
+  const resultado: Record<string, unknown> = {
     perfil_base:          perfilFinal,
     confianza:            confianza,
     puntaje_a:            puntajeA,
     puntaje_b:            puntajeB,
-    rasgos_comerciales:   rasgosComer,
-    backup_style_activo:  backupStyleActivo,
+    rasgos_comerciales:   rasgosParaGuardar,
     deseabilidad_social:  deseabilidadSocial,
     d_conteos:            dCounts,
+    consentimiento_estado,
   }
+  if (persistirSensibles) resultado.backup_style_activo = backupStyleActivo
 
   return NextResponse.json(
     { ok: true, resultado },
