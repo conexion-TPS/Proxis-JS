@@ -133,6 +133,23 @@ async function buildContext(asesor: string) {
     .gte('semana_inicio', `${mes}-01`)
     .lt('semana_inicio', `${next}-01`)
 
+  // Etapa 3 §5.2 — DOS salidas construidas desde el ORIGEN. El row crudo de TPS vive solo
+  // dentro de buildContext y NO se expone en ctx. getSensibles (lectura de catálogo) se hace
+  // UNA vez aquí, dentro de la proyección; los call-sites ya no proyectan ni interpretan.
+  //   · perfilSupervisor = proyección sin sensibles (f4/backup/deseabilidad fuera).
+  //   · perfilAsesor.base = mismos no-sensibles (incluye f1/f2/f3/f5, para que formatTpsPerfil
+  //     rinda igual que hoy); .interpretacion = crudo→puerta (f4/d8), sin número ni sentencia.
+  // deseabilidad_social no entra a ninguno (la proyección la elimina; la interpretación no la toca).
+  const tpsRow           = tpsRes.data ?? null
+  const perfilSupervisor = await proyectarTpsSinSensibles(sb, tpsRow)
+  const perfilAsesor     = {
+    // Aliasing intencional (misma proyección sin sensibles, una sola lectura de catálogo).
+    // NO mutar este objeto en ningún call-site — es compartido entre asesor y supervisor.
+    // Solo lectura. (Una mutación futura cruzaría datos entre las dos salidas.)
+    base:           perfilSupervisor,                       // misma proyección sin sensibles
+    interpretacion: interpretarSensibleParaAsesor(tpsRow),  // puerta (no lee catálogo)
+  }
+
   return {
     nombre:                asesor,
     meta_contactos_semana: meta.meta_contactos_semana  || 3,
@@ -163,7 +180,8 @@ async function buildContext(asesor: string) {
       return Math.floor((Date.now() - new Date(last).getTime()) / 86400_000)
     })(),
     perfil_resumen:        perfilRes.data?.[0]?.resumen_ia || null,
-    tps_perfil:            tpsRes.data ?? null,
+    perfilAsesor,
+    perfilSupervisor,
     coach_tono:            tpsRes.data?.coach_tono ?? null,
   }
 }
@@ -310,9 +328,8 @@ async function notificarSupervisor(asesor: string, ctx: any, remitente: string, 
   if (!prompts?.length) return
 
   const compiled = compileTemplate(prompts[0].body, ctx)
-  // Etapa 3: quitar campos sensibles del perfil TPS ANTES de armar el prompt al supervisor.
-  const tpsSeguro = ctx.tps_perfil ? await proyectarTpsSinSensibles(sb, ctx.tps_perfil) : null
-  const tpsBlock = tpsSeguro ? formatTpsPerfil(tpsSeguro) + '\n\n' : ''
+  // Etapa 3 §5.2: el perfil sin sensibles se construye en el ORIGEN (buildContext); aquí solo se consume.
+  const tpsBlock = ctx.perfilSupervisor ? formatTpsPerfil(ctx.perfilSupervisor) + '\n\n' : ''
   const msg = await callAI(REGLAS_MENTOR + tpsBlock + compiled, {
     maxTokens:   2500,
     temperature: 0.7,
@@ -724,15 +741,12 @@ Deno.serve(async (req: Request) => {
         }
 
         const compilado    = compileTemplate(prompts[0].body, ctx)
-        // Etapa 3 §5.4 — al ASESOR el dato sensible va INTERPRETADO (puerta), no crudo:
-        //   1) se quita el crudo (f4/backup_style/deseabilidad) del bloque TPS con la MISMA
-        //      proyección que al supervisor (deja perfil, ejes y f1/f2/f3/f5);
-        //   2) se antepone la lectura crudo→puerta del propio dato del asesor.
-        // El call-site del supervisor (notificarSupervisor) NO se toca: ahí se ELIMINA.
-        const tpsSinCrudo  = ctx.tps_perfil ? await proyectarTpsSinSensibles(sb, ctx.tps_perfil) : null
-        const tpsBlock     = tpsSinCrudo ? formatTpsPerfil(tpsSinCrudo) + '\n\n' : ''
-        const puertaTexto  = interpretarSensibleParaAsesor(ctx.tps_perfil ?? null)
-        const puertaBlock  = puertaTexto ? puertaTexto + '\n\n' : ''
+        // Etapa 3 §5.2/§5.4 — el perfil del asesor se construye en el ORIGEN (buildContext):
+        // bloque TPS sin sensibles (.base) + interpretación crudo→puerta (.interpretacion).
+        // Aquí solo se consume. La salida-supervisor usa su propio objeto (ctx.perfilSupervisor);
+        // el row crudo nunca se comparte ni escapa de buildContext.
+        const tpsBlock     = ctx.perfilAsesor.base ? formatTpsPerfil(ctx.perfilAsesor.base) + '\n\n' : ''
+        const puertaBlock  = ctx.perfilAsesor.interpretacion ? ctx.perfilAsesor.interpretacion + '\n\n' : ''
         const perfilBlock  = ctx.perfil_resumen
           ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n`
           : ''
