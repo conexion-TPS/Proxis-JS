@@ -125,12 +125,13 @@ async function analizarAsesor(asesor: string): Promise<{
   // deja trazable que aquí hubo una fuga corregida (NO se iguala a observacion a propósito).
   {
     const p = perfil as Record<string, unknown>
-    const usos: UsoSensibleEvento[] = []
-    if (p.resiliencia !== null && p.resiliencia !== undefined)
-      usos.push({ asesor, dimension: 'f4', salida: 'proyeccion_supervisor_post_fix', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' })
-    if (p.backup_style_doc !== null && p.backup_style_doc !== undefined)
-      usos.push({ asesor, dimension: 'd8', salida: 'proyeccion_supervisor_post_fix', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' })
-    await logUsoSensible(sb, usos)
+    // d8 (backup_style_doc) ELIMINADO (Paso 2): solo se registra f4/resiliencia.
+    if (p.resiliencia !== null && p.resiliencia !== undefined) {
+      const usos: UsoSensibleEvento[] = [
+        { asesor, dimension: 'f4', salida: 'proyeccion_supervisor_post_fix', finalidad: 'analisis_conductual', actor: 'proxis-analyzer' },
+      ]
+      await logUsoSensible(sb, usos)
+    }
   }
 
   const conocimientoTexto = (conocimiento ?? [])

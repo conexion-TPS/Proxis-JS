@@ -97,7 +97,7 @@ async function buildContext(asesor: string) {
     sb.from('ingresos').select('*').eq('asesor', asesor).eq('mes', mes),
     sb.from('asesor_perfil').select('resumen_ia').eq('asesor', asesor).limit(1),
     sb.from('tps_perfiles').select(
-      'perfil_base,confianza_diagnostico,puntaje_a,puntaje_b,rasgos_comerciales,backup_style_activo,deseabilidad_social,coach_tono'
+      'perfil_base,confianza_diagnostico,puntaje_a,puntaje_b,rasgos_comerciales,deseabilidad_social,coach_tono'
     ).eq('asesor', asesor).maybeSingle(),
     sb.from('reportes').select('*')
       .eq('asesor', asesor)
@@ -152,25 +152,20 @@ async function buildContext(asesor: string) {
   }
 
   // Etapa 3 §5.6(b) — log de uso del dato sensible. Una fila por (asesor,dimension,salida,actor)
-  // SOLO cuando el dato estaba presente (= hubo lectura real). Dos consumos de tpsRow:
-  //   · interpretacion-asesor: f4→banda + f4→frase_puerta; d8→frase_puerta.
-  //   · proyectarTpsSinSensibles: f4 y d8 leídos para ELIMINARLOS (salida-supervisor).
+  // SOLO cuando el dato estaba presente (= hubo lectura real). Consumo de tpsRow:
+  //   · interpretacion-asesor: f4→banda + f4→frase_puerta.
+  //   · proyectarTpsSinSensibles: f4 leído para ELIMINARLO (salida-supervisor).
+  // d8 (backup_style) ELIMINADO (Paso 2): ya no se calcula ni se registra.
   const f4Presente = (() => {
     const r = (tpsRow?.rasgos_comerciales ?? null) as Record<string, unknown> | null
     return !!r && typeof r === 'object' && Number.isFinite(Number(r.f4))
   })()
-  const d8Activo = tpsRow?.backup_style_activo === true
-  if (tpsRow) {
-    const usos: UsoSensibleEvento[] = []
-    if (f4Presente) {
-      usos.push({ asesor, dimension: 'f4', salida: 'banda_resiliencia',     finalidad: 'coaching_asesor',       actor: 'proxis-monitor' })
-      usos.push({ asesor, dimension: 'f4', salida: 'frase_puerta',          finalidad: 'coaching_asesor',       actor: 'proxis-monitor' })
-      usos.push({ asesor, dimension: 'f4', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-monitor' })
-    }
-    if (d8Activo) {
-      usos.push({ asesor, dimension: 'd8', salida: 'frase_puerta',          finalidad: 'coaching_asesor',       actor: 'proxis-monitor' })
-      usos.push({ asesor, dimension: 'd8', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-monitor' })
-    }
+  if (tpsRow && f4Presente) {
+    const usos: UsoSensibleEvento[] = [
+      { asesor, dimension: 'f4', salida: 'banda_resiliencia',     finalidad: 'coaching_asesor',       actor: 'proxis-monitor' },
+      { asesor, dimension: 'f4', salida: 'frase_puerta',          finalidad: 'coaching_asesor',       actor: 'proxis-monitor' },
+      { asesor, dimension: 'f4', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-monitor' },
+    ]
     await logUsoSensible(sb, usos)
   }
 
@@ -240,7 +235,6 @@ function formatTpsPerfil(tps: any): string {
       out += `  · ${FACTORES[k] ?? k}: ${v}/25 ${estrellas}\n`
     }
   }
-  if (tps.backup_style_activo) out += `⚠️ Señal Backup Style activa: tendencia a ceder bajo presión para evitar desaprobación.\n`
   if (tps.deseabilidad_social) out += `⚠️ Posible deseabilidad social detectada en Módulo C.\n`
   return out.trim()
 }

@@ -12,7 +12,7 @@ type AsesorCred   = { asesor: string; org_nodo_id: string | null }
 type TpsPerfil     = {
   id: string; asesor: string; perfil_base: string; confianza_diagnostico: string
   puntaje_a: number; puntaje_b: number; rasgos_comerciales: Record<string, number>
-  backup_style_activo: boolean; deseabilidad_social: boolean; updated_at: string
+  deseabilidad_social: boolean; updated_at: string
 }
 
 const TIPOS_Q = ['psicometrico','micro','contextual','onboarding','programado']
@@ -594,12 +594,6 @@ export default function CuestionariosPage() {
                             background: `${confColor}15`, color: confColor, border: `1px solid ${confColor}35` }}>
                             {conf}
                           </span>
-                          {p.backup_style_activo && (
-                            <span title="Backup Style activo" style={{ fontSize: 12, padding: '2px 9px', borderRadius: 20,
-                              background: '#fff3cd', color: '#a8691a', border: '1px solid #f5c518' }}>
-                              ⚠️ Backup
-                            </span>
-                          )}
                         </div>
                         <div style={{ fontSize: 11, color: '#8a8885', marginTop: 3 }}>
                           A: {p.puntaje_a?.toFixed(2)} · B: {p.puntaje_b?.toFixed(2)} ·{' '}

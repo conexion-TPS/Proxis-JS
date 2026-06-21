@@ -7,8 +7,9 @@ export async function OPTIONS(req: Request) { return handleOptions(req) }
 const UMBRAL_ALTO = 2.6
 const UMBRAL_BAJO = 2.4
 
-// Etapa 3 §5.5 — dimensiones cuyos ítems alimentan el dato sensible (f4=resiliencia, d8=backup).
-// Mismas ids que usa el scoring (modC['tps_c_f4'], rama dim==='tps_d8'). Único lugar de la lista.
+// Etapa 3 §5.5 — dimensiones cuyos ítems crudos son sensibles y se gatean por consentimiento.
+// f4 (tps_c_f4) alimenta el scoring de resiliencia; tps_d8 se MANTIENE en el set (Paso 2) solo
+// para seguir gateando la respuesta cruda del ítem d8 (ya inerte: no se calcula backup_style).
 const DIMENSIONES_SENSIBLES = new Set(['tps_c_f4', 'tps_d8'])
 
 function perfilDesdeEjes(a: number, b: number): string {
@@ -75,7 +76,6 @@ export async function POST(req: NextRequest) {
   // a propósito: NO entra a factorSums, deseabilidad_social ni al jsonb rasgos_comerciales.
   const modAdapt: number[] = []
   const dPerfiles: string[] = []
-  let backupStyleActivo = false
 
   const respuestasParaGuardar: any[] = []
 
@@ -104,9 +104,10 @@ export async function POST(req: NextRequest) {
       // r.respuesta = perfil seleccionado: 'E' | 'S' | 'R' | 'A'
       const perf = String(r.respuesta)
       if (['E', 'S', 'R', 'A'].includes(perf)) dPerfiles.push(perf)
-    } else if (dim === 'tps_d8') {
-      if (String(r.respuesta) === 'backup') backupStyleActivo = true
     }
+    // d8 (tps_d8 / backup_style) ELIMINADO (Paso 2): no se calcula ni se escribe.
+    // El ítem se sigue ignorando en el scoring; su respuesta cruda permanece gateada
+    // por DIMENSIONES_SENSIBLES (sin consentimiento no se persiste).
 
     // Gate §5.5: sin consentimiento NO se guarda el crudo de los ítems f4/d8 (mismo mapeo por
     // dimensión que el scoring). El resto de respuestas se guarda normal. consentido/qa_interno → todo.
@@ -150,8 +151,8 @@ export async function POST(req: NextRequest) {
   const confianza      = calcularConfianza(perfilAB, dDominante)
 
   // ── Gate de consentimiento: si no hay consentimiento, el crudo sensible NO se persiste ──
-  // f4 (resiliencia) se quita del jsonb rasgos_comerciales; d8 (backup_style) se fija en false
-  // (señal sensible no almacenada). f1/f2/f3/f5 y deseabilidad_social no son f4/d8 → se conservan.
+  // f4 (resiliencia) se quita del jsonb rasgos_comerciales si no hay consentimiento.
+  // f1/f2/f3/f5 y deseabilidad_social no son f4 → se conservan. (d8 eliminado en Paso 2.)
   const rasgosParaGuardar = persistirSensibles
     ? rasgosComer
     : Object.fromEntries(Object.entries(rasgosComer).filter(([k]) => k !== 'f4'))
@@ -166,7 +167,6 @@ export async function POST(req: NextRequest) {
       puntaje_a:             puntajeA,
       puntaje_b:             puntajeB,
       rasgos_comerciales:    rasgosParaGuardar,
-      backup_style_activo:   persistirSensibles ? backupStyleActivo : false,
       deseabilidad_social:   deseabilidadSocial,
       consentimiento_estado,
       tps_progress:          100,
@@ -233,7 +233,6 @@ export async function POST(req: NextRequest) {
     d_conteos:            dCounts,
     consentimiento_estado,
   }
-  if (persistirSensibles) resultado.backup_style_activo = backupStyleActivo
 
   return NextResponse.json(
     { ok: true, resultado },

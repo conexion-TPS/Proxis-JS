@@ -26,9 +26,6 @@ const PUERTA_RESILIENCIA: Record<'bajo' | 'medio' | 'alto', string> = {
   alto:  "Da la impresión de que sostener el ánimo ante el rechazo podría ser uno de tus recursos: pareciera que un 'no' no te frena demasiado y que retomas con cierta soltura. Si te reconoces ahí, conviene cuidarlo y seguir cultivándolo —ninguna fortaleza se mantiene sola, y vale la pena seguir alimentándola para que te acompañe en las rachas más exigentes.",
 }
 
-const PUERTA_D8 =
-  "Es posible que, bajo presión, te importe bastante la aprobación de los demás, y que te cueste sostener tu posición cuando sientes que podrías desagradar. Si te suena, es algo muy humano y nada fijo: se puede trabajar para que tu seguridad dependa un poco menos de la reacción del otro, sin perder lo que te hace cercano y atento a la gente."
-
 // Recibe el row de tps_perfiles. Devuelve texto interpretado (puerta) listo para
 // anteponer al prompt del asesor. NUNCA incluye número crudo, estrellas ni sentencia.
 // deseabilidad_social NO se interpreta (es validez del test; no va al asesor como dato).
@@ -42,9 +39,7 @@ export function interpretarSensibleParaAsesor(tpsRow: Record<string, unknown> | 
     partes.push(PUERTA_RESILIENCIA[bandaResiliencia(f4)])
   }
 
-  if (tpsRow.backup_style_activo === true) {
-    partes.push(PUERTA_D8)
-  }
+  // d8 (backup_style) ELIMINADO (Paso 2): ya no se interpreta ninguna puerta de d8.
 
   if (partes.length === 0) return ''
   // Marca de guía para el LLM: ya está en lenguaje de puerta; no agregar números ni diagnóstico.
