@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { corsHeaders, handleOptions } from '@/lib/cors'
+import { authAsesor } from '@/lib/sailorAuth'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function OPTIONS(req: Request) { return handleOptions(req) }
 
@@ -31,14 +35,21 @@ function calcularConfianza(ab: string, dDominante: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  const cors = corsHeaders(req.headers.get('origin'))
+
+  // Identidad por JWT Sailor: el asesor sale del TOKEN, nunca del body (un asesor no
+  // puede escribir el perfil sensible de otro).
+  const asesor = authAsesor(req)
+  if (!asesor) return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: cors })
+
   let body: any
   try { body = await req.json() } catch {
-    return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
+    return NextResponse.json({ error: 'JSON inválido' }, { status: 400, headers: cors })
   }
 
-  const { asesor, cuestionario_id, respuestas } = body
-  if (!asesor || !cuestionario_id || !Array.isArray(respuestas)) {
-    return NextResponse.json({ error: 'Faltan campos: asesor, cuestionario_id, respuestas[]' }, { status: 400 })
+  const { cuestionario_id, respuestas } = body
+  if (!cuestionario_id || !Array.isArray(respuestas)) {
+    return NextResponse.json({ error: 'Faltan campos: cuestionario_id, respuestas[]' }, { status: 400, headers: cors })
   }
 
   const sb = supabaseAdmin()
