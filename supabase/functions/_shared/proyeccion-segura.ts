@@ -36,6 +36,42 @@ async function getSensibles(sb: SupabaseClient): Promise<Set<string>> {
   }
 }
 
+// Alias de columna (nombres reales en filas/objetos) → id_dimension de catálogo.
+// Fuente ÚNICA para resolver dimension_afectada de deductions_log, que mezcla ids de
+// catálogo (p.ej. 'resiliencia') con nombres de columna (p.ej. 'backup_style_doc').
+// Se compone de los mismos mapas que ya usa la proyección — no se duplica ninguna lista.
+export const ALIAS_DIMENSION: Record<string, string> = {
+  ...CAMPO_PERFIL,    // resiliencia→resiliencia, backup_style_doc→tps_d8
+  ...CAMPO_TPS_BOOL,  // backup_style_activo→tps_d8
+  ...RASGO_TPS,       // f4→tps_c_f4
+}
+
+// Construye —con UNA lectura del catálogo— un predicado que decide si una
+// dimension_afectada es ELEGIBLE para mostrarse al supervisor.
+// FAIL-CLOSED: elegible SOLO si resuelve con certeza a una dimensión sensible=false del
+// catálogo. Cualquier valor desconocido/nulo/no mapeado, o catálogo inaccesible ⇒ NO elegible
+// (omitir una neutra de más es aceptable; dejar pasar una sensible no lo es).
+export async function construirFiltroDimensionParaSupervisor(
+  sb: SupabaseClient,
+): Promise<(dimAfectada: string | null | undefined) => boolean> {
+  let sensiblePorId = new Map<string, boolean>()
+  try {
+    const { data, error } = await sb.from('dimension_catalogo').select('id_dimension, sensible')
+    if (!error && data) {
+      sensiblePorId = new Map(
+        data.map((r: { id_dimension: string; sensible: boolean }) => [r.id_dimension, r.sensible]),
+      )
+    }
+  } catch (_) {
+    sensiblePorId = new Map() // catálogo inaccesible ⇒ fail-closed (nada elegible)
+  }
+  return (dimAfectada) => {
+    if (!dimAfectada) return false
+    const id = ALIAS_DIMENSION[dimAfectada] ?? dimAfectada
+    return sensiblePorId.get(id) === false // elegible solo si el catálogo lo marca explícitamente no-sensible
+  }
+}
+
 // asesor_perfil → copia sin las columnas sensibles (hoy: resiliencia).
 export async function proyectarPerfilParaSupervisor(
   sb: SupabaseClient,

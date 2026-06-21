@@ -10,7 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { callAIJson } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
-import { proyectarPerfilParaSupervisor } from '../_shared/proyeccion-segura.ts'
+import { proyectarPerfilParaSupervisor, construirFiltroDimensionParaSupervisor } from '../_shared/proyeccion-segura.ts'
 import { logUsoSensible, type UsoSensibleEvento } from '../_shared/log-uso-sensible.ts'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
@@ -53,16 +53,26 @@ Deno.serve(async (req: Request) => {
     const { data: perfilArr } = await sb.from('asesor_perfil').select('*').eq('asesor', asesor).limit(1)
     const perfil = perfilArr?.[0] ?? null
 
-    // Hipótesis activas, la de MENOR confianza primero (es la que más necesita evidencia)
+    // Hipótesis activas, la de MENOR confianza primero (es la que más necesita evidencia).
+    // Sin .limit aquí: la ventana de 5 se aplica DESPUÉS del filtro (ver abajo).
     const { data: hips } = await sb
       .from('deductions_log')
       .select('id, dimension_afectada, hipotesis, confianza, estado')
       .eq('asesor', asesor)
       .in('estado', ['pendiente', 'validada', 'editada'])
       .order('confianza', { ascending: true })
-      .limit(5)
 
-    const objetivo = hips?.[0] ?? null
+    // Etapa 3 — ruta 3: FILTRAR las dimensiones SENSIBLES (resiliencia/f4, backup/d8) PRIMERO
+    // y recién DESPUÉS quedarse con las 5 de menor confianza del pool ya filtrado. Así la
+    // ventana de candidatas nunca se "gasta" en hipótesis sensibles que luego se descartan
+    // (no se pierde una neutra elegible que estuviera fuera de las 5 crudas).
+    // Fail-closed vía dimension_catalogo (incluye alias de columna como backup_style_doc→tps_d8).
+    const esElegible = await construirFiltroDimensionParaSupervisor(sb)
+    const hipsElegibles = (hips ?? [])
+      .filter((h) => esElegible(h.dimension_afectada))
+      .slice(0, 5)
+
+    const objetivo = hipsElegibles[0] ?? null
 
     // Sin perfil ni hipótesis no hay base sobre la cual preguntar
     if (!perfil && !objetivo) return json({ ok: true, item: null, motivo: 'sin_base' })
@@ -70,15 +80,13 @@ Deno.serve(async (req: Request) => {
     // Etapa 3: proyectar el perfil quitando campos sensibles ANTES de volcarlo al prompt del supervisor.
     const perfilSeguro = perfil ? await proyectarPerfilParaSupervisor(sb, perfil) : null
 
-    // Etapa 3 §5.6(b) — log de uso: la proyección lee del crudo asesor_perfil las columnas
-    // sensibles (resiliencia=f4, backup_style_doc=d8) para eliminarlas. Una fila por dimensión
-    // presente. consentimiento_estado lo resuelve el logger desde tps_perfiles por asesor.
-    if (perfil) {
-      const usos: UsoSensibleEvento[] = []
-      if (perfil.resiliencia !== null && perfil.resiliencia !== undefined)
-        usos.push({ asesor, dimension: 'f4', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-observacion' })
-      if (perfil.backup_style_doc !== null && perfil.backup_style_doc !== undefined)
-        usos.push({ asesor, dimension: 'd8', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-observacion' })
+    // Etapa 3 §5.6(b) — log de uso: la proyección lee del crudo asesor_perfil la columna
+    // sensible resiliencia=f4 para eliminarla. consentimiento_estado lo resuelve el logger
+    // desde tps_perfiles por asesor. d8 (backup_style_doc) ELIMINADO (Paso 2): ya no se registra.
+    if (perfil && perfil.resiliencia !== null && perfil.resiliencia !== undefined) {
+      const usos: UsoSensibleEvento[] = [
+        { asesor, dimension: 'f4', salida: 'proyeccion_supervisor', finalidad: 'proyeccion_supervisor', actor: 'proxis-observacion' },
+      ]
       await logUsoSensible(sb, usos)
     }
     const perfilTexto = perfilSeguro
