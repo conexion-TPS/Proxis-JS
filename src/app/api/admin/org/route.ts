@@ -11,8 +11,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const sb = supabaseAdmin()
-  const [instRes, capasRes, nodosRes, usuariosRes, invRes] = await Promise.all([
-    sb.from('instituciones').select('id, nombre, tipo, activo').order('nombre'),
+  const [instRes, capasRes, nodosRes, usuariosRes, invRes, geoRes] = await Promise.all([
+    // geo_id requiere la migración F1 (db/propuestas/F1_org_geo.sql). Desplegar este código
+    // DESPUÉS de que TPS corra el SQL; si no, la columna no existe y la lista sale vacía.
+    sb.from('instituciones').select('id, nombre, tipo, activo, geo_id').order('nombre'),
     sb.from('org_capas').select('id, institucion_id, nivel, nombre_cargo').order('nivel'),
     sb.from('org_nodos').select('id, parent_id, institucion_id, capa_id, nombre, titulo_propio, activo').order('nombre'),
     sb.from('org_usuarios').select('id, nombre, email, org_nodo_id, cargo, activo, ultimo_login').order('nombre'),
@@ -21,6 +23,8 @@ export async function GET() {
       .eq('usado', false)
       .gt('expira_at', new Date().toISOString())
       .order('created_at', { ascending: false }),
+    // Tolerante: si la tabla aún no existe (pre-migración), geoRes.error → geo: []
+    sb.from('org_geo').select('id, tipo, nombre, parent_id, activo').order('nombre'),
   ])
   return NextResponse.json({
     instituciones: instRes.data  ?? [],
@@ -28,6 +32,7 @@ export async function GET() {
     nodos:         nodosRes.data ?? [],
     usuarios:      usuariosRes.data ?? [],
     invitaciones:  invRes.data  ?? [],
+    geo:           geoRes.data  ?? [],
   })
 }
 
@@ -42,6 +47,31 @@ export async function POST(req: NextRequest) {
     const { data, error } = await sb.from('instituciones').insert({ nombre, tipo }).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, data })
+  }
+
+  // F1 — geografía: crear continente/país (árbol org_geo, por encima de la empresa).
+  if (accion === 'crear_geo') {
+    const { tipo, nombre, parent_id } = body
+    if (!nombre || !['continente', 'pais'].includes(tipo))
+      return NextResponse.json({ error: "tipo ('continente'|'pais') y nombre requeridos" }, { status: 400 })
+    if (tipo === 'pais' && !parent_id)
+      return NextResponse.json({ error: 'un país requiere parent_id (su continente)' }, { status: 400 })
+    const { data, error } = await sb.from('org_geo')
+      .insert({ tipo, nombre, parent_id: tipo === 'pais' ? parent_id : null })
+      .select().single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, data })
+  }
+
+  // F1 — geografía: colgar (o descolgar) una empresa de un país.
+  if (accion === 'asignar_geo') {
+    const { institucion_id, geo_id } = body
+    if (!institucion_id) return NextResponse.json({ error: 'institucion_id requerido' }, { status: 400 })
+    const { error } = await sb.from('instituciones')
+      .update({ geo_id: geo_id || null })
+      .eq('id', institucion_id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
   }
 
   if (accion === 'crear_capa') {

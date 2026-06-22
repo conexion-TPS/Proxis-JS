@@ -4,12 +4,14 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
 /* ── tipos ── */
-type Institucion = { id: string; nombre: string; tipo: string; activo: boolean }
+type Institucion = { id: string; nombre: string; tipo: string; activo: boolean; geo_id: string | null }
 type Capa        = { id: string; institucion_id: string; nivel: number; nombre_cargo: string }
 type Nodo        = { id: string; parent_id: string | null; institucion_id: string; capa_id: string | null; nombre: string; titulo_propio: string | null; activo: boolean }
 type OrgUsuario  = { id: string; nombre: string; email: string; org_nodo_id: string | null; cargo: string | null; activo: boolean; ultimo_login: string | null }
 type AsesorCred  = { asesor: string; org_nodo_id: string | null }
-type Data        = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[]; usuarios: OrgUsuario[] }
+// F1 — geografía por encima de la empresa (Continente → País → Empresa).
+type Geo         = { id: string; tipo: 'continente' | 'pais'; nombre: string; parent_id: string | null; activo: boolean }
+type Data        = { instituciones: Institucion[]; capas: Capa[]; nodos: Nodo[]; usuarios: OrgUsuario[]; geo: Geo[] }
 
 type Tab    = 'arbol' | 'asesores' | 'supervisores'
 type AsRow  = { csv_asesor: string; csv_equipo: string; email: string; password: string; titulo_cargo: string; asesor: string | null; nodo_id: string | null; exists: boolean; status: 'ok' | 'create' | 'no_nodo' | 'incomplete' }
@@ -192,6 +194,10 @@ export default function JerarquiaPage() {
 
   /* árbol */
   const [newInst,       setNewInst]       = useState('')
+  /* F1 — geografía (continente / país) */
+  const [newGeoNombre,  setNewGeoNombre]  = useState('')
+  const [newGeoTipo,    setNewGeoTipo]    = useState<'continente' | 'pais'>('continente')
+  const [newGeoParent,  setNewGeoParent]  = useState('')
   const [creds,         setCreds]         = useState<AsesorCred[]>([])
   const [selAsesor,     setSelAsesor]     = useState('')
 
@@ -413,6 +419,44 @@ export default function JerarquiaPage() {
   const archivedNodos  = data.nodos.filter(n => !n.activo)
   const activeUsers    = data.usuarios.filter(u => u.activo)
   const archivedUsers  = data.usuarios.filter(u => !u.activo)
+  // F1 — geografía
+  const paisesActivos  = data.geo.filter(g => g.tipo === 'pais' && g.activo)
+  const continentes    = data.geo.filter(g => g.tipo === 'continente' && g.activo)
+
+  // Tarjeta de empresa (factorizada para reusar bajo cada país y en "sin país").
+  const renderInstCard = (inst: Institucion) => (
+    <div key={inst.id} style={{ marginBottom: 14, background: '#fff', borderRadius: 12, border: '1px solid #e5e5e5', overflow: 'hidden' }}>
+      <div style={{ padding: '12px 16px', background: '#f9f9f7', borderBottom: '1px solid #e5e5e5', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 700, fontSize: 14, color: '#0b0a09' }}>{inst.nombre}</span>
+        <span style={{ fontSize: 11, color: '#aaa', background: '#f0f0ec', padding: '2px 8px', borderRadius: 10 }}>{inst.tipo}</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {capasDeInst(inst.id).map(c => (
+            <span key={c.id} style={{ fontSize: 10, color: '#666', background: '#eee', padding: '2px 8px', borderRadius: 10 }}>N{c.nivel} {c.nombre_cargo}</span>
+          ))}
+        </div>
+        {/* F1: país al que cuelga la empresa */}
+        <select value={inst.geo_id ?? ''} disabled={saving}
+          onChange={e => api({ accion: 'asignar_geo', institucion_id: inst.id, geo_id: e.target.value || null })}
+          style={{ fontSize: 11, padding: '3px 8px', border: '1px solid #e5e5e5', borderRadius: 6, fontFamily: 'inherit', background: '#fff', color: '#555' }}>
+          <option value="">— sin país —</option>
+          {paisesActivos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+        </select>
+        <button onClick={() => setActivo('institucion', inst.id, false)} disabled={saving}
+          style={{ marginLeft: 'auto', fontSize: 11, color: '#aaa', background: 'transparent', border: '1px solid #e5e5e5', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+          Archivar
+        </button>
+      </div>
+      <div style={{ padding: '10px 12px' }}>
+        {nodosRaiz(inst.id).length === 0
+          ? <div style={{ fontSize: 12, color: '#bbb', padding: '8px 0' }}>Sin nodos — crea el primero →</div>
+          : nodosRaiz(inst.id).map(n => (
+              <NodoItem key={n.id} nodo={n} nodos={data.nodos} capas={data.capas}
+                usuarios={data.usuarios} onSelect={setSelected} selected={selected} />
+            ))}
+      </div>
+    </div>
+  )
+
   const asOk           = asRows.filter(r => r.status === 'ok' || r.status === 'create').length
   const supOk          = supRows.filter(r => r.status === 'ok').length
 
@@ -527,36 +571,64 @@ export default function JerarquiaPage() {
               </div>
             </details>
 
-            {/* Instituciones activas */}
-            {activeInsts.map(inst => (
-              <div key={inst.id} style={{ marginBottom: 20, background: '#fff', borderRadius: 12, border: '1px solid #e5e5e5', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', background: '#f9f9f7', borderBottom: '1px solid #e5e5e5', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: '#0b0a09' }}>{inst.nombre}</span>
-                  <span style={{ fontSize: 11, color: '#aaa', background: '#f0f0ec', padding: '2px 8px', borderRadius: 10 }}>{inst.tipo}</span>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {capasDeInst(inst.id).map(c => (
-                      <span key={c.id} style={{ fontSize: 10, color: '#666', background: '#eee', padding: '2px 8px', borderRadius: 10 }}>N{c.nivel} {c.nombre_cargo}</span>
-                    ))}
+            {/* F1 — árbol geográfico: Continente → País → Empresas */}
+            {continentes.map(cont => (
+              <div key={cont.id} style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#0b0a09', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>🌎 {cont.nombre}</div>
+                {paisesActivos.filter(p => p.parent_id === cont.id).map(pais => (
+                  <div key={pais.id} style={{ marginLeft: 12, marginBottom: 12, paddingLeft: 14, borderLeft: '2px solid #e5e5e5' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 6 }}>📍 {pais.nombre}</div>
+                    {activeInsts.filter(i => i.geo_id === pais.id).length === 0
+                      ? <div style={{ fontSize: 11, color: '#bbb', padding: '2px 0 8px' }}>Sin empresas aún.</div>
+                      : activeInsts.filter(i => i.geo_id === pais.id).map(renderInstCard)}
                   </div>
-                  <button onClick={() => setActivo('institucion', inst.id, false)} disabled={saving}
-                    style={{ marginLeft: 'auto', fontSize: 11, color: '#aaa', background: 'transparent', border: '1px solid #e5e5e5', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Archivar
-                  </button>
-                </div>
-                <div style={{ padding: '10px 12px' }}>
-                  {nodosRaiz(inst.id).length === 0
-                    ? <div style={{ fontSize: 12, color: '#bbb', padding: '8px 0' }}>Sin nodos — crea el primero →</div>
-                    : nodosRaiz(inst.id).map(n => (
-                        <NodoItem key={n.id} nodo={n} nodos={data.nodos} capas={data.capas}
-                          usuarios={data.usuarios} onSelect={setSelected} selected={selected} />
-                      ))}
-                </div>
+                ))}
+                {paisesActivos.filter(p => p.parent_id === cont.id).length === 0 && (
+                  <div style={{ marginLeft: 12, fontSize: 11, color: '#bbb' }}>Sin países aún.</div>
+                )}
               </div>
             ))}
+
+            {/* Empresas sin país asignado (incluye todas si aún no se sembró geo) */}
+            {(() => {
+              const sinPais = activeInsts.filter(i => !i.geo_id || !paisesActivos.some(p => p.id === i.geo_id))
+              if (!sinPais.length) return null
+              return (
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#a06b00', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>⚠️ Sin país asignado</div>
+                  {sinPais.map(renderInstCard)}
+                </div>
+              )
+            })()}
 
             {activeInsts.length === 0 && (
               <div style={{ fontSize: 13, color: '#bbb', padding: '20px 0' }}>No hay instituciones activas — crea una abajo.</div>
             )}
+
+            {/* F1 — Nuevo continente / país */}
+            <details open style={{ marginTop: 8 }}>
+              <summary style={{ fontSize: 13, color: '#555', cursor: 'pointer', padding: '6px 0', fontWeight: 600 }}>+ Nuevo continente / país</summary>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <select value={newGeoTipo} onChange={e => setNewGeoTipo(e.target.value as 'continente' | 'pais')} style={{ ...inputStyle, flex: '0 0 130px' }}>
+                  <option value="continente">Continente</option>
+                  <option value="pais">País</option>
+                </select>
+                <input value={newGeoNombre} onChange={e => setNewGeoNombre(e.target.value)} placeholder="Nombre" style={{ ...inputStyle, flex: 1 }} />
+                {newGeoTipo === 'pais' && (
+                  <select value={newGeoParent} onChange={e => setNewGeoParent(e.target.value)} style={{ ...inputStyle, flex: '0 0 160px' }}>
+                    <option value="">— continente —</option>
+                    {continentes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                )}
+                <button onClick={async () => {
+                  if (!newGeoNombre.trim()) return
+                  if (newGeoTipo === 'pais' && !newGeoParent) { setMsg('Elegí el continente del país.'); return }
+                  const r = await api({ accion: 'crear_geo', tipo: newGeoTipo, nombre: newGeoNombre.trim(), parent_id: newGeoTipo === 'pais' ? newGeoParent : null })
+                  if (r) { setNewGeoNombre(''); setNewGeoParent('') }
+                }} style={btnStyle} disabled={saving || !newGeoNombre.trim()}>Crear</button>
+              </div>
+              <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>El país cuelga de un continente; la empresa se asigna a un país desde su tarjeta.</div>
+            </details>
 
             {/* Nueva institución */}
             <details open style={{ marginTop: 8 }}>
