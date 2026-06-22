@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import LegalGate from '@/components/LegalGate'
 import { supabase } from '@/lib/supabase'
+import CapturaIngreso from './CapturaIngreso'
 
 type AsesorRow = {
   asesor: string; daysSince: number; msgs7d: number
@@ -302,6 +303,8 @@ export default function EquipoDashboard() {
 
           {/* ── Lista de asesores ── */}
           <div>
+            {/* F2c — Captura mensual de ingreso (cola del subárbol, vía /api/equipo/captura-ingreso) */}
+            <CapturaIngreso token={token} />
             {totalSinValorar > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fef6e6', border: '1px solid #f3d9a4', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
                 <span style={{ fontSize: 18 }}>📝</span>

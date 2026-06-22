@@ -535,6 +535,83 @@ async function procesarSupervisoresSinValorar(remitente: string, results: any[],
   }
 }
 
+/* ── F2d: Recordatorio mensual de captura de ingreso (primer lunes) ──────────── */
+// Por cada supervisor con asesores de SU SUBÁRBOL sin el ingreso del mes cerrado (M-1)
+// informado, email + CTA al Portal de Equipo. Cola DERIVADA: pendiente = sin fila en
+// historico_cumplimiento_ingreso para ese mes. Reusa esPrimerLunesMes/org_subtree/Resend/cooldown.
+async function procesarCapturaIngresoMensual(remitente: string, results: any[], dryRun = false): Promise<void> {
+  if (!esPrimerLunesMes()) return
+  const { data: cfg } = await sb.from('trigger_config')
+    .select('activo, cooldown_dias').eq('trigger_id', 'captura-ingreso-mensual').maybeSingle()
+  if (cfg && (cfg as any).activo === false) return
+  const cooldownDias = (cfg as any)?.cooldown_dias || 20
+
+  // Mes cerrado a informar = M-1 (horario Chile UTC-3).
+  const ch = new Date(Date.now() - 3 * 3600_000)
+  const mi = ch.getUTCMonth()
+  const py = mi === 0 ? ch.getUTCFullYear() - 1 : ch.getUTCFullYear()
+  const pm = mi === 0 ? 12 : mi
+  const mesPrev = `${py}-${String(pm).padStart(2, '0')}`
+
+  // Gate por institución (lista blanca, fail-closed): autz vacío ⇒ ningún supervisor.
+  const autz = await getAsesoresAutorizados(sb)
+  const { data: sups } = await sb.from('org_usuarios')
+    .select('nombre, email, org_nodo_id').eq('cargo', 'supervisor').eq('activo', true)
+
+  for (const sup of sups ?? []) {
+    const item: any = { supervisor: sup.nombre, trigger: 'captura-ingreso-mensual', mes: mesPrev }
+    if (!esAutorizado(sup.nombre, autz)) { item.status = 'inst_no_autorizada'; results.push(item); continue }
+    try {
+      if (!sup.email || !sup.org_nodo_id) { item.status = 'sin_email_o_nodo'; results.push(item); continue }
+
+      const { data: subtree } = await sb.rpc('org_subtree', { nodo_raiz: sup.org_nodo_id })
+      const nodoIds = (subtree ?? []).map((r: { id: string }) => r.id)
+      if (!nodoIds.length) { item.status = 'sin_nodos'; results.push(item); continue }
+
+      const { data: creds } = await sb.from('asesor_credentials')
+        .select('asesor').eq('activo', true).in('org_nodo_id', nodoIds)
+      const asesores = (creds ?? []).map((c: any) => c.asesor as string)
+      if (!asesores.length) { item.status = 'sin_asesores'; results.push(item); continue }
+
+      // Pendientes = asesores sin fila histórico para mesPrev.
+      const { data: hist } = await sb.from('historico_cumplimiento_ingreso')
+        .select('asesor').eq('mes', mesPrev).in('asesor', asesores)
+      const informados = new Set((hist ?? []).map((h: any) => h.asesor as string))
+      const pendientes = asesores.filter(a => !informados.has(a)).length
+      item.pendientes = pendientes
+      if (pendientes === 0) { item.status = 'todo_informado'; results.push(item); continue }
+
+      if (!(await cooldownOk(sup.nombre, 'captura-ingreso-mensual', cooldownDias))) { item.status = 'cooldown'; results.push(item); continue }
+
+      const nombre = sup.nombre.split(' ')[0]
+      const cuerpo = `Hola ${nombre},\n\nEs hora de cerrar el mes: tienes ${pendientes} asesor(es) sin el ingreso de ${mesPrev} informado. Entra a tu Portal de Equipo, abre "Cierre de mes — ingresos" y carga el monto de cada uno (te toma un minuto).\n\n— Sailor Mentor`
+
+      if (dryRun || !RESEND_KEY) {
+        console.log(`[captura-ingreso ${dryRun ? 'DRY' : 'NO-KEY'}] ${sup.nombre}: ${pendientes} pendientes (${mesPrev})`)
+        item.status = dryRun ? 'dry_run' : 'sin_resend_key'; results.push(item); continue
+      }
+
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from:    `${remitente} <proxis@theprecisionselling.com>`,
+          to:      sup.email,
+          subject: `Cierre de mes: informa el ingreso de tu equipo (${mesPrev})`,
+          text:    cuerpo,
+        }),
+      })
+      await sb.from('message_log').insert({
+        asesor: sup.nombre, trigger_id: 'captura-ingreso-mensual',
+        body: `Recordatorio: ${pendientes} ingresos de ${mesPrev} sin informar`, prompt_version: 0,
+      }).then(undefined, () => {})
+      item.status = 'recordado'; results.push(item)
+    } catch (e: any) {
+      item.status = 'error'; item.error = e?.message; results.push(item)
+    }
+  }
+}
+
 /* ── Captura inmanente vía email ────────────────────────────── */
 
 const PROB_CAPTURA_EMAIL = 0.25  // 25% de los mensajes llevan pregunta
@@ -868,6 +945,9 @@ Deno.serve(async (req: Request) => {
 
   // Recordatorio al supervisor: mensajes del coach sin valorar (cron diario)
   await procesarSupervisoresSinValorar(remitente, results, dryRun)
+
+  // F2d — Recordatorio mensual de captura de ingreso (el gate de "primer lunes" está adentro)
+  await procesarCapturaIngresoMensual(remitente, results, dryRun)
 
   console.log(JSON.stringify({ ok: true, total: results.length, results }))
   return new Response(JSON.stringify({ ok: true, results }), {
