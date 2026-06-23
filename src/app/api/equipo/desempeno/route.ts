@@ -81,6 +81,27 @@ export async function GET(req: NextRequest) {
     .map(a => ({ asesor: a, persona_id: pidPorNombre.get(a) ?? null }))
     .filter(r => r.persona_id) as { asesor: string; persona_id: string }[]
 
+  // 2b) Perfil conductual por asesor (tps_perfiles, por nombre) — alimenta la vista detalle.
+  const PERFIL_LABEL: Record<string, string> = { E: 'Energético', S: 'Sociable', R: 'Relacional', A: 'Reflexivo', AMB: 'Mixto' }
+  const { data: perfilesTps } = await sb.from('tps_perfiles')
+    .select('asesor, perfil_base, confianza_diagnostico').in('asesor', asesores)
+  const perfilPorAsesor = new Map(
+    (perfilesTps ?? []).map(p => {
+      const base = String(p.perfil_base ?? '').toUpperCase()
+      const evaluado = !!base && base !== 'PENDIENTE'
+      return [p.asesor as string, {
+        base: evaluado ? base : null,
+        label: evaluado ? (PERFIL_LABEL[base] ?? base) : null,
+        confianza: p.confianza_diagnostico ?? null,
+        evaluado,
+      }]
+    }),
+  )
+  // Nombre real de la institución para el encabezado del informe.
+  const { data: instRow } = instIds.length
+    ? await sb.from('instituciones').select('nombre').eq('id', instIds[0]).maybeSingle()
+    : { data: null as { nombre: string } | null }
+
   // 3) 36 llamadas (roster × meses) a la RPC EXISTENTE. Sin nueva RPC.
   const resultados = await Promise.all(
     roster.flatMap(r => meses.map(async mes => {
@@ -146,7 +167,15 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     meses, nodo: session.org_nodo_id ?? null,
-    asesores: [...porAsesor.values()],
+    meta: {
+      supervisor: session.nombre ?? null,
+      institucion: instRow?.nombre ?? null,
+      n_asesores: roster.length,
+    },
+    asesores: [...porAsesor.values()].map(a => ({
+      ...a,
+      perfil: perfilPorAsesor.get(a.asesor) ?? { base: null, label: null, confianza: null, evaluado: false },
+    })),
     equipo,
   })
 }
