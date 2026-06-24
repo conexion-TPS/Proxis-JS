@@ -11,6 +11,8 @@ const DIMENSIONES = [
   { key: 'relacion_feedback',      label: 'Relación con el feedback',   desc: 'Cómo recibe y procesa la retroalimentación' },
   { key: 'perfil_conductual_notas',label: 'Perfil conductual (notas)',  desc: 'Observaciones de estilo E/S/R/A' },
   { key: 'contexto_situacional',   label: 'Contexto situacional',       desc: 'Variables de entorno, etapa vital, equipo' },
+  { key: 'equilibrio_adaptativo',  label: 'Equilibrio adaptativo',      desc: '🔒 confidencial — no visible para el supervisor' },
+  { key: 'resiliencia',            label: 'Resiliencia',                desc: '🔒 confidencial — no visible para el supervisor' },
 ]
 
 type PerfilRow = {
@@ -21,6 +23,8 @@ type PerfilRow = {
   relacion_feedback: string | null
   perfil_conductual_notas: string | null
   contexto_situacional: string | null
+  equilibrio_adaptativo: string | null
+  resiliencia: string | null
   resumen_ia: string | null
   relato_evolucion: string | null
   relato_evolucion_at: string | null
@@ -127,6 +131,8 @@ export default function PerfilPage() {
       relacion_feedback:       perfil.relacion_feedback       ?? null,
       perfil_conductual_notas: perfil.perfil_conductual_notas ?? null,
       contexto_situacional:    perfil.contexto_situacional    ?? null,
+      equilibrio_adaptativo:   perfil.equilibrio_adaptativo   ?? null,
+      resiliencia:             perfil.resiliencia             ?? null,
       updated_at: new Date().toISOString(),
     }
 
