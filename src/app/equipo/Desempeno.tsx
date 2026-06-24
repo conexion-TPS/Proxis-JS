@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 /* ── Textos definitivos (editables en un solo lugar) ── */
 const MENSAJE_INFORME = 'Informe tentativo · lectura preliminar del sistema, a interpretar con criterio profesional'
-const PIE_INFORME = '2026 - Futura Soluciones Digitales Ltda. Derechos Reservados.'
+export const PIE_INFORME = '2026 - Futura Soluciones Digitales Ltda. Derechos Reservados.'
 
 /* ── Paleta del HTML aprobado (definitiva) ── */
 const C = {
@@ -53,12 +53,15 @@ function ProxisLogo() {
   )
 }
 
-export default function Desempeno({ token }: { token: string }) {
+export default function Desempeno({ token, onVistaChange }: { token: string; onVistaChange?: (v: 'gen' | 'det') => void }) {
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [vista, setVista] = useState<'gen' | 'det'>('gen')
   const [sel, setSel] = useState<string | null>(null)
+
+  // Notifica al contenedor la pestaña activa (para que page.tsx oculte la lista legada en "Detalle").
+  useEffect(() => { onVistaChange?.(vista) }, [vista, onVistaChange])
 
   useEffect(() => {
     if (!token) return
@@ -117,6 +120,7 @@ export default function Desempeno({ token }: { token: string }) {
           #informe-desempeno,#informe-desempeno *{visibility:visible;}
           #informe-desempeno{position:absolute;left:0;top:0;width:100%;}
           .no-print{display:none!important;}
+          .solo-print{display:block!important;}
           #v-gen,#v-det{display:block!important;}
           #v-det{margin-top:24px;border-top:1px solid #ccc;padding-top:18px;}
           .card{break-inside:avoid;}
@@ -181,7 +185,8 @@ export default function Desempeno({ token }: { token: string }) {
         {selRow && <Detalle row={selRow} mesAct={mesAct} mesPrev={mesPrev} meses={meses} mesesEnCaida={mesesEnCaida} />}
       </div>
 
-      <div style={{ textAlign: 'center', fontSize: 10.5, color: C.tert, padding: '18px 0 4px' }}>{PIE_INFORME}</div>
+      {/* Pie legal: SOLO en el PDF exportado; en pantalla va en el footer de /equipo (page.tsx) */}
+      <div className="solo-print" style={{ textAlign: 'center', fontSize: 10.5, color: C.tert, padding: '18px 0 4px' }}>{PIE_INFORME}</div>
     </div>
   )
 }
