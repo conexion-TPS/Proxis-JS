@@ -18,13 +18,28 @@ function authAsesor(req: NextRequest): string | null {
   try { return (jwt.verify(auth.slice(7), JWT_SECRET) as { asesor: string }).asesor } catch { return null }
 }
 
-// GET → mensajes del coach del asesor (origen='coach_ia'), más recientes primero.
+// GET sin ?id  → lista de mensajes del coach del asesor (origen='coach_ia'), recientes primero.
+// GET con ?id  → un solo mensaje, SIEMPRE acotado al asesor del token (candado), para el detalle.
 export async function GET(req: NextRequest) {
   const cors = corsHeaders(req.headers.get('origin'))
   const asesor = authAsesor(req)
   if (!asesor) return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: cors })
 
   const sb = supabaseAdmin()
+  const id = req.nextUrl.searchParams.get('id')
+
+  // Detalle por id: solo si la fila pertenece al asesor del token.
+  if (id) {
+    const { data, error } = await sb.from('sailor_messages')
+      .select('*')
+      .eq('id', id)
+      .eq('asesor', asesor)
+      .maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: cors })
+    return NextResponse.json({ mensaje: data ?? null }, { headers: cors })
+  }
+
+  // Lista del feed.
   const { data, error } = await sb.from('sailor_messages')
     .select('*')
     .eq('asesor', asesor)
