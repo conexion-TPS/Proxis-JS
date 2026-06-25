@@ -70,7 +70,10 @@ export default function ReviewPage() {
 
   function selectLog(log: LogRow) {
     setSelected(log)
-    setCorrection(fbMap[log.id]?.correccion ?? '')
+    // '[supervisor]' es un marcador de autoría (feedback del supervisor desde el portal),
+    // NO una corrección real: se trata como "sin corrección" para no mostrarlo como texto.
+    const c = fbMap[log.id]?.correccion
+    setCorrection(c && c !== '[supervisor]' ? c : '')
   }
 
   async function darFeedback(score: number) {

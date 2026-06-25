@@ -9,6 +9,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callAI } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
 import { REGLAS_MENTOR, tonoBlock } from '../_shared/mentor.ts'
+import { renderSailorEmailHtml } from '../_shared/email-sailor.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -23,12 +24,15 @@ function json(obj: unknown, status = 200): Response {
 // REGLAS_MENTOR y tonoBlock viven en ../_shared/mentor.ts (fuente única, compartida
 // con proxis-monitor). Incluyen la lista negra de muletillas/clichés (B4).
 
-async function enviarEmail(to: string, subject: string, text: string, remitente: string): Promise<void> {
+async function enviarEmail(to: string, subject: string, body: string, remitente: string, html = false): Promise<void> {
   if (!RESEND_KEY) { console.log(`[DRY] email a ${to}: ${subject}`); return }
+  const payload = html
+    ? { from: `${remitente} <proxis@theprecisionselling.com>`, to, subject, html: body }
+    : { from: `${remitente} <proxis@theprecisionselling.com>`, to, subject, text: body }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: `${remitente} <proxis@theprecisionselling.com>`, to, subject, text }),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const e = await res.json().catch(() => ({})) as any
@@ -85,7 +89,10 @@ Devuelve SOLO el texto del mensaje, sin encabezados ni firma.`
       await sb.from('sailor_messages').insert({
         asesor, origen: 'coach_ia', tipo: 'mensaje', contenido: mensaje, leido: false,
       }).then(undefined, () => {})
-      await enviarEmail(cred.email, 'Un mensaje de Sailor Mentor', mensaje, remitente)
+      // #3b — el correo va por la plantilla (saludo + contexto + nota "no responder" + botón),
+      // no texto plano. El mensaje completo queda en el cuerpo de la plantilla.
+      const htmlCorreo = await renderSailorEmailHtml(sb, asesor, mensaje)
+      await enviarEmail(cred.email, 'Un mensaje de Sailor Mentor', htmlCorreo, remitente, true)
       await sb.from('message_log').insert({
         asesor, trigger_id: 'hipotesis-accion', body: mensaje, prompt_version: 0,
       }).then(undefined, () => {})

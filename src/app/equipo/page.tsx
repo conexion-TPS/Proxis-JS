@@ -17,6 +17,7 @@ type SupRow  = { id: string; nombre: string; org_nodo_id: string | null; cargo: 
 type Session = { token: string; nombre?: string; email?: string; usuario_id?: string; cargo?: string; isAdmin?: boolean }
 type ObsOpcion = { texto: string; perfil_hint: string }
 type ObsItem = { dimension: string | null; stem: string; basis: string | null; opciones: ObsOpcion[]; deduction_id: string | null }
+type MsgItem = { id: string; descripcion: string; cuerpo: string; fecha: string; score: number | null }
 type Frecuencia = 'una_vez' | 'a_veces' | 'casi_siempre'
 const FREQ_LABEL: Record<Frecuencia, string> = { una_vez: 'Lo vi una vez', a_veces: 'A veces', casi_siempre: 'Casi siempre' }
 
@@ -58,6 +59,9 @@ export default function EquipoDashboard() {
   const [obsDone,     setObsDone]     = useState<Record<string, boolean>>({})
   const [obsSel,      setObsSel]      = useState<number | null>(null)
   const [obsFreq,     setObsFreq]     = useState<Frecuencia>('a_veces')
+  // #3a — valoración de oportunidad de los últimos mensajes del coach (solo captura el dato)
+  const [mensajes,    setMensajes]    = useState<Record<string, MsgItem[]>>({})
+  const [msgFb,       setMsgFb]       = useState<Record<string, number>>({})
 
   // FUENTE ÚNICA DE VERDAD del dashboard. Todos los agregados (banner "sin valorar",
   // badges por asesor, urgencia, conteos del árbol) salen de aquí. Tras cualquier
@@ -141,6 +145,29 @@ export default function EquipoDashboard() {
         .catch(() => setObservacion(prev => ({ ...prev, [asesor]: null })))
         .finally(() => setObsLoading(null))
     }
+
+    // #3a — últimos mensajes del coach para valorarlos (oportuno / no era el momento)
+    if (mensajes[asesor] === undefined) {
+      fetch(`/api/equipo/mensajes?asesor=${encodeURIComponent(asesor)}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(json => {
+          const items = (json.mensajes ?? []) as MsgItem[]
+          setMensajes(prev => ({ ...prev, [asesor]: items }))
+          setMsgFb(prev => { const next = { ...prev }; for (const m of items) if (m.score != null) next[m.id] = m.score; return next })
+        })
+        .catch(() => setMensajes(prev => ({ ...prev, [asesor]: [] })))
+    }
+  }
+
+  // #3a — registra la valoración (POST /api/equipo/feedback; el endpoint además escribe
+  // behavioral_signals 'feedback_oportunidad' para /admin/senales). Sin ciclo de reenvío (AD-4).
+  async function valorarMensaje(messageId: string, score: 1 | -1) {
+    setMsgFb(prev => ({ ...prev, [messageId]: score }))
+    await fetch('/api/equipo/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ message_id: messageId, score }),
+    }).catch(() => {})
   }
 
   async function enviarObservacion(asesor: string) {
@@ -358,6 +385,38 @@ export default function EquipoDashboard() {
                               </div>
                             )}
                           </div>
+
+                          {/* #3a — Valora los últimos mensajes del coach (solo captura el dato) */}
+                          {(mensajes[a.asesor] ?? []).length > 0 && (
+                            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed #e0ddd8' }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8885', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                                ¿Llegaron en buen momento?
+                                <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: '#c8c6c3' }}> · tu valoración de los últimos mensajes del coach</span>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {(mensajes[a.asesor] ?? []).map(m => {
+                                  const sc = msgFb[m.id]
+                                  return (
+                                    <div key={m.id} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 8, padding: '10px 12px' }}>
+                                      <div style={{ fontSize: 12.5, color: '#0b0a09', marginBottom: 8, lineHeight: 1.5 }}>{m.cuerpo}</div>
+                                      <div style={{ display: 'flex', gap: 8 }}>
+                                        <button onClick={() => valorarMensaje(m.id, 1)}
+                                          style={{ padding: '5px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 600,
+                                            border: `1px solid ${sc === 1 ? '#1f6f56' : '#e8e6e3'}`, background: sc === 1 ? '#e6f3ed' : '#fff', color: sc === 1 ? '#1f6f56' : '#8a8885' }}>
+                                          Oportuno
+                                        </button>
+                                        <button onClick={() => valorarMensaje(m.id, -1)}
+                                          style={{ padding: '5px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 600,
+                                            border: `1px solid ${sc === -1 ? '#a8691a' : '#e8e6e3'}`, background: sc === -1 ? '#fef3e2' : '#fff', color: sc === -1 ? '#a8691a' : '#8a8885' }}>
+                                          No era el momento
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

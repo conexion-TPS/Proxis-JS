@@ -8,6 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callAI } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
 import { REGLAS_MENTOR, tonoBlock } from '../_shared/mentor.ts'
+import { renderSailorEmailHtml } from '../_shared/email-sailor.ts'
 import { proyectarTpsSinSensibles } from '../_shared/proyeccion-segura.ts'
 import { interpretarSensibleParaAsesor } from '../_shared/interpretacion-asesor.ts'
 import { logUsoSensible, type UsoSensibleEvento } from '../_shared/log-uso-sensible.ts'
@@ -276,7 +277,7 @@ function compileTemplate(tpl: string, ctx: any): string {
 
 /* ── Email vía Resend ───────────────────────────────────────── */
 
-async function sendEmail(asesor: string, asunto: string, cuerpo: string, remitente = 'Sailor Mentor (Proxis)'): Promise<void> {
+async function sendEmail(asesor: string, asunto: string, cuerpo: string, remitente = 'Sailor Mentor (Proxis)', html = false): Promise<void> {
   if (!RESEND_KEY) {
     console.log(`[DRY-RUN] Email a ${asesor}: ${cuerpo.slice(0, 100)}…`)
     return
@@ -292,7 +293,7 @@ async function sendEmail(asesor: string, asunto: string, cuerpo: string, remiten
       from:    `${remitente} <proxis@theprecisionselling.com>`,
       to:      emailArr[0].email,
       subject: asunto,
-      text:    cuerpo
+      ...(html ? { html: cuerpo } : { text: cuerpo }),
     })
   })
   if (!res.ok) {
@@ -851,15 +852,14 @@ Deno.serve(async (req: Request) => {
         })
 
         // Captura inmanente: posiblemente adjuntar pregunta al email
+        // #3c — la pregunta de "captura inmanente" va SOLO al feed (abajo como mensaje
+        // tipo 'pregunta'), NO al correo. El correo y message_log usan el cuerpo sin pregunta.
         const captura = await decidirCapturaEmail(asesor)
-        const bodyFinal = captura.capturar && captura.pregunta
-          ? body + captura.pregunta
-          : body
 
         await sb.from('message_log').insert({
           asesor,
           trigger_id:     tid,
-          body:           bodyFinal,
+          body:           body,
           prompt_version: prompts[0].version
         })
 
@@ -909,7 +909,9 @@ Deno.serve(async (req: Request) => {
         }
 
         const asunto = trigger.asunto || 'Mensaje de tu coach Proxis'
-        await sendEmail(asesor, asunto, bodyFinal, remitente)
+        // #3b — correo por la plantilla (saludo + nota "no responder" + botón), no texto plano.
+        const htmlCorreo = await renderSailorEmailHtml(sb, asesor, body)
+        await sendEmail(asesor, asunto, htmlCorreo, remitente, true)
 
         // Notificación al supervisor para triggers con doble disparo
         if (tid === 'paralisis-sostenida') {
