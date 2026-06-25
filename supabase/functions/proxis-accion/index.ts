@@ -71,10 +71,7 @@ Deno.serve(async (req: Request) => {
       const { data: cred } = await credQuery.maybeSingle()
       if (!cred?.email) return json({ error: `${asesor} sin email registrado` }, 400)
 
-      // Tono solicitado por el asesor (coach_tono en tps_perfiles); default cercano.
-      const { data: tps } = await sb.from('tps_perfiles').select('coach_tono').eq('asesor', asesor).maybeSingle()
-
-      const prompt = `${REGLAS_MENTOR}${tonoBlock(tps?.coach_tono)}
+      const prompt = `${REGLAS_MENTOR}${tonoBlock()}
 Escribe un mensaje breve (máximo 110 palabras) para ${asesor}, accionable y motivador, no un diagnóstico.
 Basa el mensaje en esta acción que recomiendo: "${d.accion_descripcion ?? d.hipotesis}".
 Contexto interno (NO lo cites textual ni reveles jerga/perfil): "${d.hipotesis}".

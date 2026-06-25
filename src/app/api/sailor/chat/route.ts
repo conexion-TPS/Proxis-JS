@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     { data: mensajeOriginal },
   ] = await Promise.all([
     sb.from('asesor_perfil').select('perfil_dominante, resumen_perfil').eq('asesor', asesor).maybeSingle(),
-    sb.from('tps_perfiles').select('perfil_base, puntaje_a, puntaje_b, coach_tono').eq('asesor', asesor).maybeSingle(),
+    sb.from('tps_perfiles').select('perfil_base, puntaje_a, puntaje_b').eq('asesor', asesor).maybeSingle(),
     sb.from('reportes').select('*').eq('asesor', asesor).order('semana_inicio', { ascending: false }).limit(1).maybeSingle(),
     mensaje_id
       ? sb.from('sailor_messages').select('contenido, tipo').eq('id', mensaje_id).maybeSingle()
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     ? `\nEl asesor respondió a este mensaje tuyo:\n"${mensajeOriginal.contenido.slice(0, 400)}"\n`
     : ''
 
-  const prompt = `${REGLAS_MENTOR}${tonoBlock(perfilCond?.coach_tono)}
+  const prompt = `${REGLAS_MENTOR}${tonoBlock()}
 Respondes en una app de mensajería: breve (2-4 oraciones), conversacional, sin listas ni bullet points. No uses markdown.
 
 ${contextoBloque}

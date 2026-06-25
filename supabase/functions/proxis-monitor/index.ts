@@ -839,7 +839,7 @@ Deno.serve(async (req: Request) => {
         const perfilBlock  = ctx.perfil_resumen
           ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n`
           : ''
-        const tonoBloque   = tonoBlock(ctx.coach_tono)   // helper compartido; default cercano
+        const tonoBloque   = tonoBlock()   // tono único por defecto (selector retirado)
         const body         = await callAI(REGLAS_MENTOR + tonoBloque + tpsBlock + puertaBlock + perfilBlock + compilado, {
           maxTokens:   2500,
           temperature: 0.7,

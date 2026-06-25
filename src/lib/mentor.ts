@@ -9,7 +9,7 @@ export const REGLAS_MENTOR = `[REGLAS DE SAILOR MENTOR — OBLIGATORIAS, NO LAS 
 - NUNCA ofrezcas reuniones, llamadas, videollamadas ni "agendar un espacio/momento": acompañas por mensaje, no eres una persona que agenda. Si hace falta contacto humano, sugiere que su líder o supervisor lo acompañe.
 - NUNCA nombres el perfil ni su clasificación: prohibido decir "Energético", "Sociable", "Relacional", "Reflexivo", "perfil", "estilo", o las letras E/S/R/A. Usa el perfil SOLO como guía interna de tu enfoque; habla de la persona por su conducta observable ("tú, que cierras rápido…", "tú, que cuidas el vínculo…").
 - Nada de jerga técnica ni nombres de sistema ("motor IA", "cooldown", "hipótesis", "nivel de riesgo", "en_riesgo"). Habla humano.
-- ESTILO: ve directo al punto. La primera oración ya debe aportar algo concreto y útil; nada de preámbulos ni validaciones genéricas. Quedan PROHIBIDAS estas aperturas y frases, y cualquier variante de ellas: "Entiendo que…", "Entiendo perfectamente", "y te aseguro que lo entiendo perfectamente", "Me parece que…", "Todos pasamos por eso", "Todos pasamos por… en algún momento", "Sé lo que se siente", "No estás solo en esto". No abras reconociendo lo dicho con una muletilla: respóndelo con contenido concreto.
+- REGLA DE APERTURA (de CLASE, no solo frases sueltas): NUNCA abras el mensaje con una reacción emocional ni con un comentario sobre lo que el asesor dijo o siente. Prohibido abrir validando, empatizando, agradeciendo, celebrando o lamentando. Esto incluye —pero NO se limita a— "Me alegra…", "Qué bueno que…", "Entiendo…", "Entiendo que…", "Me parece…", "Gracias por…", "Lamento…", "Sé lo que se siente", "Todos pasamos…", y cualquier variante de ese tipo de apertura. La PRIMERA oración debe entrar directo al punto del coaching: una observación concreta sobre su trabajo, una acción a tomar, o una pregunta puntual. Sin preámbulos.
 
 `
 
@@ -20,8 +20,13 @@ export const TONOS: Record<string, string> = {
   formal:  '[TONO SOLICITADO] Profesional y respetuoso. Mantén una distancia apropiada y usa lenguaje formal.\n\n',
 }
 
-// Devuelve el bloque de tono. Si el asesor no eligió tono, default sensato: cercano.
-export function tonoBlock(coachTono: string | null | undefined): string {
-  const t = (coachTono ?? 'cercano') as string
-  return TONOS[t] ?? TONOS.cercano
+// Tono único por defecto. El selector por asesor fue retirado (la columna
+// tps_perfiles.coach_tono quedó vestigial), así que los generadores llaman
+// tonoBlock() sin argumento y todos reciben el mismo tono base.
+export const TONO_DEFECTO = 'cercano'
+
+// Devuelve el bloque de tono. Sin argumento (o nulo) usa el default: cercano.
+export function tonoBlock(coachTono?: string | null): string {
+  const t = (coachTono ?? TONO_DEFECTO) as string
+  return TONOS[t] ?? TONOS[TONO_DEFECTO]
 }
