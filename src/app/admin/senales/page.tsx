@@ -30,6 +30,7 @@ const TIPOS: Record<string, { label: string; kind: string }> = {
   'persistencia-umbral':    { label: 'Bajo umbral contractual',      kind: 'flag'       },
   'primer-lunes-mes':       { label: 'Inicio de mes',                kind: 'calendar'   },
   observacion_supervisor:   { label: 'Observación de supervisor',    kind: 'message'    },
+  feedback_oportunidad:     { label: 'Valoración de oportunidad (supervisor)', kind: 'message' },
   reaccion_positiva:        { label: 'Reacción positiva',            kind: 'trend-up'   },
   reaccion_negativa:        { label: 'Reacción negativa',            kind: 'trend-down' },
   sin_mensajes:             { label: 'Sin mensajes del coach',       kind: 'message'    },
@@ -73,15 +74,16 @@ function nodoProcesadas(n: Nodo) {
 
 /* ── Global summary ─────────────────────────────────────────── */
 function globalSummary(data: Institucion[]) {
-  let pendientes = 0, nodosCriticos = 0, asesoresStale = 0
+  let pendientes = 0, nodosCriticos = 0, asesoresStale = 0, observaciones = 0
   data.forEach(inst => inst.nodos.forEach(n => {
     n.asesores.forEach(a => {
       pendientes += pending(a).length
+      observaciones += a.observaciones.length   // lecturas del supervisor (aparte del conteo de alertas)
       if (a.obsDays > STALE_OBS) asesoresStale++
     })
     if (nodoStatus(n) === 'critico') nodosCriticos++
   }))
-  return { pendientes, nodosCriticos, asesoresStale }
+  return { pendientes, nodosCriticos, asesoresStale, observaciones }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -192,13 +194,16 @@ function ProgressBar({ proc, total }: { proc: number; total: number }) {
   )
 }
 
-function SummaryCards({ summary }: { summary: { pendientes: number; nodosCriticos: number; asesoresStale: number } }) {
+function SummaryCards({ summary }: { summary: { pendientes: number; nodosCriticos: number; asesoresStale: number; observaciones: number } }) {
   const cards = [
     { n: summary.pendientes,   tone: summary.pendientes > 0   ? 'critico' : 'ok', title: 'Señales pendientes',        sub: 'sin procesar por la IA',         icon: 'alert' },
     { n: summary.nodosCriticos, tone: summary.nodosCriticos > 0 ? 'medio' : 'ok', title: 'Nodos con señales >48 h',   sub: 'sin atender',                    icon: 'clock' },
+    // Aviso aparte: lecturas del supervisor (tipo observacion_supervisor). NO entra en el
+    // conteo de señales-alerta; solo avisa que hay lecturas para revisar al expandir.
+    { n: summary.observaciones, tone: summary.observaciones > 0 ? 'medio' : 'ok', title: 'Lecturas del supervisor',   sub: 'al expandir la tarjeta del asesor', icon: 'message' },
   ] as const
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 16, marginBottom: 30 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 30 }}>
       {cards.map((c, i) => (
         <div key={i} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 10, padding: '18px 20px 16px', boxShadow: '0 1px 2px rgba(11,10,9,.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>

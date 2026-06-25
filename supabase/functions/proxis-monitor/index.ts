@@ -840,7 +840,11 @@ Deno.serve(async (req: Request) => {
           ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n`
           : ''
         const tonoBloque   = tonoBlock()   // tono único por defecto (selector retirado)
-        const body         = await callAI(REGLAS_MENTOR + tonoBloque + tpsBlock + puertaBlock + perfilBlock + compilado, {
+        // E1(b): el cuerpo del coach se entrega también por correo (sin respuesta). El LLM
+        // no debe cerrar pidiendo respuesta. (La pregunta de "captura inmanente" es aparte y
+        // se responde en la app; ver decidirCapturaEmail.)
+        const CIERRE_EMAIL = '\n\nEste mensaje se entrega también por correo, que NO recibe respuestas: no lo cierres con una pregunta ni invites a responder; cierra con una afirmación o un siguiente paso concreto.'
+        const body         = await callAI(REGLAS_MENTOR + tonoBloque + tpsBlock + puertaBlock + perfilBlock + compilado + CIERRE_EMAIL, {
           maxTokens:   2500,
           temperature: 0.7,
           componente:  'proxis-monitor',

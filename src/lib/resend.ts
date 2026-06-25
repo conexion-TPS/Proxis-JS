@@ -117,6 +117,7 @@ function fallbackNotificacion(nombre: string, preview: string) {
       <p style="font-size:14px;color:#0b0a09;line-height:1.6;margin:0">${preview.slice(0, 200)}${preview.length > 200 ? '…' : ''}</p>
     </div>
     <a href="https://sailor-front-ten.vercel.app/feed" style="display:block;background:#cbf135;color:#0b0a09;text-decoration:none;text-align:center;font-weight:800;font-size:15px;padding:14px;border-radius:10px">Ver mensaje completo →</a>
+    <p style="font-size:12px;color:#8a8885;line-height:1.5;margin:18px 0 0;text-align:center">Este correo no recibe respuestas; responde dentro de la app.</p>
   </div>
 </div></body></html>`
 }

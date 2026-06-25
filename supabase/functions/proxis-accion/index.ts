@@ -75,6 +75,7 @@ Deno.serve(async (req: Request) => {
 Escribe un mensaje breve (máximo 110 palabras) para ${asesor}, accionable y motivador, no un diagnóstico.
 Basa el mensaje en esta acción que recomiendo: "${d.accion_descripcion ?? d.hipotesis}".
 Contexto interno (NO lo cites textual ni reveles jerga/perfil): "${d.hipotesis}".
+Este mensaje se entrega también por correo, que NO recibe respuestas: NO lo cierres con una pregunta ni invites a responder; cierra con una afirmación o un siguiente paso concreto.
 Devuelve SOLO el texto del mensaje, sin encabezados ni firma.`
       const mensaje = (await callAI(prompt, { maxTokens: 1200, temperature: 0.6, componente: 'proxis-accion' })).trim() || (d.accion_descripcion ?? 'Sigo acompañándote esta semana; cuenta conmigo para lo que necesites.')
 
