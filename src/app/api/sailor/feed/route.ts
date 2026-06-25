@@ -36,7 +36,17 @@ export async function GET(req: NextRequest) {
       .eq('asesor', asesor)
       .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500, headers: cors })
-    return NextResponse.json({ mensaje: data ?? null }, { headers: cors })
+
+    // Candado de "Aceptar" (C2): ¿ya existe una señal de aceptación de ESTE asesor
+    // para ESTE mensaje? Se persiste en behavioral_signals (tipo='reaccion_positiva',
+    // valor=<id del mensaje>), sin tocar el esquema. Reversible: borrar la fila desbloquea.
+    const { count } = await sb.from('behavioral_signals')
+      .select('id', { count: 'exact', head: true })
+      .eq('asesor', asesor)
+      .eq('valor', id)
+      .eq('tipo', 'reaccion_positiva')
+
+    return NextResponse.json({ mensaje: data ?? null, aceptado: (count ?? 0) > 0 }, { headers: cors })
   }
 
   // Lista del feed.
