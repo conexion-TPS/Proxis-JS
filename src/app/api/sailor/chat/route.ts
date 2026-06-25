@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { callGemini } from '@/lib/gemini'
 import { corsHeaders, handleOptions } from '@/lib/cors'
+import { REGLAS_MENTOR, tonoBlock } from '@/lib/mentor'
 
 export async function OPTIONS(req: Request) { return handleOptions(req) }
 
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     { data: mensajeOriginal },
   ] = await Promise.all([
     sb.from('asesor_perfil').select('perfil_dominante, resumen_perfil').eq('asesor', asesor).maybeSingle(),
-    sb.from('tps_perfiles').select('perfil_base, puntaje_a, puntaje_b').eq('asesor', asesor).maybeSingle(),
+    sb.from('tps_perfiles').select('perfil_base, puntaje_a, puntaje_b, coach_tono').eq('asesor', asesor).maybeSingle(),
     sb.from('reportes').select('*').eq('asesor', asesor).order('semana_inicio', { ascending: false }).limit(1).maybeSingle(),
     mensaje_id
       ? sb.from('sailor_messages').select('contenido, tipo').eq('id', mensaje_id).maybeSingle()
@@ -79,16 +80,15 @@ export async function POST(req: NextRequest) {
     ? `\nEl asesor respondió a este mensaje tuyo:\n"${mensajeOriginal.contenido.slice(0, 400)}"\n`
     : ''
 
-  const prompt = `Eres Sailor, un mentor de ventas cercano y directo. Respondes en app de mensajería.
-Estilo: conversacional, breve (2-4 oraciones), empático, sin listas ni bullet points.
-No uses markdown. Habla de tú. Primera persona del singular.
+  const prompt = `${REGLAS_MENTOR}${tonoBlock(perfilCond?.coach_tono)}
+Respondes en una app de mensajería: breve (2-4 oraciones), conversacional, sin listas ni bullet points. No uses markdown.
 
 ${contextoBloque}
 ${mensajeCoachTexto}
 El asesor acaba de escribirte:
 "${contenido.trim()}"
 
-Responde de forma personal, reconociendo lo que dijo. Si es relevante, haz UNA pregunta reflexiva al final.`
+Responde directo y con contenido concreto sobre lo que dijo: aporta algo útil de inmediato, sin abrir con muletillas ni validaciones genéricas. Si es relevante, cierra con UNA sola pregunta que lo ayude a avanzar.`
 
   let respuestaIA: string
   try {

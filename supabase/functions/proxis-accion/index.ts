@@ -8,6 +8,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { callAI } from '../_shared/ai-client.ts'
 import { getAsesoresAutorizados, esAutorizado } from '../_shared/tenant.ts'
+import { REGLAS_MENTOR, tonoBlock } from '../_shared/mentor.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -19,12 +20,8 @@ function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-// Reglas OBLIGATORIAS de la voz Sailor Mentor (P5/P6) — se anteponen a toda generación.
-const REGLAS_MENTOR = `[REGLAS DE SAILOR MENTOR — OBLIGATORIAS, NO LAS MENCIONES NI LAS CITES]
-- Eres "Sailor Mentor", un mentor de ventas que acompaña por mensaje. Primera persona, cálido, español latinoamericano neutro (sin voseo: usa "tú").
-- NUNCA ofrezcas reuniones, llamadas ni "agendar un espacio/momento": acompañas por mensaje. Si hace falta contacto humano, sugiere que su líder o supervisor lo acompañe.
-- NUNCA nombres el perfil ni su clasificación (nada de "Energético", "Sociable", "Relacional", "Reflexivo", "perfil", "estilo", letras E/S/R/A). Usa el perfil solo como guía interna; habla de la persona por su conducta observable.
-- Nada de jerga técnica ni nombres de sistema ("motor IA", "hipótesis", "cooldown", "nivel de riesgo", "en_riesgo").`
+// REGLAS_MENTOR y tonoBlock viven en ../_shared/mentor.ts (fuente única, compartida
+// con proxis-monitor). Incluyen la lista negra de muletillas/clichés (B4).
 
 async function enviarEmail(to: string, subject: string, text: string, remitente: string): Promise<void> {
   if (!RESEND_KEY) { console.log(`[DRY] email a ${to}: ${subject}`); return }
@@ -74,8 +71,10 @@ Deno.serve(async (req: Request) => {
       const { data: cred } = await credQuery.maybeSingle()
       if (!cred?.email) return json({ error: `${asesor} sin email registrado` }, 400)
 
-      const prompt = `${REGLAS_MENTOR}
+      // Tono solicitado por el asesor (coach_tono en tps_perfiles); default cercano.
+      const { data: tps } = await sb.from('tps_perfiles').select('coach_tono').eq('asesor', asesor).maybeSingle()
 
+      const prompt = `${REGLAS_MENTOR}${tonoBlock(tps?.coach_tono)}
 Escribe un mensaje breve (máximo 110 palabras) para ${asesor}, accionable y motivador, no un diagnóstico.
 Basa el mensaje en esta acción que recomiendo: "${d.accion_descripcion ?? d.hipotesis}".
 Contexto interno (NO lo cites textual ni reveles jerga/perfil): "${d.hipotesis}".
