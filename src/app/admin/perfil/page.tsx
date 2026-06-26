@@ -4,15 +4,19 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-const DIMENSIONES = [
+type Dim = { key: string; label: string; desc: string; sensible?: boolean }
+
+// Dimensiones narrativas EDITABLES del perfil. `resiliencia` (score f4) NO está aquí: es un
+// puntaje, no prosa — se presenta aparte en SOLO-LECTURA (Corrección 2). Las marcadas `sensible`
+// (🔒) nunca entran al prompt del Resumen IA, que sí ve el supervisor (Corrección 1).
+const DIMENSIONES: Dim[] = [
   { key: 'identidad_vendedora',    label: 'Identidad vendedora',       desc: '¿Cómo se percibe como vendedor/a?' },
   { key: 'relacion_prospeccion',   label: 'Relación con la prospección', desc: 'Actitud y emociones frente al proceso' },
   { key: 'modelos_mentales',       label: 'Modelos mentales',           desc: 'Creencias sobre ventas, éxito, clientes' },
   { key: 'relacion_feedback',      label: 'Relación con el feedback',   desc: 'Cómo recibe y procesa la retroalimentación' },
   { key: 'perfil_conductual_notas',label: 'Perfil conductual (notas)',  desc: 'Observaciones de estilo E/S/R/A' },
   { key: 'contexto_situacional',   label: 'Contexto situacional',       desc: 'Variables de entorno, etapa vital, equipo' },
-  { key: 'equilibrio_adaptativo',  label: 'Equilibrio adaptativo',      desc: '🔒 confidencial — no visible para el supervisor' },
-  { key: 'resiliencia',            label: 'Resiliencia',                desc: '🔒 confidencial — no visible para el supervisor' },
+  { key: 'equilibrio_adaptativo',  label: 'Equilibrio adaptativo',      desc: '🔒 confidencial — no visible para el supervisor', sensible: true },
 ]
 
 type PerfilRow = {
@@ -39,6 +43,15 @@ type HistorialRow = {
   nivel_riesgo: 'activo' | 'en_riesgo' | 'critico' | null
   hipotesis_count: number
   senales_procesadas: number
+}
+
+// F6 — detalle de resiliencia (f4), canal cerrado solo-Admin (viene de /api/admin/resiliencia).
+type ResilienciaItem = { orden: number | null; texto: string; negativo: boolean; respuesta: string | null; valor: number | null }
+type ResilienciaDetalle = {
+  score: { suma: number; base: number; n: number } | null
+  items: ResilienciaItem[]
+  analisis: string | null
+  generado_at: string | null
 }
 
 type ChatMsg = { role: 'user' | 'assistant'; content: string }
@@ -73,6 +86,7 @@ export default function PerfilPage() {
   const [filtroNodo,    setFiltroNodo]    = useState('')
   const [selAsesor,     setSelAsesor]     = useState('')
   const [perfil,    setPerfil]    = useState<Partial<PerfilRow>>({})
+  const [resiliencia, setResiliencia] = useState<ResilienciaDetalle | null>(null)
   const [historial, setHistorial] = useState<HistorialRow[]>([])
   const [saving,    setSaving]    = useState(false)
   const [savingIA,  setSavingIA]  = useState(false)
@@ -101,10 +115,18 @@ export default function PerfilPage() {
     })
   }, [])
 
+  // F6 — header con el access_token de la sesión admin (GoTrue) para llamar al route cerrado.
+  async function authHeader(): Promise<Record<string, string>> {
+    const { data } = await supabase.auth.getSession()
+    const t = data.session?.access_token
+    return t ? { Authorization: `Bearer ${t}` } : {}
+  }
+
   async function loadPerfil(asesor: string) {
     setSelAsesor(asesor)
     setChat([])
     setPerfil({})
+    setResiliencia(null)
     setHistorial([])
     if (!asesor) return
     const [perfilRes, histRes] = await Promise.all([
@@ -118,6 +140,11 @@ export default function PerfilPage() {
     if (perfilRes.data?.[0]) setPerfil(perfilRes.data[0])
     else setPerfil({ asesor })
     setHistorial(histRes.data ?? [])
+    // F6 — desglose f4 + análisis (canal cerrado solo-Admin). No bloquea el render del perfil.
+    try {
+      const r = await fetch(`/api/admin/resiliencia?asesor=${encodeURIComponent(asesor)}`, { headers: await authHeader() })
+      setResiliencia(r.ok ? await r.json() : null)
+    } catch { setResiliencia(null) }
   }
 
   async function guardar() {
@@ -132,7 +159,7 @@ export default function PerfilPage() {
       perfil_conductual_notas: perfil.perfil_conductual_notas ?? null,
       contexto_situacional:    perfil.contexto_situacional    ?? null,
       equilibrio_adaptativo:   perfil.equilibrio_adaptativo   ?? null,
-      resiliencia:             perfil.resiliencia             ?? null,
+      // resiliencia NO se escribe aquí: es el score f4 (dueño: tps-evaluar), solo lectura en Admin.
       updated_at: new Date().toISOString(),
     }
 
@@ -145,10 +172,14 @@ export default function PerfilPage() {
   async function generarResumen() {
     if (!selAsesor) return
     setSavingIA(true)
-    const dims = DIMENSIONES.map(d => `${d.label}:\n${perfil[d.key as keyof PerfilRow] || '(sin datos)'}`).join('\n\n')
+    // Corrección 1 — las dimensiones sensibles (🔒) NUNCA entran al prompt del Resumen IA, que
+    // sí ve el supervisor. resiliencia ya está fuera de DIMENSIONES (es score); equilibrio_adaptativo
+    // se excluye por `sensible`.
+    const narrativas = DIMENSIONES.filter(d => !d.sensible)
+    const dims = narrativas.map(d => `${d.label}:\n${perfil[d.key as keyof PerfilRow] || '(sin datos)'}`).join('\n\n')
     // I1 — además del resumen, poblar las dimensiones narrativas VACÍAS (no se sobrescriben
     // las que ya tienen contenido del flujo analyzer→aprobación).
-    const faltantes = DIMENSIONES.filter(d => !String(perfil[d.key as keyof PerfilRow] ?? '').trim())
+    const faltantes = narrativas.filter(d => !String(perfil[d.key as keyof PerfilRow] ?? '').trim())
     const prompt = `Eres un experto en coaching comercial con metodología Proxis TPS.
 Con base en estas dimensiones del asesor ${selAsesor}:
 
@@ -164,18 +195,36 @@ Devuelve SOLO un objeto JSON válido (sin texto fuera del JSON, sin markdown) co
         body: JSON.stringify({ prompt }),
       })
       const data = await res.json()
-      const raw = String(data.text ?? '').replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
+      // R1 — si la IA falla (p.ej. GROQ_KEY ausente, 500) NO se debe borrar ni persistir nada:
+      // se conserva el resumen previo y se reporta el error real.
+      if (!res.ok || data?.error) throw new Error(data?.error || `La IA respondió ${res.status}`)
+      const textoIA = String(data.text ?? '').trim()
+      if (!textoIA) throw new Error('La IA no devolvió contenido.')
+
+      const raw = textoIA.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
       let parsed: Record<string, string> = {}
-      try { parsed = JSON.parse(raw) } catch { parsed = { resumen_ia: String(data.text ?? '') } }
+      try { parsed = JSON.parse(raw) } catch { parsed = { resumen_ia: textoIA } }
 
       const upd: Record<string, unknown> = { asesor: selAsesor, updated_at: new Date().toISOString() }
-      upd.resumen_ia = parsed.resumen_ia ?? data.text ?? ''
+      // Nunca sobrescribir con vacío: si el resumen viene en blanco, se conserva el anterior.
+      const nuevoResumen = String(parsed.resumen_ia ?? textoIA).trim()
+      if (nuevoResumen) upd.resumen_ia = nuevoResumen
       for (const d of faltantes) if (parsed[d.key] && String(parsed[d.key]).trim()) upd[d.key] = parsed[d.key]
+
+      const tieneCambios = Object.keys(upd).some(k => k !== 'asesor' && k !== 'updated_at')
+      if (!tieneCambios) throw new Error('La IA no devolvió un resumen utilizable.')
 
       setPerfil(p => ({ ...p, ...(upd as Partial<PerfilRow>) }))
       await supabase.from('asesor_perfil').upsert(upd, { onConflict: 'asesor' })
       const nDims = faltantes.filter(d => upd[d.key]).length
       showToast(`Resumen IA guardado${nDims ? ` · ${nDims} dimensión(es) poblada(s)` : ''}.`)
+
+      // F6 — el análisis de resiliencia se genera AUTOMÁTICAMENTE junto con el perfil (canal
+      // cerrado solo-Admin; nunca toca resumen_ia ni viaja al supervisor). No rompe el resumen.
+      try {
+        const r = await fetch(`/api/admin/resiliencia?asesor=${encodeURIComponent(selAsesor)}`, { method: 'POST', headers: await authHeader() })
+        if (r.ok) setResiliencia(await r.json())
+      } catch { /* el resumen ya quedó guardado; el análisis se reintenta al regenerar */ }
     } catch (e: unknown) {
       showToast('Error generando resumen: ' + (e instanceof Error ? e.message : ''), true)
     }
@@ -203,21 +252,42 @@ Devuelve SOLO un objeto JSON válido (sin texto fuera del JSON, sin markdown) co
         body: JSON.stringify({ prompt: systemContext + '\n\n', history }),
       })
       const data = await res.json()
-      const text = data.text ?? '[Sin respuesta]'
+      // R3 — si la IA falla, mostrar el error real en el chat (no un silencioso '[Sin respuesta]').
+      if (!res.ok || data?.error) throw new Error(data?.error || `La IA respondió ${res.status}`)
+      const text = String(data.text ?? '').trim() || '[Sin respuesta]'
 
       const updated = [...newChat, { role: 'assistant' as const, content: text }]
       setChat(updated)
 
+      const validKeys = new Set(DIMENSIONES.map(d => d.key))
       const jsonMatches = [...text.matchAll(/```json\s*(\{[\s\S]*?\})\s*```/g)]
+      const aplicadas: Record<string, string> = {}
       for (const match of jsonMatches) {
         try {
           const parsed = JSON.parse(match[1]) as { dimension: string; valor: string }
-          if (parsed.dimension && parsed.valor) {
+          // Solo claves de dimensión válidas: nunca se escribe una columna arbitraria, y
+          // `resiliencia` (score f4, fuera de DIMENSIONES) jamás se persiste por el chat.
+          if (parsed.dimension && parsed.valor && validKeys.has(parsed.dimension)) {
+            aplicadas[parsed.dimension] = parsed.valor
             setPerfil(p => ({ ...p, [parsed.dimension]: parsed.valor }))
             setHighlight(parsed.dimension)
             setTimeout(() => setHighlight(null), 2000)
           }
         } catch { /* skip malformed */ }
+      }
+
+      // Corrección 3 — persistir automáticamente lo que la Calibración IA aplica, sin depender de
+      // "Guardar perfil". Solo dimensiones válidas (lado admin/cerrado); ninguna llega al resumen del
+      // supervisor (las sensibles ya están excluidas allí). "Guardar perfil" sigue funcionando igual.
+      if (Object.keys(aplicadas).length && selAsesor) {
+        const updated_at = new Date().toISOString()
+        const { error } = await supabase.from('asesor_perfil')
+          .upsert({ asesor: selAsesor, ...aplicadas, updated_at }, { onConflict: 'asesor' })
+        if (error) showToast('No se pudo autoguardar la calibración: ' + error.message, true)
+        else {
+          setPerfil(p => ({ ...p, updated_at }))
+          showToast(`Calibración aplicada y guardada · ${Object.keys(aplicadas).length} dimensión(es).`)
+        }
       }
     } catch (e: unknown) {
       setChat(prev => [...prev, { role: 'assistant', content: 'Error: ' + (e instanceof Error ? e.message : 'desconocido') }])
@@ -315,6 +385,10 @@ Devuelve SOLO un objeto JSON válido (sin texto fuera del JSON, sin markdown) co
                 </div>
               ))}
             </div>
+
+            {/* Resiliencia (f4) — SOLO LECTURA (Corrección 2 + F6). Score + desglose de ítems +
+                análisis IA. Canal cerrado: 🔒 nunca se muestra al supervisor. */}
+            <ResilienciaScore detalle={resiliencia} rawFallback={perfil.resiliencia ?? null} savingIA={savingIA} />
 
             {/* Resumen IA */}
             <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
@@ -550,6 +624,97 @@ function Sparkline({ rows }: { rows: HistorialRow[] }) {
           <div style={{ width: 20, height: 2, background: '#1a56c4', borderRadius: 1 }} />
           <span style={{ fontSize: 10, color: '#4a4844' }}>Confianza perfil</span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Resiliencia (f4) en SOLO-LECTURA para Admin (Correcciones 1/2 + F6). El score es el puente
+// ERRIM "suma/base/n_items" de tps-evaluar. Muestra: agregado + desglose expandible de los 5
+// ítems (texto + respuesta cruda de Bart) + análisis IA cualitativo. Canal cerrado: nada de
+// esto viaja al supervisor.
+function ResilienciaScore({ detalle, rawFallback, savingIA }: {
+  detalle: ResilienciaDetalle | null
+  rawFallback: string | null
+  savingIA: boolean
+}) {
+  const [abierto, setAbierto] = useState(false)
+  // score del route, o parseo de respaldo desde asesor_perfil.resiliencia si el route no respondió.
+  const fb = rawFallback ? String(rawFallback).match(/^\s*(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)\s*$/) : null
+  const score = detalle?.score ?? (fb ? { suma: +fb[1], base: +fb[2], n: +fb[3] } : null)
+  const items = detalle?.items ?? []
+
+  return (
+    <div style={{ background: '#fbfbf8', border: '1px solid #e8e6e3', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#8a8885' }}>
+            Resiliencia (f4)
+          </div>
+          <div style={{ fontSize: 11, color: '#8a8885', marginTop: 2 }}>
+            🔒 Solo lectura · solo-Admin · no visible para el supervisor
+          </div>
+        </div>
+        {score ? (
+          <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: '#0b0a09' }}>{score.suma}</span>
+            <span style={{ fontSize: 14, color: '#8a8885' }}> / {score.base}</span>
+            <div style={{ fontSize: 11, color: '#8a8885' }}>{score.n} ítems</div>
+          </div>
+        ) : (
+          <span style={{ fontSize: 13, color: '#8a8885' }}>{rawFallback || 'Sin datos'}</span>
+        )}
+      </div>
+
+      {/* Desglose de los 5 ítems (texto + respuesta cruda). Solo-Admin. */}
+      {items.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <button onClick={() => setAbierto(a => !a)} style={{
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            fontFamily: 'inherit', fontSize: 12, fontWeight: 600, color: '#1a56c4',
+          }}>
+            {abierto ? '▾' : '▸'} Ver desglose ({items.length} ítems)
+          </button>
+          {abierto && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {items.map((it, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 10px', background: '#fff', border: '1px solid #eceae6', borderRadius: 8 }}>
+                  <div style={{ flex: 1, fontSize: 12, lineHeight: 1.5, color: '#2b2926' }}>
+                    {it.texto}
+                    {it.negativo && <span style={{ fontSize: 10, color: '#a8691a', marginLeft: 6 }}>(ítem inverso)</span>}
+                  </div>
+                  <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#0b0a09' }}>{it.respuesta ?? '—'}</span>
+                    {it.valor != null && it.negativo && (
+                      <div style={{ fontSize: 10, color: '#8a8885' }}>aporta {it.valor}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Análisis IA (canal cerrado). Se genera junto con el perfil ("Generar" del Resumen IA). */}
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eceae6' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#8a8885', marginBottom: 6 }}>
+          Análisis de resiliencia (IA · solo-Admin)
+        </div>
+        {detalle?.analisis ? (
+          <>
+            <p style={{ fontSize: 13, lineHeight: 1.65, color: '#2b2926', margin: 0 }}>{detalle.analisis}</p>
+            {detalle.generado_at && (
+              <div style={{ fontSize: 10, color: '#8a8885', marginTop: 6 }}>
+                Generado {new Date(detalle.generado_at).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+          </>
+        ) : (
+          <p style={{ fontSize: 12, color: '#8a8885', fontStyle: 'italic', margin: 0 }}>
+            {savingIA ? 'Generando junto con el perfil…' : 'Se generará automáticamente al pulsar "Generar" en el Resumen IA.'}
+          </p>
+        )}
       </div>
     </div>
   )
