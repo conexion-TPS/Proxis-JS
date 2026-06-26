@@ -6,9 +6,9 @@ import { supabase } from '@/lib/supabase'
 
 type Dim = { key: string; label: string; desc: string; sensible?: boolean }
 
-// Dimensiones narrativas EDITABLES del perfil. `resiliencia` (score f4) NO está aquí: es un
-// puntaje, no prosa — se presenta aparte en SOLO-LECTURA (Corrección 2). Las marcadas `sensible`
-// (🔒) nunca entran al prompt del Resumen IA, que sí ve el supervisor (Corrección 1).
+// Dimensiones narrativas EDITABLES del perfil. Las dimensiones 🔒 (score/confidencial) NO están
+// aquí: `resiliencia` (score f4) y `equilibrio_adaptativo` (score adapt) se presentan aparte en
+// SOLO-LECTURA (Correcciones 2 y B). Nada de esto entra al prompt del Resumen IA ni al supervisor.
 const DIMENSIONES: Dim[] = [
   { key: 'identidad_vendedora',    label: 'Identidad vendedora',       desc: '¿Cómo se percibe como vendedor/a?' },
   { key: 'relacion_prospeccion',   label: 'Relación con la prospección', desc: 'Actitud y emociones frente al proceso' },
@@ -16,7 +16,6 @@ const DIMENSIONES: Dim[] = [
   { key: 'relacion_feedback',      label: 'Relación con el feedback',   desc: 'Cómo recibe y procesa la retroalimentación' },
   { key: 'perfil_conductual_notas',label: 'Perfil conductual (notas)',  desc: 'Observaciones de estilo E/S/R/A' },
   { key: 'contexto_situacional',   label: 'Contexto situacional',       desc: 'Variables de entorno, etapa vital, equipo' },
-  { key: 'equilibrio_adaptativo',  label: 'Equilibrio adaptativo',      desc: '🔒 confidencial — no visible para el supervisor', sensible: true },
 ]
 
 type PerfilRow = {
@@ -158,8 +157,8 @@ export default function PerfilPage() {
       relacion_feedback:       perfil.relacion_feedback       ?? null,
       perfil_conductual_notas: perfil.perfil_conductual_notas ?? null,
       contexto_situacional:    perfil.contexto_situacional    ?? null,
-      equilibrio_adaptativo:   perfil.equilibrio_adaptativo   ?? null,
-      // resiliencia NO se escribe aquí: es el score f4 (dueño: tps-evaluar), solo lectura en Admin.
+      // resiliencia y equilibrio_adaptativo NO se escriben aquí: son scores 🔒 (dueño: tps-evaluar),
+      // solo lectura en Admin (Correcciones 2 y B). El upsert sin estas claves no toca su valor.
       updated_at: new Date().toISOString(),
     }
 
@@ -389,6 +388,10 @@ Devuelve SOLO un objeto JSON válido (sin texto fuera del JSON, sin markdown) co
             {/* Resiliencia (f4) — SOLO LECTURA (Corrección 2 + F6). Score + desglose de ítems +
                 análisis IA. Canal cerrado: 🔒 nunca se muestra al supervisor. */}
             <ResilienciaScore detalle={resiliencia} rawFallback={perfil.resiliencia ?? null} savingIA={savingIA} />
+
+            {/* Equilibrio adaptativo (🔒) — SOLO LECTURA (Corrección B). Score adapt; no es prosa
+                editable y nunca se muestra al supervisor. */}
+            <EquilibrioReadonly raw={perfil.equilibrio_adaptativo ?? null} />
 
             {/* Resumen IA */}
             <div style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
@@ -715,6 +718,39 @@ function ResilienciaScore({ detalle, rawFallback, savingIA }: {
             {savingIA ? 'Generando junto con el perfil…' : 'Se generará automáticamente al pulsar "Generar" en el Resumen IA.'}
           </p>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Equilibrio adaptativo (🔒) en SOLO-LECTURA para Admin (Corrección B). Por diseño es el puente
+// "suma/base/n_items" de tps-evaluar; si quedó con prosa de un flujo previo, se muestra el texto
+// tal cual. Nunca editable como narrativa ni visible para el supervisor.
+function EquilibrioReadonly({ raw }: { raw: string | null }) {
+  const m = raw ? String(raw).match(/^\s*(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)\s*$/) : null
+  return (
+    <div style={{ background: '#fbfbf8', border: '1px solid #e8e6e3', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: '#8a8885' }}>
+            Equilibrio adaptativo
+          </div>
+          <div style={{ fontSize: 11, color: '#8a8885', marginTop: 2 }}>
+            🔒 Solo lectura · solo-Admin · no visible para el supervisor
+          </div>
+          {!m && raw && (
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: '#2b2926', margin: '10px 0 0' }}>{raw}</p>
+          )}
+        </div>
+        {m ? (
+          <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: '#0b0a09' }}>{m[1]}</span>
+            <span style={{ fontSize: 14, color: '#8a8885' }}> / {m[2]}</span>
+            <div style={{ fontSize: 11, color: '#8a8885' }}>{m[3]} ítems</div>
+          </div>
+        ) : !raw ? (
+          <span style={{ fontSize: 13, color: '#8a8885' }}>Sin datos</span>
+        ) : null}
       </div>
     </div>
   )

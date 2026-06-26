@@ -9,8 +9,9 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // Mapa explícito campo_real → id_dimension. Necesario porque los nombres NO coinciden:
 // la dimensión sensible vive con otro nombre en cada tabla/objeto.
 const CAMPO_PERFIL: Record<string, string> = {
-  resiliencia:      'resiliencia',     // columna de asesor_perfil
-  backup_style_doc: 'tps_d8',          // columna de asesor_perfil: descripción textual de la necesidad de aprobación (d8)
+  resiliencia:           'resiliencia',           // columna de asesor_perfil
+  equilibrio_adaptativo: 'equilibrio_adaptativo', // Corrección A — 🔒 reclasificada sensible (F7)
+  backup_style_doc:      'tps_d8',                // columna de asesor_perfil: descripción textual de la necesidad de aprobación (d8)
 }
 const CAMPO_TPS_BOOL: Record<string, string> = {
   backup_style_activo: 'tps_d8',       // columna boolean de tps_perfiles
@@ -21,7 +22,7 @@ const RASGO_TPS: Record<string, string> = {
 
 // Fail-closed: si dimension_catalogo no responde (error o vacío), se asume que los
 // campos del mapa conocido SON sensibles y se quitan igual (no exponer por defecto).
-const SENSIBLES_FALLBACK = new Set<string>(['resiliencia', 'tps_c_f4', 'tps_d8'])
+const SENSIBLES_FALLBACK = new Set<string>(['resiliencia', 'equilibrio_adaptativo', 'tps_c_f4', 'tps_d8'])
 
 async function getSensibles(sb: SupabaseClient): Promise<Set<string>> {
   try {

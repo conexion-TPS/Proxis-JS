@@ -162,7 +162,7 @@ Analiza las señales y genera:
 5. Nivel de confianza global del perfil (0-100)
 6. Resumen ejecutivo de 2-3 oraciones
 
-Las dimensiones válidas son: identidad_vendedora, relacion_prospeccion, modelos_mentales, relacion_feedback, perfil_conductual_notas, contexto_situacional, equilibrio_adaptativo, resiliencia
+Las dimensiones válidas son: identidad_vendedora, relacion_prospeccion, modelos_mentales, relacion_feedback, perfil_conductual_notas, contexto_situacional
 
 Los perfiles Merrill-Reid: E (Energético/Driver/Águila), S (Sociable/Expressive/Pavo Real), R (Relacional/Amiable/Paloma), A (Reflexivo/Analytical/Búho)
 
@@ -225,7 +225,10 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
   // 6. Guardar hipótesis en deductions_log
   let hipotesisCount = 0
   const VALID_ACCION = ['trigger', 'ajuste_dimension', 'escalar_supervisor', 'ninguna']
-  const VALID_DIMENSION = ['identidad_vendedora','relacion_prospeccion','modelos_mentales','relacion_feedback','perfil_conductual_notas','contexto_situacional','equilibrio_adaptativo','resiliencia']
+  // Corrección A — resiliencia y equilibrio_adaptativo (🔒) quedan FUERA: el analyzer no propone
+  // hipótesis sobre ellas (evita que su nombre llegue al supervisor vía sección 5 del informe y que
+  // se escriba narrativa sobre columnas que son score). Su valor ya se quita del prompt (proyección).
+  const VALID_DIMENSION = ['identidad_vendedora','relacion_prospeccion','modelos_mentales','relacion_feedback','perfil_conductual_notas','contexto_situacional']
   for (const h of (analysis.hipotesis ?? [])) {
     await sb.from('deductions_log').insert({
       asesor,
