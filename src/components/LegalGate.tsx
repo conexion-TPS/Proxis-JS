@@ -9,9 +9,14 @@ type Props = {
   orgUsuarioId?: string
   email: string
   onAceptado: () => void
+  // UI-17 — gate de aceptación SIMPLE (link a T&C + un solo checkbox, sin scroll forzado ni
+  // captura de nombre). El nombre se toma de `nombrePreset` (usuario logueado) para el registro.
+  // Sin estos props, se conserva el flujo forzado original (otros usos: asesor/sailor).
+  simple?: boolean
+  nombrePreset?: string
 }
 
-export default function LegalGate({ tipo, plataforma, asesor, orgUsuarioId, email, onAceptado }: Props) {
+export default function LegalGate({ tipo, plataforma, asesor, orgUsuarioId, email, onAceptado, simple, nombrePreset }: Props) {
   const [doc,           setDoc]          = useState<{ id: string; titulo: string; contenido: string; version: string } | null>(null)
   const [loading,       setLoading]      = useState(true)
   const [nombre,        setNombre]       = useState('')
@@ -43,13 +48,15 @@ export default function LegalGate({ tipo, plataforma, asesor, orgUsuarioId, emai
   }
 
   async function aceptar() {
-    if (!nombre.trim()) { setError('Ingresa tu nombre completo para continuar.'); return }
-    if (!checked)        { setError('Debes marcar que aceptas los términos.'); return }
+    // En modo simple el nombre NO se pide: se registra el del usuario logueado (o el email de respaldo).
+    const nombreFinal = simple ? (nombrePreset?.trim() || email) : nombre.trim()
+    if (!simple && !nombreFinal) { setError('Ingresa tu nombre completo para continuar.'); return }
+    if (!checked)                { setError('Debes marcar que aceptas los términos.'); return }
     setSaving(true)
     const res = await fetch('/api/legal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo, plataforma, asesor, org_usuario_id: orgUsuarioId, email, nombre_completo: nombre.trim() }),
+      body: JSON.stringify({ tipo, plataforma, asesor, org_usuario_id: orgUsuarioId, email, nombre_completo: nombreFinal }),
     })
     if (!res.ok) { setError('Error al registrar aceptación. Intenta nuevamente.'); setSaving(false); return }
     onAceptado()
@@ -62,6 +69,60 @@ export default function LegalGate({ tipo, plataforma, asesor, orgUsuarioId, emai
   )
 
   if (!doc) return null
+
+  // UI-17 — gate simple: link a T&C + un checkbox. Sin scroll forzado ni nombre.
+  if (simple) {
+    return (
+      <div style={overlay}>
+        <div style={{ ...modal, maxWidth: 460 }}>
+          <div style={{ padding: '24px 28px 16px', borderBottom: '1px solid #2a2826' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#cbf135', marginBottom: 6 }}>
+              Versión {doc.version}
+            </div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#e8e6e3', margin: 0, letterSpacing: '-0.02em' }}>
+              {doc.titulo}
+            </h2>
+          </div>
+
+          <div style={{ padding: '22px 28px' }}>
+            <p style={{ fontSize: 13, lineHeight: 1.6, color: '#c8c6c3', margin: '0 0 4px' }}>
+              Para usar el portal, revisa y acepta los{' '}
+              <a href={`/legal/${tipo}`} target="_blank" rel="noopener noreferrer" style={{ color: '#cbf135', fontWeight: 600 }}>
+                Términos y condiciones
+              </a>.
+            </p>
+
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', margin: '18px 0 16px' }}>
+              <input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)}
+                style={{ marginTop: 2, accentColor: '#cbf135', width: 16, height: 16, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: '#c8c6c3', lineHeight: 1.5 }}>
+                Acepto los términos y condiciones
+              </span>
+            </label>
+
+            {error && <div style={{ fontSize: 12, color: '#e87070', marginBottom: 12 }}>{error}</div>}
+
+            <button
+              onClick={aceptar}
+              disabled={!checked || saving}
+              style={{
+                width: '100%', padding: '12px', background: checked && !saving ? '#cbf135' : '#2a2826',
+                color: checked && !saving ? '#0b0a09' : '#4a4844',
+                border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700,
+                cursor: checked && !saving ? 'pointer' : 'not-allowed',
+                fontFamily: 'inherit', transition: 'background 0.2s',
+              }}>
+              {saving ? 'Registrando…' : 'Continuar'}
+            </button>
+
+            <div style={{ fontSize: 11, color: '#4a4844', textAlign: 'center', marginTop: 10 }}>
+              Tu aceptación queda registrada con fecha y hora.
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const canAccept = scrolledToEnd && checked && nombre.trim().length > 3
 

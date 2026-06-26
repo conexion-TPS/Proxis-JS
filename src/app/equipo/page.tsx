@@ -215,7 +215,8 @@ export default function EquipoDashboard() {
   )
 
   if (!legalOk) return (
-    <LegalGate tipo="terminos_supervisor" plataforma="equipo" orgUsuarioId={usuarioId} email={email} onAceptado={() => setLegalOk(true)} />
+    <LegalGate tipo="terminos_supervisor" plataforma="equipo" orgUsuarioId={usuarioId} email={email}
+      simple nombrePreset={nombre} onAceptado={() => setLegalOk(true)} />
   )
 
   // ¿Hay sub-equipos que navegar? (el nodo del usuario tiene hijos)
