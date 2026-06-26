@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 type SailorMsg = {
-  id: string; asesor: string; origen: 'coach_ia' | 'asesor'
+  id: string; asesor: string; origen: 'coach_ia' | 'asesora'
   contenido: string; tipo: string | null; leido: boolean; created_at: string
 }
 type PushToken = {
@@ -62,7 +62,7 @@ export default function SailorPage() {
   // Stats
   const totalMsgs    = mensajes.length
   const coachMsgs    = mensajes.filter(m => m.origen === 'coach_ia').length
-  const asesorMsgs   = mensajes.filter(m => m.origen === 'asesor').length
+  const asesorMsgs   = mensajes.filter(m => m.origen === 'asesora').length
   const activeTokens = tokens.filter(t => t.activo).length
   const readRate     = coachMsgs > 0
     ? Math.round((mensajes.filter(m => m.origen === 'coach_ia' && m.leido).length / coachMsgs) * 100)
@@ -75,7 +75,7 @@ export default function SailorPage() {
     supervisor: supDeAsesor[a] ?? null,
     total:     mensajes.filter(m => m.asesor === a).length,
     coach:     mensajes.filter(m => m.asesor === a && m.origen === 'coach_ia').length,
-    replies:   mensajes.filter(m => m.asesor === a && m.origen === 'asesor').length,
+    replies:   mensajes.filter(m => m.asesor === a && m.origen === 'asesora').length,
     token:     tokens.find(t => t.asesor === a && t.activo),
   })).filter(x => x.total > 0 || x.token)
 
