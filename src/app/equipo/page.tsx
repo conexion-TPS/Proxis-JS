@@ -187,6 +187,19 @@ export default function EquipoDashboard() {
     cargarDashboard(token, true)
   }
 
+  // I3 — "No lo he visto": persiste el descarte (no es solo estado local). El GET de
+  // observación ya no vuelve a sugerir esta lectura, y el motor la ve como señal.
+  async function descartarLectura(asesor: string) {
+    const item = observacion[asesor]
+    setObsDone(prev => ({ ...prev, [asesor]: true }))
+    if (!item?.deduction_id) return
+    await fetch('/api/equipo/observacion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ asesor, descartar: true, deduction_id: item.deduction_id, dimension: item.dimension, stem: item.stem }),
+    }).catch(() => {})
+  }
+
   function toggleCollapse(id: string) {
     setCollapsed(prev => {
       const next = new Set(prev)
@@ -377,7 +390,7 @@ export default function EquipoDashboard() {
                                       background: '#0b0a09', color: '#fff', opacity: obsSel === null ? 0.4 : 1 }}>
                                     Aportar lectura
                                   </button>
-                                  <button onClick={() => setObsDone(prev => ({ ...prev, [a.asesor]: true }))}
+                                  <button onClick={() => descartarLectura(a.asesor)}
                                     style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e8e6e3', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, background: '#fff', color: '#8a8885' }}>
                                     No lo he visto
                                   </button>

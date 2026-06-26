@@ -147,7 +147,7 @@ export default function PromptsPage() {
   async function generarConGemini() {
     if (!compiled) { showToast('Primero compila el template.', true); return }
     setPreviewLoading(true)
-    setPreview('⏳ Generando con Gemini…')
+    setPreview('⏳ Generando con IA (Groq)…')
     try {
       const res = await fetch('/api/admin/preview', {
         method: 'POST',
@@ -336,7 +336,7 @@ export default function PromptsPage() {
               <label style={labelStyle}>Probar con asesor</label>
               <p style={{ fontSize: 11, color: '#8a8885', marginBottom: 10, marginTop: -4 }}>
                 <strong>Paso 1:</strong> compila las variables con datos reales del asesor (sin IA).
-                <strong> Paso 2:</strong> si el template se ve bien, genera el mensaje con Gemini.
+                <strong> Paso 2:</strong> si el template se ve bien, genera el mensaje con la IA (Groq).
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                 {orgNodos.length > 0 && (
@@ -370,7 +370,7 @@ export default function PromptsPage() {
                   <CodeIcon /> {compileLoading ? 'Compilando…' : '1. Compilar variables'}
                 </Btn>
                 <Btn onClick={generarConGemini} disabled={!compiled || previewLoading} variant="teal">
-                  <EyeIcon /> {previewLoading ? 'Generando…' : '2. Generar con Gemini'}
+                  <EyeIcon /> {previewLoading ? 'Generando…' : '2. Generar con IA (Groq)'}
                 </Btn>
               </div>
 
@@ -380,7 +380,7 @@ export default function PromptsPage() {
                   <div style={{
                     fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
                     textTransform: 'uppercase', color: '#8a8885', marginBottom: 6,
-                  }}>Template compilado (prompt que se envía a Gemini)</div>
+                  }}>Template compilado (prompt que se envía a la IA (Groq))</div>
                   <div style={{
                     background: '#f0ede8', border: '1px solid #e8e6e3', borderRadius: 8,
                     padding: 14, fontSize: 12, lineHeight: 1.65, color: '#0b0a09',
@@ -409,7 +409,7 @@ export default function PromptsPage() {
                 whiteSpace: 'pre-wrap', minHeight: 60,
                 fontStyle: preview ? 'normal' : 'italic',
               }}>
-                {preview || 'El mensaje final generado por Gemini aparecerá aquí (paso 2).'}
+                {preview || 'El mensaje final generado por la IA (Groq) aparecerá aquí (paso 2).'}
               </div>
             </div>
           </div>

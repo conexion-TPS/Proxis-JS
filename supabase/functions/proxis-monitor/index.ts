@@ -71,7 +71,10 @@ function calcContactosSemanaActual(reportes: any[]): number {
   return (semana?.contactos || []).length
 }
 
-function calcPersistencia(reportes: any[], meta: number): number {
+// G5 — "semanas consecutivas bajo la meta de contactos" (perseverancia de actividad).
+// OJO: NO es "persistencia" en el sentido de seguros (sostenibilidad de cartera); ese
+// concepto vive en el simulador. Aquí solo cuenta semanas recientes por debajo de la meta.
+function calcSemanasBajoMeta(reportes: any[], meta: number): number {
   let n = 0
   for (const r of reportes) {
     if ((r.contactos || []).length < (meta || 3)) n++; else break
@@ -185,7 +188,7 @@ async function buildContext(asesor: string) {
     pc_promedio:           calcPcPromedio(ultimas4),
     prospectos_mes:          calcProspectosMes(ultimas4),
     contactos_semana_actual: calcContactosSemanaActual(ultimas4),
-    persistencia_actual:     calcPersistencia(ultimas4, meta.meta_contactos_semana || 3),
+    semanas_bajo_meta:       calcSemanasBajoMeta(ultimas4, meta.meta_contactos_semana || 3),
     meta_ventas_mes:         meta.meta_ventas_mes       || 0,
     meta_ingresos_mes:       meta.meta_ingresos         || 0,
     prospectos_mes_anterior: calcProspectosMes(ultimas4Prev),
@@ -240,7 +243,7 @@ function evalTrigger(triggerId: string, ctx: any): boolean {
   switch (triggerId) {
     case 'semana-sin-reporte-alerta': return esLunes() && ctx.semanas_sin_reporte >= 1
     case 'bajo-meta-miercoles':       return esMiercoles() && ctx.contactos_semana_actual < ctx.meta_contactos_semana * 0.5
-    case 'paralisis-sostenida':        return ctx.persistencia_actual >= 3
+    case 'paralisis-sostenida':        return ctx.semanas_bajo_meta >= 3
     case 'hipotesis_acumuladas':       return ctx.hipotesis_pendientes >= 2 || ctx.hipotesis_alta_confianza >= 1
     case 'riesgo_elevado':             return ctx.nivel_riesgo === 'en_riesgo' || ctx.nivel_riesgo === 'critico'
     case 'sin_mensajes_recientes':     return ctx.dias_sin_mensaje >= 14
@@ -266,7 +269,7 @@ function compileTemplate(tpl: string, ctx: any): string {
     .replace(/\{\{pcPromedio\}\}/g,           String(ctx.pc_promedio             ?? ''))
     .replace(/\{\{ingresoMes\}\}/g,           String(ctx.ingreso_mes_actual      ?? ''))
     .replace(/\{\{nodosActivos\}\}/g,         String(ctx.nodos_activos           ?? ''))
-    .replace(/\{\{persistencia\}\}/g,         String(ctx.persistencia_actual     ?? ''))
+    .replace(/\{\{persistencia\}\}/g,         String(ctx.semanas_bajo_meta       ?? ''))
     .replace(/\{\{metaVentas\}\}/g,           String(ctx.meta_ventas_mes         ?? ''))
     .replace(/\{\{metaIngresosMes\}\}/g,      String(ctx.meta_ingresos_mes       ?? ''))
     .replace(/\{\{prospectosMesAnterior\}\}/g,String(ctx.prospectos_mes_anterior ?? ''))

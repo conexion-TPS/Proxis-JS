@@ -16,7 +16,7 @@ type AsesorNode = {
 type Nodo = {
   id: string; nombre: string; supervisor: string | null; supervisorObsDays: number; asesores: AsesorNode[]
 }
-type Institucion = { id: string; nombre: string; tipo: string | null; nodos: Nodo[] }
+type Institucion = { id: string; nombre: string; tipo: string | null; ia_activa: boolean; nodos: Nodo[] }
 
 /* ── Signal catalogue ───────────────────────────────────────── */
 const TIPOS: Record<string, { label: string; kind: string }> = {
@@ -28,6 +28,8 @@ const TIPOS: Record<string, { label: string; kind: string }> = {
   'meta-superada':          { label: 'Meta semanal superada',        kind: 'trend-up'   },
   'semana-sin-reporte-alerta': { label: 'Semana sin reporte',        kind: 'calendar'   },
   'persistencia-umbral':    { label: 'Bajo umbral contractual',      kind: 'flag'       },
+  persistencia_baja:        { label: 'Semanas bajo meta (perseverancia)', kind: 'trend-down' },
+  inactividad_prospeccion:  { label: 'Inactividad de prospección',   kind: 'clock'      },
   'primer-lunes-mes':       { label: 'Inicio de mes',                kind: 'calendar'   },
   observacion_supervisor:   { label: 'Observación de supervisor',    kind: 'message'    },
   feedback_oportunidad:     { label: 'Valoración de oportunidad (supervisor)', kind: 'message' },
@@ -75,14 +77,21 @@ function nodoProcesadas(n: Nodo) {
 /* ── Global summary ─────────────────────────────────────────── */
 function globalSummary(data: Institucion[]) {
   let pendientes = 0, nodosCriticos = 0, asesoresStale = 0, observaciones = 0
-  data.forEach(inst => inst.nodos.forEach(n => {
-    n.asesores.forEach(a => {
-      pendientes += pending(a).length
-      observaciones += a.observaciones.length   // lecturas del supervisor (aparte del conteo de alertas)
-      if (a.obsDays > STALE_OBS) asesoresStale++
+  data.forEach(inst => {
+    // G2 — el contador refleja solo lo PROCESABLE: se excluyen instituciones con
+    // ia_activa=false (el motor nunca procesa sus señales) y el bucket de asesores sin
+    // estructura (incluye desactivados). Esas tarjetas se siguen mostrando, pero no inflan
+    // el número de "Señales pendientes" que el supervisor debe atender.
+    if (inst.ia_activa === false || inst.id === '__sin_estructura__') return
+    inst.nodos.forEach(n => {
+      n.asesores.forEach(a => {
+        pendientes += pending(a).length
+        observaciones += a.observaciones.length
+        if (a.obsDays > STALE_OBS) asesoresStale++
+      })
+      if (nodoStatus(n) === 'critico') nodosCriticos++
     })
-    if (nodoStatus(n) === 'critico') nodosCriticos++
-  }))
+  })
   return { pendientes, nodosCriticos, asesoresStale, observaciones }
 }
 
@@ -462,7 +471,7 @@ export default function SenalesPage() {
     setSpin(true)
     try {
       const [instRes, nodosRes, credsRes, signalsRes, metasRes, obsRes, perfilesRes] = await Promise.all([
-        supabase.from('instituciones').select('id,nombre,tipo').eq('activo', true).order('nombre'),
+        supabase.from('instituciones').select('id,nombre,tipo,ia_activa').eq('activo', true).order('nombre'),
         supabase.from('org_nodos').select('id,institucion_id,nombre').eq('activo', true).order('nombre'),
         supabase.from('asesor_credentials').select('asesor,org_nodo_id').eq('activo', true),
         supabase.from('behavioral_signals').select('id,asesor,tipo,fuente,valor,procesada,created_at').order('created_at', { ascending: false }).limit(500),
@@ -521,7 +530,7 @@ export default function SenalesPage() {
 
       // Hierarchy from org structure
       const orgResult: Institucion[] = insts.map(inst => ({
-        id: inst.id, nombre: inst.nombre, tipo: inst.tipo,
+        id: inst.id, nombre: inst.nombre, tipo: inst.tipo, ia_activa: (inst as { ia_activa?: boolean }).ia_activa ?? false,
         nodos: nodos.filter(n => n.institucion_id === inst.id).map(n => ({
           id: n.id, nombre: n.nombre,
           supervisor: nodoSupervisor(n.id),
@@ -536,7 +545,7 @@ export default function SenalesPage() {
 
       if (unassigned.length > 0) {
         orgResult.push({
-          id: '__sin_estructura__', nombre: 'Sin estructura asignada', tipo: 'Asesores sin nodo',
+          id: '__sin_estructura__', nombre: 'Sin estructura asignada', tipo: 'Asesores sin nodo', ia_activa: false,
           nodos: [{
             id: '__sin_nodo__', nombre: 'Sin nodo', supervisor: null, supervisorObsDays: 0,
             asesores: unassigned.map(makeAsesor),
@@ -549,7 +558,7 @@ export default function SenalesPage() {
         const existing = orgResult.find(i => i.id === '__sin_estructura__')
         if (existing) existing.nodos[0].asesores.push(...nodoAsesores['__sin_nodo__'])
         else orgResult.push({
-          id: '__sin_estructura__', nombre: 'Sin estructura asignada', tipo: 'Asesores sin nodo',
+          id: '__sin_estructura__', nombre: 'Sin estructura asignada', tipo: 'Asesores sin nodo', ia_activa: false,
           nodos: [{ id: '__sin_nodo__', nombre: 'Sin nodo', supervisor: null, supervisorObsDays: 0, asesores: nodoAsesores['__sin_nodo__'] }],
         })
       }
@@ -599,12 +608,12 @@ export default function SenalesPage() {
         const fallos  = (j.resultados ?? []).filter((x: any) => !x.ok && !x.skipped).map((x: any) => x.id)
         const incon   = (j.resultados ?? []).filter((x: any) => x.skipped && x.id !== 'C1').length
         setToast(j.ok
-          ? `Canarios ✓ ${j.passed} contrato(s) OK${incon ? ` · ${incon} inconcluso(s)` : ''}${j.gemini_ok ? '' : ' · Gemini sin cuota'}`
+          ? `Canarios ✓ ${j.passed} contrato(s) OK${incon ? ` · ${incon} inconcluso(s)` : ''}${j.gemini_ok ? '' : ' · IA sin cuota'}`
           : `Canarios ✗ ${j.failed} fallo(s) de contrato: ${fallos.join(', ')}`)
       } else setToast('Error: ' + (j.error ?? 'desconocido'))
     } catch { setToast('Error de red al correr canarios') }
     setCanareando(false)
-    loadGeminiUso()  // los canarios IA consumen Gemini → refrescar el medidor
+    loadGeminiUso()  // los canarios IA consumen IA (Groq) → refrescar el medidor
     setTimeout(() => setToast(''), 6500)
   }, [loadGeminiUso])
 
@@ -649,10 +658,10 @@ export default function SenalesPage() {
             const pct = Math.round((llamadas / geminiUso.cap_dia) * 100)
             const alto = llamadas >= geminiUso.cap_dia * 0.8
             return (
-              <div title={`Medidor de uso de Gemini (free-tier). Tope conservador ~${geminiUso.cap_dia} llamadas/día. ${tokens.toLocaleString('es-CL')} tokens hoy · ${fallos} fallo(s).`}
+              <div title={`Medidor de uso de IA / Groq (free-tier). Tope conservador ~${geminiUso.cap_dia} llamadas/día. ${tokens.toLocaleString('es-CL')} tokens hoy · ${fallos} fallo(s).`}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 8, padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 500, background: alto ? '#fdf0e6' : '#f3f2f0', color: alto ? '#9a4a16' : '#6a6864', border: `1px solid ${alto ? '#f0d3bd' : '#e8e6e3'}` }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: alto ? '#e07a3a' : '#9bb89b' }} />
-                Gemini hoy: {llamadas} llamada{llamadas === 1 ? '' : 's'} · {pct}% del tope{fallos > 0 ? ` · ${fallos} fallo${fallos === 1 ? '' : 's'}` : ''}
+                IA (Groq) hoy: {llamadas} llamada{llamadas === 1 ? '' : 's'} · {pct}% del tope{fallos > 0 ? ` · ${fallos} fallo${fallos === 1 ? '' : 's'}` : ''}
               </div>
             )
           })()}
@@ -663,7 +672,7 @@ export default function SenalesPage() {
             <Glyph name="activity" size={15} />
             {procesando ? 'Procesando…' : 'Procesar ahora'}
           </button>
-          <button onClick={correrCanarios} disabled={canareando} title="Arnés de canarios: siembra datos sintéticos, invoca cada pipeline y verifica su contrato (on-demand, no gasta Gemini en el cron)"
+          <button onClick={correrCanarios} disabled={canareando} title="Arnés de canarios: siembra datos sintéticos, invoca cada pipeline y verifica su contrato (on-demand, no gasta IA en el cron)"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', borderRadius: 7, fontSize: 13.5, fontWeight: 500, background: '#fff', border: '1px solid #e8e6e3', cursor: canareando ? 'default' : 'pointer', fontFamily: 'inherit', opacity: canareando ? 0.6 : 1 }}>
             <Glyph name="activity" size={15} />
             {canareando ? 'Verificando…' : 'Correr canarios'}

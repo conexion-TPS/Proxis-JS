@@ -66,7 +66,9 @@ function calcPcPromedio(reportes: any[]): number {
 }
 
 // Semanas consecutivas donde contactos < meta (desde la más reciente)
-function calcPersistencia(reportes: any[], meta: number): number {
+// G5 — semanas consecutivas bajo la meta de contactos (perseverancia de actividad).
+// NO es "persistencia" de seguros (sostenibilidad de cartera); ese concepto vive en el simulador.
+function calcSemanasBajoMeta(reportes: any[], meta: number): number {
   let n = 0
   for (const r of reportes) {
     if ((r.contactos || []).length < meta) n++; else break
@@ -140,7 +142,7 @@ async function buildContext(asesor: string) {
       ? (reportes[0]?.contactos?.length ?? 0)
       : 0,
     pc_promedio:         calcPcPromedio(reportes),
-    persistencia_actual: calcPersistencia(reportes, meta_contactos_semana),
+    semanas_bajo_meta:   calcSemanasBajoMeta(reportes, meta_contactos_semana),
     ingreso_mes_actual:  (ingresoRes.data?.ingreso_real as number) || 0,
     mes_actual: mes,
     // Fase 2.6
@@ -220,14 +222,14 @@ function evaluateSignals(ctx: Awaited<ReturnType<typeof buildContext>>): SignalS
   }
 
   // ─ Persistencia baja: ≥ 2 semanas consecutivas bajo meta ───────────────────
-  if (ctx.persistencia_actual >= 2) {
+  if (ctx.semanas_bajo_meta >= 2) {
     signals.push({
       tipo:             'persistencia_baja',
-      valor:            String(ctx.persistencia_actual),
+      valor:            String(ctx.semanas_bajo_meta),
       dimension_target: 'relacion_feedback',
       confianza_hint:   70,
       contexto: {
-        semanas_bajo_meta:      ctx.persistencia_actual,
+        semanas_bajo_meta:      ctx.semanas_bajo_meta,
         meta_contactos_semana:  ctx.meta_contactos_semana,
         mes:                    ctx.mes_actual,
       },

@@ -129,7 +129,7 @@ export default function AdminDashboard() {
 
           {/* Gemini */}
           <HealthCard
-            label="Gemini API"
+            label="IA (Groq)"
             status={sys === null ? 'loading' : sys.gemini ? 'ok' : 'error'}
             value={sys === null ? '…' : sys.gemini ? 'Respondiendo' : 'Sin respuesta'}
             sub="gemini-2.5-flash"
@@ -412,7 +412,7 @@ export default function AdminDashboard() {
                 { label: 'Mensajes enviados (7 días)',     value: m.mensajes_7d ?? 0, alerta: (m.mensajes_7d ?? 0) < 5 },
                 { label: 'Gaps de conocimiento abiertos', value: m.gaps_abiertos ?? 0, alerta: (m.gaps_abiertos ?? 0) > 0, link: '/admin/conocimiento' },
                 { label: 'Hipótesis pendientes revisión', value: m.hipotesis_pendientes ?? 0, alerta: (m.hipotesis_pendientes ?? 0) > 3, link: '/admin/hipotesis' },
-                { label: 'Errores Gemini (24h)',           value: m.gemini_quota_errores_24h ?? 0, critico: (m.gemini_quota_errores_24h ?? 0) > 0 },
+                { label: 'Errores de IA (24h)',           value: m.gemini_quota_errores_24h ?? 0, critico: (m.gemini_quota_errores_24h ?? 0) > 0 },
               ]
               return (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>

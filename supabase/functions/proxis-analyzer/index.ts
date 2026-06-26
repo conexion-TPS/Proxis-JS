@@ -450,6 +450,13 @@ Deno.serve(async (req: Request) => {
   let totalHipotesis   = 0
   let totalGaps        = 0
   let totalSenales     = 0
+  // G1 — presupuesto de tiempo: si el lote es grande, procesamos hasta agotar el
+  // presupuesto y dejamos el resto para la próxima corrida (cron). Evita que un timeout
+  // del runtime corte la corrida a la mitad. El aislamiento por asesor (try/catch abajo)
+  // garantiza que un fallo no cuelgue a los demás.
+  const T0_MS = Date.now()
+  const PRESUPUESTO_MS = 110_000
+  let restantes = 0
 
   // Scoping opcional: el canario invoca con { asesor } para procesar SOLO al asesor
   // sintético (__canary__) sin tocar a los reales (no gasta Gemini en ellos ni muta
@@ -483,6 +490,9 @@ Deno.serve(async (req: Request) => {
   }
 
   for (const [i, asesor] of asesores.entries()) {
+    // G1 — corte por presupuesto de tiempo: lo no procesado queda pendiente para la
+    // próxima corrida (sus señales siguen procesada=false; no se pierde nada).
+    if (Date.now() - T0_MS > PRESUPUESTO_MS) { restantes = asesores.length - i; break }
     if (i > 0) await new Promise(r => setTimeout(r, 1000)) // pausa entre asesores
     const item: any = { asesor }
     try {
@@ -506,6 +516,8 @@ Deno.serve(async (req: Request) => {
   const summary = {
     ok:             true,
     asesores:       asesores.length,
+    procesados:     asesores.length - restantes,
+    restantes,                              // G1 — quedaron para la próxima corrida (presupuesto)
     totalHipotesis,
     totalGaps,
     totalSenales,

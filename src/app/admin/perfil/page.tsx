@@ -146,7 +146,16 @@ export default function PerfilPage() {
     if (!selAsesor) return
     setSavingIA(true)
     const dims = DIMENSIONES.map(d => `${d.label}:\n${perfil[d.key as keyof PerfilRow] || '(sin datos)'}`).join('\n\n')
-    const prompt = `Eres un experto en coaching comercial con metodología Proxis TPS.\nGenera un resumen de perfil psicológico-conductual conciso (máx 300 palabras) del asesor ${selAsesor} basado en estas dimensiones:\n\n${dims}\n\nEl resumen debe describir la identidad, fortalezas, bloqueos y recomendaciones de coaching en lenguaje preciso y no clínico.`
+    // I1 — además del resumen, poblar las dimensiones narrativas VACÍAS (no se sobrescriben
+    // las que ya tienen contenido del flujo analyzer→aprobación).
+    const faltantes = DIMENSIONES.filter(d => !String(perfil[d.key as keyof PerfilRow] ?? '').trim())
+    const prompt = `Eres un experto en coaching comercial con metodología Proxis TPS.
+Con base en estas dimensiones del asesor ${selAsesor}:
+
+${dims}
+
+Devuelve SOLO un objeto JSON válido (sin texto fuera del JSON, sin markdown) con estas claves:
+- "resumen_ia": resumen psicológico-conductual conciso (máx 300 palabras): identidad, fortalezas, bloqueos y recomendaciones de coaching, en lenguaje preciso y no clínico.${faltantes.length ? `\nY redacta estas dimensiones que faltan (2-4 oraciones cada una, sobre conducta observable, no clínico):\n${faltantes.map(d => `- "${d.key}"`).join('\n')}` : ''}`
 
     try {
       const res = await fetch('/api/admin/gemini', {
@@ -155,10 +164,18 @@ export default function PerfilPage() {
         body: JSON.stringify({ prompt }),
       })
       const data = await res.json()
-      const text = data.text ?? ''
-      setPerfil(p => ({ ...p, resumen_ia: text }))
-      await supabase.from('asesor_perfil').upsert({ asesor: selAsesor, resumen_ia: text, updated_at: new Date().toISOString() }, { onConflict: 'asesor' })
-      showToast('Resumen IA generado y guardado.')
+      const raw = String(data.text ?? '').replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
+      let parsed: Record<string, string> = {}
+      try { parsed = JSON.parse(raw) } catch { parsed = { resumen_ia: String(data.text ?? '') } }
+
+      const upd: Record<string, unknown> = { asesor: selAsesor, updated_at: new Date().toISOString() }
+      upd.resumen_ia = parsed.resumen_ia ?? data.text ?? ''
+      for (const d of faltantes) if (parsed[d.key] && String(parsed[d.key]).trim()) upd[d.key] = parsed[d.key]
+
+      setPerfil(p => ({ ...p, ...(upd as Partial<PerfilRow>) }))
+      await supabase.from('asesor_perfil').upsert(upd, { onConflict: 'asesor' })
+      const nDims = faltantes.filter(d => upd[d.key]).length
+      showToast(`Resumen IA guardado${nDims ? ` · ${nDims} dimensión(es) poblada(s)` : ''}.`)
     } catch (e: unknown) {
       showToast('Error generando resumen: ' + (e instanceof Error ? e.message : ''), true)
     }
@@ -304,7 +321,7 @@ export default function PerfilPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700 }}>Resumen IA</div>
-                  <div style={{ fontSize: 11, color: '#8a8885' }}>Síntesis generada por Gemini — se inyecta en cada mensaje al asesor</div>
+                  <div style={{ fontSize: 11, color: '#8a8885' }}>Síntesis generada por la IA (Groq) — se inyecta en cada mensaje al asesor</div>
                 </div>
                 <button onClick={generarResumen} disabled={savingIA} style={{
                   padding: '7px 14px', background: '#0b0a09', color: '#fff',
@@ -416,7 +433,7 @@ export default function PerfilPage() {
           }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #e8e6e3' }}>
               <div style={{ fontSize: 14, fontWeight: 700 }}>Calibración IA</div>
-              <div style={{ fontSize: 11, color: '#8a8885' }}>Conversa con Gemini para calibrar el perfil. Las sugerencias se aplican automáticamente.</div>
+              <div style={{ fontSize: 11, color: '#8a8885' }}>Conversa con la IA (Groq) para calibrar el perfil. Las sugerencias se aplican automáticamente.</div>
             </div>
 
             <div ref={chatRef} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>

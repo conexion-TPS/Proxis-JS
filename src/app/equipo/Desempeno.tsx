@@ -38,6 +38,13 @@ type SerieItem = { mes: string; indice: number | null; resultado: number | null;
 type AsesorRow = { asesor: string; persona_id: string; serie: SerieItem[]; perfil: Perfil }
 type EquipoItem = SerieItem & { n_asesores: number }
 type Data = { meses: string[]; meta: { supervisor: string | null; institucion: string | null; n_asesores: number }; asesores: AsesorRow[]; equipo: EquipoItem[] }
+// I2 / AD-5 — informe del supervisor (secciones 3-6, lectura pura)
+type Informe = {
+  seccion3: { perfil_dominante: string | null; identidad_vendedora: string | null; relacion_prospeccion: string | null; modelos_mentales: string | null; contexto_situacional: string | null } | null
+  seccion4: { resumen_ia: string | null; nivel_riesgo: string | null; nivel_riesgo_nota: string | null; relacion_feedback: string | null } | null
+  seccion5: { accion: string; dimension: string | null; estado: string | null; fecha: string }[]
+  seccion6: { relato_evolucion: string | null; mensajes: { trigger_id: string | null; cuerpo: string; fecha: string }[] }
+}
 
 function ProxisLogo() {
   return (
@@ -182,7 +189,7 @@ export default function Desempeno({ token, onVistaChange }: { token: string; onV
         <div className="no-print" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
           {data.asesores.map(a => <Tab key={a.asesor} on={sel === a.asesor} onClick={() => setSel(a.asesor)}>{a.asesor}</Tab>)}
         </div>
-        {selRow && <Detalle row={selRow} mesAct={mesAct} mesPrev={mesPrev} meses={meses} mesesEnCaida={mesesEnCaida} />}
+        {selRow && <Detalle row={selRow} token={token} mesAct={mesAct} mesPrev={mesPrev} meses={meses} mesesEnCaida={mesesEnCaida} />}
       </div>
 
       {/* Pie legal: SOLO en el PDF exportado; en pantalla va en el footer de /equipo (page.tsx) */}
@@ -192,7 +199,7 @@ export default function Desempeno({ token, onVistaChange }: { token: string; onV
 }
 
 /* ── Detalle de un asesor (7 secciones; cuantitativo real, IA en placeholder) ── */
-function Detalle({ row, mesAct, mesPrev, meses, mesesEnCaida }: { row: AsesorRow; mesAct: string; mesPrev: string | null; meses: string[]; mesesEnCaida: (s: SerieItem[]) => number }) {
+function Detalle({ row, token, mesAct, mesPrev, meses, mesesEnCaida }: { row: AsesorRow; token: string; mesAct: string; mesPrev: string | null; meses: string[]; mesesEnCaida: (s: SerieItem[]) => number }) {
   const pAct = row.serie.find(s => s.mes === mesAct)
   const pPrev = mesPrev ? row.serie.find(s => s.mes === mesPrev) : null
   const cuad = pAct?.cuadrante ?? '—'
@@ -200,6 +207,20 @@ function Detalle({ row, mesAct, mesPrev, meses, mesesEnCaida }: { row: AsesorRow
   const dRes = (res != null && pPrev?.resultado != null) ? Math.round((res - pPrev.resultado) * 100) : null
   const caida = mesesEnCaida(row.serie)
   const perfilTxt = row.perfil.evaluado && row.perfil.base ? PERFIL_DESC[row.perfil.base] : null
+
+  // I2 — secciones 3-6 por lectura del endpoint server-side (cadena de mando vía subárbol).
+  const [inf, setInf] = useState<Informe | null>(null)
+  const [infLoading, setInfLoading] = useState(true)
+  useEffect(() => {
+    let vivo = true
+    setInfLoading(true); setInf(null)
+    fetch(`/api/equipo/informe?asesor=${encodeURIComponent(row.asesor)}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: Informe | null) => { if (vivo) setInf(d) })
+      .catch(() => { if (vivo) setInf(null) })
+      .finally(() => { if (vivo) setInfLoading(false) })
+    return () => { vivo = false }
+  }, [row.asesor, token])
 
   return (
     <Card>
@@ -241,24 +262,61 @@ function Detalle({ row, mesAct, mesPrev, meses, mesesEnCaida }: { row: AsesorRow
       </div>
 
       <SecBox n="3" t="El cruce — perfil × desempeño" bg="#FAEEDA" col="#854F0B">
-        <Placeholder>Pendiente de generación — el cruce perfil × desempeño lo producirá el sistema de análisis.</Placeholder>
+        {infLoading ? <Placeholder>Cargando…</Placeholder> : (() => {
+          const s3 = inf?.seccion3
+          const narr = [s3?.modelos_mentales, s3?.contexto_situacional, s3?.relacion_prospeccion, s3?.identidad_vendedora].filter(Boolean) as string[]
+          if (!s3 || narr.length === 0) return <Placeholder>Aún sin datos.</Placeholder>
+          return (
+            <>
+              <p style={pTxt()}>Su cuadrante actual es <strong style={{ color: C.tinta }}>“{cuad.toLowerCase()}”</strong> ({CUAD_RAZON[cuad] ?? '—'}). Leído junto a su perfil{row.perfil.base ? ` ${row.perfil.label?.toLowerCase()}` : ''}:</p>
+              {narr.map((t, i) => <p key={i} style={{ ...pTxt(), marginTop: 8 }}><Rich>{t}</Rich></p>)}
+            </>
+          )
+        })()}
       </SecBox>
 
-      <Sec n="4" t="Diagnóstico" pill="IA · pendiente">
-        <Placeholder>Pendiente de generación por el sistema de análisis.</Placeholder>
+      <Sec n="4" t="Diagnóstico">
+        {infLoading ? <Placeholder>Cargando…</Placeholder> : (inf?.seccion4?.resumen_ia || inf?.seccion4?.nivel_riesgo_nota) ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {inf!.seccion4!.resumen_ia && <p style={pTxt()}><Rich>{inf!.seccion4!.resumen_ia}</Rich></p>}
+            {inf!.seccion4!.nivel_riesgo_nota && <p style={pTxt()}><strong style={{ color: C.tinta }}>Atención:</strong> <Rich>{inf!.seccion4!.nivel_riesgo_nota}</Rich></p>}
+          </div>
+        ) : <Placeholder>Aún sin datos.</Placeholder>}
       </Sec>
 
-      <Sec n="5" t="Plan de acción del mes" pill="propuesto por el sistema">
-        <Placeholder>Pendiente de generación por el sistema de análisis.</Placeholder>
+      <Sec n="5" t="Plan de acción del mes">
+        {infLoading ? <Placeholder>Cargando…</Placeholder> : (inf?.seccion5?.length ? (
+          <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {inf.seccion5.map((a, i) => (
+              <li key={i} style={{ ...pTxt(), listStyle: 'disc' }}><Rich>{a.accion}</Rich></li>
+            ))}
+          </ul>
+        ) : <Placeholder>Aún sin datos.</Placeholder>)}
       </Sec>
 
       <SecBox n="6" t="Acompañamiento de Sailor durante el mes" bg="#E1F5EE" col="#0F6E56">
-        <Placeholder>Pendiente — el acompañamiento de Sailor se generará durante el mes.</Placeholder>
+        {infLoading ? <Placeholder>Cargando…</Placeholder> : (inf?.seccion6?.relato_evolucion || inf?.seccion6?.mensajes?.length) ? (
+          <>
+            {inf!.seccion6.relato_evolucion && <p style={pTxt()}><Rich>{inf!.seccion6.relato_evolucion}</Rich></p>}
+            {inf!.seccion6.mensajes?.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 500, color: '#0F6E56', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Mensajes de coaching recibidos</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {inf!.seccion6.mensajes.map((m, i) => (
+                    <div key={i} style={{ fontSize: 12, color: C.gris, lineHeight: 1.5, textAlign: 'left' }}>
+                      <span style={{ color: C.tert }}>{new Date(m.fecha).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} · </span><Rich>{m.cuerpo ?? ''}</Rich>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : <Placeholder>Aún sin datos.</Placeholder>}
       </SecBox>
 
       <div style={{ border: `1px dashed ${C.bordeF}`, borderRadius: 10, padding: 13, textAlign: 'center' }}>
         <div style={{ fontSize: 11.5, fontWeight: 500, color: C.gris }}>7 · Comprobación al cierre — próximamente</div>
-        <p style={{ fontSize: 11, color: C.tert, margin: '5px auto 0', maxWidth: 460, lineHeight: 1.5 }}>Al cierre del mes, el tracker de resultados (calidad de fuente y persistencia) mostrará si el plan dio fruto. El resultado real, junto con la lectura del supervisor, cierra el lazo de aprendizaje del sistema — sin atribuir el avance a un solo factor.</p>
+        <p style={{ fontSize: 11, color: C.tert, margin: '5px auto 0', maxWidth: 460, lineHeight: 1.5 }}>Al cierre del mes, el tracker de resultados (calidad de fuente y persistencia) mostrará si el plan dio fruto.</p>
       </div>
     </Card>
   )
@@ -325,13 +383,21 @@ function Spark({ serie, meses }: { serie: SerieItem[]; meses: string[] }) {
 const cardSt = (extra: React.CSSProperties = {}): React.CSSProperties => ({ background: '#fff', border: `0.5px solid ${C.borde}`, borderRadius: 12, padding: '15px 18px', marginBottom: 14, ...extra })
 const subCard = (): React.CSSProperties => ({ border: `0.5px solid ${C.borde}`, borderRadius: 10, padding: '13px 15px' })
 const prioBtn = (): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 11, textAlign: 'left', padding: '10px 13px', border: `0.5px solid ${C.borde}`, borderRadius: 8, background: '#fff', cursor: 'pointer', width: '100%', marginBottom: 8, fontFamily: 'inherit' })
-const pTxt = (): React.CSSProperties => ({ fontSize: 13, color: C.gris, lineHeight: 1.65, margin: 0 })
+const pTxt = (): React.CSSProperties => ({ fontSize: 13, color: C.gris, lineHeight: 1.65, margin: 0, textAlign: 'left' })
+
+// UI-15 — renderiza **negrita** real de las narrativas (sin mostrar los asteriscos).
+function Rich({ children }: { children: string }) {
+  const parts = children.split(/(\*\*[^*]+\*\*)/g)
+  return <>{parts.map((p, i) => (p.startsWith('**') && p.endsWith('**'))
+    ? <strong key={i} style={{ color: C.tinta }}>{p.slice(2, -2)}</strong>
+    : <span key={i}>{p}</span>)}</>
+}
 function Card({ children }: { children: React.ReactNode }) { return <div className="card" style={cardSt()}>{children}</div> }
 function CardH({ t, s }: { t: string; s: string }) { return <><div style={{ fontSize: 14, fontWeight: 500, marginBottom: 2 }}>{t}</div><div style={{ fontSize: 12, color: C.gris, marginBottom: 10 }}>{s}</div></> }
 function Tab({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) { return <button onClick={onClick} style={{ padding: '7px 14px', borderRadius: 8, border: `0.5px solid ${C.bordeF}`, background: on ? '#eef0f2' : '#fff', cursor: 'pointer', fontSize: 12.5, fontFamily: 'inherit', color: C.tinta, fontWeight: on ? 500 : 400 }}>{children}</button> }
 function Kpi({ k, v, u, uColor, small }: { k: string; v: string; u?: string; uColor?: string; small?: boolean }) { return <div style={{ background: '#f1efe8', borderRadius: 8, padding: '11px 13px' }}><div style={{ fontSize: 11.5, color: C.gris }}>{k}</div><div style={{ fontSize: small ? 15 : 19, fontWeight: 500, marginTop: 2 }}>{v}</div>{u && <div style={{ fontSize: 10, color: uColor ?? C.tert }}>{u}</div>}</div> }
 function Legend({ items, small }: { items: [string, string][]; small?: boolean }) { return <div style={{ display: 'flex', gap: 16, marginTop: small ? 4 : 8, fontSize: small ? 10.5 : 11, color: C.gris }}>{items.map(([t, c]) => <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 11, height: 3, background: c, borderRadius: 2 }} />{t}</span>)}</div> }
-function Sec({ n, t, pill, children }: { n: string; t: string; pill?: string; children: React.ReactNode }) { return <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, fontWeight: 500, color: C.gris, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{n} · {t} {pill && <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: '#e6f1fb', color: C.azul, textTransform: 'none', letterSpacing: 0 }}>{pill}</span>}</div>{children}</div> }
-function SecBox({ n, t, bg, col, children }: { n: string; t: string; bg: string; col: string; children: React.ReactNode }) { return <div style={{ marginBottom: 16, background: bg, borderRadius: 10, padding: '13px 15px' }}><div style={{ fontSize: 11, fontWeight: 500, color: col, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{n} · {t}</div>{children}</div> }
+function Sec({ n, t, pill, children }: { n: string; t: string; pill?: string; children: React.ReactNode }) { return <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, fontWeight: 500, color: C.gris, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>{n} · {t} {pill && <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 8, background: '#e6f1fb', color: C.azul, textTransform: 'none', letterSpacing: 0 }}>{pill}</span>}</div>{children}</div> }
+function SecBox({ n, t, bg, col, children }: { n: string; t: string; bg: string; col: string; children: React.ReactNode }) { return <div style={{ marginBottom: 16, background: bg, borderRadius: 10, padding: '13px 15px' }}><div style={{ fontSize: 11, fontWeight: 500, color: col, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 10 }}>{n} · {t}</div>{children}</div> }
 function Lbl({ children }: { children: React.ReactNode }) { return <div style={{ fontSize: 11, fontWeight: 500, color: C.gris, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{children}</div> }
 function Placeholder({ children }: { children: React.ReactNode }) { return <div style={{ fontSize: 12, color: C.tert, lineHeight: 1.6, fontStyle: 'italic' }}>{children}</div> }
