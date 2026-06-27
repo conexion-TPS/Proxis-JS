@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { corsHeaders, handleOptions } from '@/lib/cors'
 import { authAsesor } from '@/lib/sailorAuth'
+import { esPerfilComputado } from '@/lib/tipo-catalogo'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function OPTIONS(req: Request) { return handleOptions(req) }
 
-// Perfiles reales (completado). 'pendiente'/''/null son placeholders de siembra → NO completado.
-const PERFILES_VALIDOS = new Set(['E', 'S', 'R', 'A', 'AMB'])
+// Completado = perfil computado (tolerante a letra o id_tipo ERRIM); sentinels
+// ('pendiente'/'canary'/'provisional') y null → NO completado. Ver tipo-catalogo.
 
 // GET /api/cuestionario/estado → { completado } SOLO el booleano (no expone perfil ni sensibles).
 export async function GET(req: NextRequest) {
@@ -24,6 +25,6 @@ export async function GET(req: NextRequest) {
     .eq('asesor', asesor)
     .maybeSingle()
 
-  const completado = !!data?.perfil_base && PERFILES_VALIDOS.has(data.perfil_base as string)
+  const completado = esPerfilComputado(data?.perfil_base)
   return NextResponse.json({ completado }, { headers: cors })
 }

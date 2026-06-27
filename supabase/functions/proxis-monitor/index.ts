@@ -12,6 +12,7 @@ import { renderSailorEmailHtml } from '../_shared/email-sailor.ts'
 import { proyectarTpsSinSensibles } from '../_shared/proyeccion-segura.ts'
 import { interpretarSensibleParaAsesor } from '../_shared/interpretacion-asesor.ts'
 import { logUsoSensible, type UsoSensibleEvento } from '../_shared/log-uso-sensible.ts'
+import { normalizarTipo, nombreTipo } from '../_shared/tipo-catalogo.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -213,16 +214,14 @@ async function buildContext(asesor: string) {
 // REGLAS_MENTOR y tonoBlock viven en ../_shared/mentor.ts (fuente única, compartida
 // con proxis-accion). Incluyen la lista negra de muletillas/clichés (B4).
 
-function formatTpsPerfil(tps: any): string {
+async function formatTpsPerfil(tps: any): Promise<string> {
   if (!tps) return ''
-  const NOMBRES: Record<string, string> = {
-    E: 'Energético', S: 'Sociable', R: 'Relacional', A: 'Reflexivo', AMB: 'Ambivertido',
-  }
   const FACTORES: Record<string, string> = {
     f1: 'Iniciativa Comercial', f2: 'Orientación al Cliente',
     f3: 'Disciplina de Proceso', f4: 'Estabilidad bajo Presión', f5: 'Apertura al Aprendizaje',
   }
-  const nombre = NOMBRES[tps.perfil_base] ?? tps.perfil_base
+  // Nombre vía tipo_catalogo (tolerante a letra o id_tipo ERRIM; corrige S→"Magnético").
+  const nombre = (await nombreTipo(sb, await normalizarTipo(sb, tps.perfil_base))) ?? tps.perfil_base ?? ''
   let out = `[PERFIL TPS — Evaluación Conductual v1.0]\n`
   out += `Perfil Base: ${nombre} (${tps.perfil_base}) | Confianza diagnóstico: ${tps.confianza_diagnostico}\n`
   out += `Eje Iniciativa (A): ${Number(tps.puntaje_a).toFixed(2)}/4.0 | Eje Calidez (B): ${Number(tps.puntaje_b).toFixed(2)}/4.0\n`
@@ -345,7 +344,7 @@ async function notificarSupervisor(asesor: string, ctx: any, remitente: string, 
 
   const compiled = compileTemplate(prompts[0].body, ctx)
   // Etapa 3 §5.2: el perfil sin sensibles se construye en el ORIGEN (buildContext); aquí solo se consume.
-  const tpsBlock = ctx.perfilSupervisor ? formatTpsPerfil(ctx.perfilSupervisor) + '\n\n' : ''
+  const tpsBlock = ctx.perfilSupervisor ? (await formatTpsPerfil(ctx.perfilSupervisor)) + '\n\n' : ''
   const msg = await callAI(REGLAS_MENTOR + tpsBlock + compiled, {
     maxTokens:   2500,
     temperature: 0.7,
@@ -838,7 +837,7 @@ Deno.serve(async (req: Request) => {
         // bloque TPS sin sensibles (.base) + interpretación crudo→puerta (.interpretacion).
         // Aquí solo se consume. La salida-supervisor usa su propio objeto (ctx.perfilSupervisor);
         // el row crudo nunca se comparte ni escapa de buildContext.
-        const tpsBlock     = ctx.perfilAsesor.base ? formatTpsPerfil(ctx.perfilAsesor.base) + '\n\n' : ''
+        const tpsBlock     = ctx.perfilAsesor.base ? (await formatTpsPerfil(ctx.perfilAsesor.base)) + '\n\n' : ''
         const puertaBlock  = ctx.perfilAsesor.interpretacion ? ctx.perfilAsesor.interpretacion + '\n\n' : ''
         const perfilBlock  = ctx.perfil_resumen
           ? `[PERFIL DEL ASESOR]\n${ctx.perfil_resumen}\n\n`

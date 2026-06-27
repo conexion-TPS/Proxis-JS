@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyEquipoToken } from '../auth/route'
+import { normalizarTipo, nombreTipo, esPerfilComputado } from '@/lib/tipo-catalogo'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -82,21 +83,22 @@ export async function GET(req: NextRequest) {
     .filter(r => r.persona_id) as { asesor: string; persona_id: string }[]
 
   // 2b) Perfil conductual por asesor (tps_perfiles, por nombre) — alimenta la vista detalle.
-  const PERFIL_LABEL: Record<string, string> = { E: 'Energético', S: 'Sociable', R: 'Relacional', A: 'Reflexivo', AMB: 'Mixto' }
+  // Label vía tipo_catalogo (tolerante a letra o id_tipo ERRIM; corrige S→"Magnético").
+  // base se conserva como letra para el cliente (PERFIL_DESC); migración de desc → Fase 3.
   const { data: perfilesTps } = await sb.from('tps_perfiles')
     .select('asesor, perfil_base, confianza_diagnostico').in('asesor', asesores)
-  const perfilPorAsesor = new Map(
-    (perfilesTps ?? []).map(p => {
-      const base = String(p.perfil_base ?? '').toUpperCase()
-      const evaluado = !!base && base !== 'PENDIENTE'
-      return [p.asesor as string, {
-        base: evaluado ? base : null,
-        label: evaluado ? (PERFIL_LABEL[base] ?? base) : null,
-        confianza: p.confianza_diagnostico ?? null,
-        evaluado,
-      }]
-    }),
-  )
+  const perfilPorAsesor = new Map<string, { base: string | null; label: string | null; confianza: string | null; evaluado: boolean }>()
+  for (const p of perfilesTps ?? []) {
+    const evaluado = esPerfilComputado(p.perfil_base)
+    const base = evaluado ? String(p.perfil_base ?? '').toUpperCase() : null
+    const label = evaluado ? await nombreTipo(sb, await normalizarTipo(sb, p.perfil_base)) : null
+    perfilPorAsesor.set(p.asesor as string, {
+      base,
+      label,
+      confianza: p.confianza_diagnostico ?? null,
+      evaluado,
+    })
+  }
   // Nombre real de la institución para el encabezado del informe.
   const { data: instRow } = instIds.length
     ? await sb.from('instituciones').select('nombre').eq('id', instIds[0]).maybeSingle()

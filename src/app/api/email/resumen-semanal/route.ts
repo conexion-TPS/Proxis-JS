@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendResumenSemanal } from '@/lib/resend'
+import { normalizarTipo, nombreTipo } from '@/lib/tipo-catalogo'
+
+// Emoji decorativo por tipo ERRIM (no es nomenclatura: el nombre viene de tipo_catalogo).
+const EMOJI_TIPO: Record<string, string> = {
+  energetico: '🦅', magnetico: '🦚', relacional: '🕊️', reflexivo: '🦉', ambiguo: '🔄',
+}
 
 export async function POST(req: NextRequest) {
   // Acepta { asesor } para envío individual, o sin body para envío masivo
@@ -41,9 +47,12 @@ export async function POST(req: NextRequest) {
         .maybeSingle(),
     ])
 
-    const PERFIL_NOMBRE: Record<string, string> = {
-      E: '🦅 Energético', S: '🦚 Sociable', R: '🕊️ Relacional', A: '🦉 Reflexivo', AMB: '🔄 Ambivertido',
-    }
+    // Label del perfil vía tipo_catalogo (corrige S→"Magnético"); emoji por tipo ERRIM.
+    const tipoPerfil = await normalizarTipo(sb, perfil?.perfil_base)
+    const nombrePerfil = tipoPerfil ? await nombreTipo(sb, tipoPerfil) : null
+    const etiquetaPerfil = nombrePerfil && tipoPerfil
+      ? `${EMOJI_TIPO[tipoPerfil] ?? ''} ${nombrePerfil}`.trim()
+      : null
 
     const { error } = await sendResumenSemanal({
       to:          cred.email,
@@ -51,7 +60,7 @@ export async function POST(req: NextRequest) {
       semana,
       mensajes:    (msgs as any)?.length ?? 0,
       senales:     (senales as any)?.length ?? 0,
-      perfil:      perfil?.perfil_base ? PERFIL_NOMBRE[perfil.perfil_base] : null,
+      perfil:      etiquetaPerfil,
       asunto:      tmpl?.asunto      ?? undefined,
       cuerpo_html: tmpl?.cuerpo_html ?? undefined,
     })

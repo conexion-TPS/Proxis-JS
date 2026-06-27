@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { callGemini } from '@/lib/gemini'
 import { corsHeaders, handleOptions } from '@/lib/cors'
 import { REGLAS_MENTOR, tonoBlock } from '@/lib/mentor'
+import { normalizarTipo, nombreTipo } from '@/lib/tipo-catalogo'
 
 export async function OPTIONS(req: Request) { return handleOptions(req) }
 
@@ -54,11 +55,10 @@ export async function POST(req: NextRequest) {
       : Promise.resolve({ data: null }),
   ])
 
-  const perfilNombre = (() => {
-    const base = perfilCond?.perfil_base ?? perfil?.perfil_dominante
-    const map: Record<string, string> = { E: 'Energético', S: 'Sociable', R: 'Relacional', A: 'Reflexivo' }
-    return base ? (map[base] ?? base) : null
-  })()
+  // Label del perfil vía tipo_catalogo: tolera letra (codigo_origen) o id_tipo ERRIM,
+  // y resuelve el nombre ERRIM correcto (corrige S→"Magnético", no "Sociable").
+  const basePerfil = perfilCond?.perfil_base ?? perfil?.perfil_dominante
+  const perfilNombre = basePerfil ? await nombreTipo(sb, await normalizarTipo(sb, basePerfil)) : null
 
   // Últimas 6 señales para contexto
   const { data: senales } = await sb

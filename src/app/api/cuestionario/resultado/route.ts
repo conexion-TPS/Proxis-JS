@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { corsHeaders, handleOptions } from '@/lib/cors'
 import { authAsesor } from '@/lib/sailorAuth'
+import { esPerfilComputado } from '@/lib/tipo-catalogo'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function OPTIONS(req: Request) { return handleOptions(req) }
 
-const PERFILES_VALIDOS = new Set(['E', 'S', 'R', 'A', 'AMB'])
+// Completado = perfil computado (tolerante a letra o id_tipo ERRIM); ver tipo-catalogo.
 
 // GET /api/cuestionario/resultado → { resultado } del PROPIO asesor (token).
 // Decisión (a): el asesor ve su propio f4 (vive en rasgos_comerciales). NO se devuelve
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
     .eq('asesor', asesor)
     .maybeSingle()
 
-  if (!data || !PERFILES_VALIDOS.has(data.perfil_base as string))
+  if (!data || !esPerfilComputado(data.perfil_base))
     return NextResponse.json({ error: 'Sin resultado' }, { status: 404, headers: cors })
 
   const resultado = {
