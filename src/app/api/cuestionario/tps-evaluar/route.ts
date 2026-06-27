@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { corsHeaders, handleOptions } from '@/lib/cors'
 import { authAsesor } from '@/lib/sailorAuth'
+import { normalizarTipo } from '@/lib/tipo-catalogo'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -161,6 +162,10 @@ export async function POST(req: NextRequest) {
   const perfilFinal    = perfilAB === 'AMB' && dDominante ? dDominante : perfilAB
   const confianza      = calcularConfianza(perfilAB, dDominante)
 
+  // ERRIM Fase 1 (dual-write): id_tipo traducido de la letra computada, vía tipo_catalogo.
+  // Mismo origen que perfilFinal; el sentinel 'provisional' NO entra aquí (es T2/T3).
+  const tipoErrim = await normalizarTipo(sb, perfilFinal)
+
   // ── Gate de consentimiento: si no hay consentimiento, el crudo sensible NO se persiste ──
   // f4 (resiliencia) se quita del jsonb rasgos_comerciales si no hay consentimiento.
   // f1/f2/f3/f5 y deseabilidad_social no son f4 → se conservan. (d8 eliminado en Paso 2.)
@@ -174,6 +179,7 @@ export async function POST(req: NextRequest) {
       asesor,
       version_instrumento:   '1.0',
       perfil_base:           perfilFinal,
+      tipo_errim:            tipoErrim,
       confianza_diagnostico: confianza,
       puntaje_a:             puntajeA,
       puntaje_b:             puntajeB,
@@ -206,8 +212,11 @@ export async function POST(req: NextRequest) {
     {
       asesor,
       assertividad_score: puntajeA,
+      eje_asertividad:    puntajeA,
       sociabilidad_score: puntajeB,
+      eje_orientacion:    puntajeB,
       perfil_dominante:   perfilFinal,
+      tipo_errim:         tipoErrim,
       // resiliencia (puente de f4) solo si hay consentimiento; equilibrio_adaptativo no es sensible.
       ...(persistirSensibles && resiliencia !== null ? { resiliencia } : {}),
       ...(equilibrio_adaptativo !== null ? { equilibrio_adaptativo } : {}),

@@ -5,6 +5,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getAsesoresAutorizados, filtrarAutorizados } from '../_shared/tenant.ts'
+import { normalizarTipo } from '../_shared/tipo-catalogo.ts'
 
 const SB_URL     = Deno.env.get('SUPABASE_URL')!
 const SB_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -1055,7 +1056,7 @@ async function canaryAnalyzer(): Promise<CanaryResult> {
     // Pre-seed tps_perfiles (cols NOT NULL sin default) para que el upsert interno del
     // analyzer no falle por constraint — el fallo sería de seeding, no de contrato.
     await sb.from('tps_perfiles').insert({ asesor: CANARY, version_instrumento: '1.0', perfil_base: 'canary', confianza_diagnostico: 'sin_evaluar', puntaje_a: 0, puntaje_b: 0 })
-    await sb.from('asesor_perfil').insert({ asesor: CANARY, perfil_dominante: 'A', identidad_vendedora: 'Asesor sintético del arnés de canarios.' })
+    await sb.from('asesor_perfil').insert({ asesor: CANARY, perfil_dominante: 'A', tipo_errim: await normalizarTipo(sb, 'A'), identidad_vendedora: 'Asesor sintético del arnés de canarios.' })
     await sb.from('behavioral_signals').insert({ asesor: CANARY, fuente: 'manual', tipo: 'canary_probe', valor: '3', dimension_target: 'relacion_prospeccion', confianza_hint: 60, procesada: false, contexto: { canary: true } })
     const t0 = new Date(Date.now() - 5000).toISOString()
     const { status, json } = await invokeFn('proxis-analyzer', { asesor: CANARY })
@@ -1108,7 +1109,7 @@ async function canaryObservacion(): Promise<CanaryResult> {
   try {
     await limpiarCanary()
     await sb.from('asesor_perfil').insert({
-      asesor: CANARY, perfil_dominante: 'R',
+      asesor: CANARY, perfil_dominante: 'R', tipo_errim: await normalizarTipo(sb, 'R'),
       identidad_vendedora: 'Asesor sintético; prefiere construir vínculo antes de cerrar.',
       relacion_prospeccion: 'Le cuesta la prospección en frío.',
     })
