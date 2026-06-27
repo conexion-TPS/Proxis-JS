@@ -20,13 +20,14 @@ const CUAD_RAZON: Record<string, string> = {
   'Frágil': 'Buen resultado sostenido en muy poca actividad',
   'Sólido': 'Actividad y resultado en meta',
 }
-// Descripción de arquetipo por perfil_base (referencia, no IA). La de "A" calca el HTML.
+// Descripción de arquetipo por nombre_errim — el label que entrega /api/equipo/desempano,
+// ya resuelto server-side vía nombreTipo (service_role). La de "Reflexivo" calca el HTML.
 const PERFIL_DESC: Record<string, string> = {
-  E: 'Directo y orientado a resultados, con ritmo rápido y foco en el cierre. Fortaleza en tomar la iniciativa. Riesgo conocido: puede atropellar el vínculo y descuidar el seguimiento fino.',
-  S: 'Expresivo y entusiasta, orientado a las personas y al relato. Fortaleza en generar cercanía rápido. Riesgo conocido: dispersión y dificultad para sostener el proceso hasta el cierre.',
-  R: 'Paciente y orientado a la confianza de largo plazo. Fortaleza en fidelizar y cuidar la cartera. Riesgo conocido: evita la presión y posterga la apertura de frentes nuevos.',
-  A: 'Analítico, meticuloso, orientado al detalle. Fortaleza en relaciones de confianza de largo plazo. Riesgo conocido: tiende a sobre-analizar y, bajo presión, se repliega a lo conocido en vez de abrir frentes nuevos.',
-  AMB: 'Perfil sin un eje dominante claro: combina rasgos según el contexto. Fortaleza en adaptarse. Conviene afinar la lectura con más observación antes de concluir.',
+  'Energético': 'Directo y orientado a resultados, con ritmo rápido y foco en el cierre. Fortaleza en tomar la iniciativa. Riesgo conocido: puede atropellar el vínculo y descuidar el seguimiento fino.',
+  'Magnético': 'Expresivo y entusiasta, orientado a las personas y al relato. Fortaleza en generar cercanía rápido. Riesgo conocido: dispersión y dificultad para sostener el proceso hasta el cierre.',
+  'Relacional': 'Paciente y orientado a la confianza de largo plazo. Fortaleza en fidelizar y cuidar la cartera. Riesgo conocido: evita la presión y posterga la apertura de frentes nuevos.',
+  'Reflexivo': 'Analítico, meticuloso, orientado al detalle. Fortaleza en relaciones de confianza de largo plazo. Riesgo conocido: tiende a sobre-analizar y, bajo presión, se repliega a lo conocido en vez de abrir frentes nuevos.',
+  'Ambiguo': 'Perfil sin un eje dominante claro: combina rasgos según el contexto. Fortaleza en adaptarse. Conviene afinar la lectura con más observación antes de concluir.',
 }
 const MES_LBL: Record<string, string> = { '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Ago', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic' }
 const mShort = (m: string) => MES_LBL[m.slice(5, 7)] ?? m
@@ -206,7 +207,7 @@ function Detalle({ row, token, mesAct, mesPrev, meses, mesesEnCaida }: { row: As
   const res = pAct?.resultado ?? null
   const dRes = (res != null && pPrev?.resultado != null) ? Math.round((res - pPrev.resultado) * 100) : null
   const caida = mesesEnCaida(row.serie)
-  const perfilTxt = row.perfil.evaluado && row.perfil.base ? PERFIL_DESC[row.perfil.base] : null
+  const perfilTxt = row.perfil.evaluado && row.perfil.label ? PERFIL_DESC[row.perfil.label] : null
 
   // I2 — secciones 3-6 por lectura del endpoint server-side (cadena de mando vía subárbol).
   const [inf, setInf] = useState<Informe | null>(null)

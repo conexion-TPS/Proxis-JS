@@ -11,7 +11,6 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const CAMPO_PERFIL: Record<string, string> = {
   resiliencia:           'resiliencia',           // columna de asesor_perfil
   equilibrio_adaptativo: 'equilibrio_adaptativo', // Corrección A — 🔒 reclasificada sensible (F7)
-  backup_style_doc:      'tps_d8',                // columna de asesor_perfil: descripción textual de la necesidad de aprobación (d8)
 }
 const CAMPO_TPS_BOOL: Record<string, string> = {
   backup_style_activo: 'tps_d8',       // columna boolean de tps_perfiles
@@ -39,10 +38,10 @@ async function getSensibles(sb: SupabaseClient): Promise<Set<string>> {
 
 // Alias de columna (nombres reales en filas/objetos) → id_dimension de catálogo.
 // Fuente ÚNICA para resolver dimension_afectada de deductions_log, que mezcla ids de
-// catálogo (p.ej. 'resiliencia') con nombres de columna (p.ej. 'backup_style_doc').
+// catálogo (p.ej. 'resiliencia') con nombres de columna (p.ej. 'equilibrio_adaptativo').
 // Se compone de los mismos mapas que ya usa la proyección — no se duplica ninguna lista.
 export const ALIAS_DIMENSION: Record<string, string> = {
-  ...CAMPO_PERFIL,    // resiliencia→resiliencia, backup_style_doc→tps_d8
+  ...CAMPO_PERFIL,    // resiliencia→resiliencia, equilibrio_adaptativo→equilibrio_adaptativo
   ...CAMPO_TPS_BOOL,  // backup_style_activo→tps_d8
   ...RASGO_TPS,       // f4→tps_c_f4
 }

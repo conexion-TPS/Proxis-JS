@@ -10,7 +10,7 @@ type Respuesta     = { id: string; asesor: string; cuestionario_id: string; preg
 type OrgNodo      = { id: string; nombre: string }
 type AsesorCred   = { asesor: string; org_nodo_id: string | null }
 type TpsPerfil     = {
-  id: string; asesor: string; perfil_base: string; confianza_diagnostico: string
+  id: string; asesor: string; perfil_base: string; tipo_errim: string | null; confianza_diagnostico: string
   puntaje_a: number; puntaje_b: number; rasgos_comerciales: Record<string, number>
   deseabilidad_social: boolean; updated_at: string
 }
@@ -19,12 +19,14 @@ const TIPOS_Q = ['psicometrico','micro','contextual','onboarding','programado']
 const TIPOS_R = ['escala_4','escala_5','abierta','alternativas','si_no']
 const DIMENSIONES = ['identidad_vendedora','relacion_prospeccion','modelos_mentales','relacion_feedback','perfil_conductual_notas','contexto_situacional']
 
-const PERFIL_LABELS: Record<string, { icon: string; nombre: string; color: string }> = {
-  E:   { icon: '🦅', nombre: 'Energético',  color: '#e8440a' },
-  S:   { icon: '🦚', nombre: 'Sociable',    color: '#d4a017' },
-  R:   { icon: '🕊️', nombre: 'Relacional',  color: '#1f6f56' },
-  A:   { icon: '🦉', nombre: 'Reflexivo',   color: '#3a5da8' },
-  AMB: { icon: '🔄', nombre: 'Ambivertido', color: '#6b45c8' },
+// Estilo + nombre ERRIM por id_tipo (mapa FIJO: tipo_catalogo tiene RLS y el cliente no puede
+// leerlo; estos 5 arquetipos son estables). Corrige bug S→"Sociable"→"Magnético".
+const PERFIL_ESTILO: Record<string, { icon: string; color: string; nombre: string }> = {
+  energetico: { icon: '🦅', color: '#e8440a', nombre: 'Energético' },
+  magnetico:  { icon: '🦚', color: '#d4a017', nombre: 'Magnético' },
+  relacional: { icon: '🕊️', color: '#1f6f56', nombre: 'Relacional' },
+  reflexivo:  { icon: '🦉', color: '#3a5da8', nombre: 'Reflexivo' },
+  ambiguo:    { icon: '🔄', color: '#6b45c8', nombre: 'Ambiguo' },
 }
 const FACTOR_LABELS: Record<string, string> = {
   f1: 'Iniciativa', f2: 'Orient. Cliente', f3: 'Disciplina', f4: 'Estabilidad', f5: 'Aprendizaje',
@@ -54,6 +56,12 @@ export default function CuestionariosPage() {
   const [filtroNodo,   setFiltroNodo]  = useState('')
 
   function showToast(msg: string, err = false) { setToast({ msg, err }); setTimeout(() => setToast(null), 3200) }
+
+  // id_tipo ERRIM → {icon, color, nombre} del mapa FIJO PERFIL_ESTILO (sin leer tipo_catalogo).
+  const perfilInfo = (tipoErrim: string | null | undefined) => {
+    const id = tipoErrim && PERFIL_ESTILO[tipoErrim] ? tipoErrim : 'ambiguo'
+    return PERFIL_ESTILO[id] ?? PERFIL_ESTILO['ambiguo']
+  }
 
   const loadCuests = useCallback(async () => {
     const { data } = await supabase.from('cuestionarios').select('*').order('created_at', { ascending: false })
@@ -548,7 +556,7 @@ export default function CuestionariosPage() {
               </div>
             )
             const dist: Record<string, number> = {}
-            for (const p of visible) dist[p.perfil_base] = (dist[p.perfil_base] ?? 0) + 1
+            for (const p of visible) { const t = p.tipo_errim && PERFIL_ESTILO[p.tipo_errim] ? p.tipo_errim : 'ambiguo'; dist[t] = (dist[t] ?? 0) + 1 }
             const total = visible.length
             return (
               <>
@@ -557,7 +565,7 @@ export default function CuestionariosPage() {
                     Distribución del equipo
                   </div>
                   <div style={{ display: 'flex', gap: 12 }}>
-                    {Object.entries(PERFIL_LABELS).map(([key, info]) => {
+                    {Object.entries(PERFIL_ESTILO).map(([key, info]) => {
                       const n = dist[key] ?? 0
                       const pct = total ? Math.round((n / total) * 100) : 0
                       return (
@@ -576,7 +584,7 @@ export default function CuestionariosPage() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {visible.map(p => {
-                const info = PERFIL_LABELS[p.perfil_base] ?? PERFIL_LABELS['AMB']
+                const info = perfilInfo(p.tipo_errim)
                 const conf = p.confianza_diagnostico
                 const confColor = conf === 'Alta' ? '#1f6f56' : conf === 'Media' ? '#a8691a' : '#8a8885'
                 return (

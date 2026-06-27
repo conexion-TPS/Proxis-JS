@@ -211,11 +211,8 @@ export async function POST(req: NextRequest) {
   await sb.from('asesor_perfil').upsert(
     {
       asesor,
-      assertividad_score: puntajeA,
       eje_asertividad:    puntajeA,
-      sociabilidad_score: puntajeB,
       eje_orientacion:    puntajeB,
-      perfil_dominante:   perfilFinal,
       tipo_errim:         tipoErrim,
       // resiliencia (puente de f4) solo si hay consentimiento; equilibrio_adaptativo no es sensible.
       ...(persistirSensibles && resiliencia !== null ? { resiliencia } : {}),
