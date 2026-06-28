@@ -133,9 +133,54 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Scoring Módulo A y B ──
-  const avg = (arr: number[]) => arr.length
-    ? +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2) : 2.5
+  // ── Guardar respuestas crudas (batch) — SIEMPRE, gate o no (como hoy) ──
+  if (respuestasParaGuardar.length) {
+    await sb.from('respuestas_cuestionario').insert(respuestasParaGuardar)
+  }
+
+  // ── T2: completitud por módulo (n recibidos vs esp esperados del catálogo preguntas) ──
+  const espDe = (d: string) => d === 'tps_a' ? 'A' : d === 'tps_b' ? 'B'
+    : d === 'tps_d' ? 'D' : d.startsWith('tps_c_') ? 'C' : null
+  const esp = { A: 0, B: 0, C: 0, D: 0 }
+  for (const p of preguntas ?? []) { const m = espDe(p.dimension_target ?? ''); if (m) esp[m]++ }
+  const nC = Object.values(modC).reduce((s, v) => s + v.length, 0) + modAdapt.length
+  const completitud = {
+    a: { n: modA.length,      esp: esp.A },
+    b: { n: modB.length,      esp: esp.B },
+    c: { n: nC,               esp: esp.C },
+    d: { n: dPerfiles.length, esp: esp.D },
+  }
+  const cuatroCompletos =
+    esp.A > 0 && modA.length      >= esp.A &&
+    esp.B > 0 && modB.length      >= esp.B &&
+    esp.C > 0 && nC               >= esp.C &&
+    esp.D > 0 && dPerfiles.length >= esp.D
+  const tps_progress_parcial = Math.round(
+    ((modA.length + modB.length + nC + dPerfiles.length) /
+     Math.max(1, esp.A + esp.B + esp.C + esp.D)) * 100)
+
+  // ── GATE (regla dura): falta cualquier ítem de los 4 módulos → pendiente, sin computar perfil ──
+  if (!cuatroCompletos) {
+    await sb.from('tps_perfiles').upsert(
+      {
+        asesor,
+        perfil_base:           'pendiente', // NOT NULL sin default; sentinel (normalizarTipo→null)
+        completitud,
+        estado_perfil:         'pendiente',
+        consentimiento_estado,
+        tps_progress:          tps_progress_parcial,
+        updated_at:            new Date().toISOString(),
+      },
+      { onConflict: 'asesor' }
+    )
+    return NextResponse.json(
+      { ok: true, estado: 'pendiente', completitud },
+      { headers: corsHeaders(req.headers.get('origin')) }
+    )
+  }
+
+  // ── Scoring Módulo A y B (4 módulos completos: avg SIN relleno 2.5) ──
+  const avg = (arr: number[]) => +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(2)
 
   const puntajeA = avg(modA)
   const puntajeB = avg(modB)
@@ -156,6 +201,7 @@ export async function POST(req: NextRequest) {
   const dCounts: Record<string, number> = { E: 0, S: 0, R: 0, A: 0 }
   for (const p of dPerfiles) dCounts[p]++
   const dDominante = Object.entries(dCounts)
+    .filter(([, n]) => n > 0)
     .sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
 
   // ── Perfil final y confianza ──
@@ -186,6 +232,8 @@ export async function POST(req: NextRequest) {
       rasgos_comerciales:    rasgosParaGuardar,
       deseabilidad_social:   deseabilidadSocial,
       consentimiento_estado,
+      completitud,
+      estado_perfil:         'completo',
       tps_progress:          100,
       updated_at:            new Date().toISOString(),
     },
@@ -221,11 +269,6 @@ export async function POST(req: NextRequest) {
     },
     { onConflict: 'asesor' }
   )
-
-  // ── Guardar respuestas individuales (batch) ──
-  if (respuestasParaGuardar.length) {
-    await sb.from('respuestas_cuestionario').insert(respuestasParaGuardar)
-  }
 
   // ── Generar señal conductual de perfil ──
   await sb.from('behavioral_signals').insert({
