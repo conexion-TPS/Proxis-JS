@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { AuthProvider } from './AuthProvider'
 import { SHELL_CSS } from './shellCss'
+import { CuestionarioFAB } from './_components/CuestionarioFAB'
 
 /*
  * Layout del /app (C2 — shell unificado, paso 1: ANDAMIAJE).
@@ -16,6 +17,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <AuthProvider>
       <style>{SHELL_CSS}</style>
       {children}
+      <CuestionarioFAB />
     </AuthProvider>
   )
 }

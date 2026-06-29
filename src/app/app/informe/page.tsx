@@ -87,8 +87,7 @@ function LogoProxis() {
   )
 }
 
-// GATE PILOTO — lista blanca de asesores con acceso al cuestionario; reemplazar por flag/institución post-piloto
-const ASESORES_PILOTO_CUESTIONARIO: string[] = ['Luis Rojas']
+import { ASESORES_PILOTO_CUESTIONARIO } from '../piloto'
 
 export default function InformePage() {
   const { token, logout, ident } = useAuth()
