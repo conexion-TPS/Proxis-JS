@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@conexion-tps/cuestionario-core": "github:conexion-TPS/cuestionario-core#main",
     "@supabase/supabase-js": "^2.106.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",

@@ -185,6 +185,7 @@ export default function InformePage() {
         <div className="tabs">
           <div className={`tab${tab === 'informe' ? ' active' : ''}`} onClick={() => setTab('informe')}>Mi informe</div>
           <div className={`tab${tab === 'bitacora' ? ' active' : ''}`} onClick={() => setTab('bitacora')}>Bitácora Semanal</div>
+          <a href="/app/informe/cuestionario" className="tab" style={{ textDecoration: 'none' }}>Cuestionario</a>
         </div>
 
         {/* Panel: Mi informe */}

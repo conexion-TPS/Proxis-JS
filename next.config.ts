@@ -9,6 +9,7 @@ const CORS = [
 ]
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@conexion-tps/cuestionario-core'],
   async headers() {
     return [
       { source: '/api/auth/sailor',         headers: CORS },
