@@ -61,6 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { /* header sin identidad */ }
   }, [token])
 
+  // Carga automática tras reload: ident arranca null aunque haya token en localStorage.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (token && !ident) { loadIdentity() } }, [token])
+
   // Calco de login() de las pantallas (mismo POST a /api/vina/login).
   const login = useCallback(async (email: string, password: string) => {
     try {
