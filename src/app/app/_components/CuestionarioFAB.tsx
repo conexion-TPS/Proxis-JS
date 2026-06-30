@@ -53,11 +53,13 @@ export function CuestionarioFAB() {
           borderRadius: '50%', overflow: 'hidden',
           padding: 6, boxSizing: 'border-box', background: '#fff',
         }}>
-          <img
-            src="/assets/sailor/robot-head-transparent.png"
-            alt=""
-            style={{ display: 'block', width: 65, height: 65, objectFit: 'contain' }}
-          />
+          <div style={{
+            width: 65, height: 65,
+            backgroundImage: "url('/assets/sailor/robot-head-transparent.png')",
+            backgroundSize: 'contain',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }} />
         </span>
       </button>
     </>
