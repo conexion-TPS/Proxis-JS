@@ -1,82 +1,59 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
 
-const USERS = [
-  { name: 'Diego Pérez',             pass: 'diegope2026$',          role: 'asesor'     },
-  { name: 'Nazaret Johannesen',      pass: 'nazaretjoha$2026',      role: 'asesor'     },
-  { name: 'Verónica Castillo',       pass: 'verocastil2026$',       role: 'asesor'     },
-  { name: 'Fernanda Grothusen',      pass: 'fernagroth$2026',       role: 'asesor'     },
-  { name: 'Sindy Martínez',          pass: 'SindyMar2026$$',        role: 'asesor'     },
-  { name: 'Francis Arancibia',       pass: 'Francis$2026$$',        role: 'asesor'     },
-  { name: 'Marcela Jara',            pass: 'MJara$$2026',           role: 'asesor'     },
-  { name: 'María Francisca Lorenz',  pass: 'FrancBertoni$2026$',    role: 'asesor'     },
-  { name: 'Oriana Jorquera',         pass: 'Ori$Jorq2026',          role: 'asesor'     },
-  { name: 'Mauricio Gana',           pass: 'MauGana$2026$$',        role: 'asesor'     },
-  { name: 'Alejandra Espinoza',      pass: 'AlejEspinoz$$026$$',    role: 'supervisor' },
-]
-
-const ROLE_LABEL: Record<string, string> = {
-  asesor:     'Asesor/a · Tutorial de prospección',
-  supervisor: 'Supervisora · Tutorial de gestión de equipos',
-}
-const ROLE_LABEL_PLATAFORMA: Record<string, string> = {
-  asesor:     'Asesor/a · Proxis',
-  supervisor: 'Supervisora · Proxis',
-}
-const ROLE_EMOJI: Record<string, string> = {
-  asesor:     '🧑‍💼',
-  supervisor: '📊',
-}
+const TOKEN_KEY = 'app_token'
 
 function LoginForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const destMode = searchParams.get('dest') === 'plataforma' ? 'plataforma' : 'tutorial'
 
-  const [username, setUsername] = useState('')
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [showPw, setShowPw] = useState(false)
-  const [error, setError] = useState('')
-  const [shake, setShake] = useState(false)
-  const [redirectUser, setRedirectUser] = useState<{ name: string; role: string } | null>(null)
+  const [showPw,   setShowPw]   = useState(false)
+  const [error,    setError]    = useState('')
+  const [shake,    setShake]    = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [redirectName, setRedirectName] = useState<string | null>(null)
   const [barWidth, setBarWidth] = useState('0%')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
-    if (!username || !password) {
-      setError('Por favor completa usuario y contraseña.')
+    if (!email || !password) {
+      setError('Por favor completa email y contraseña.')
       triggerShake()
       return
     }
 
-    const user = USERS.find(
-      u => u.name.toLowerCase() === username.toLowerCase() && u.pass === password
-    )
-
-    if (!user) {
-      setError('Usuario o contraseña incorrectos.')
+    setLoading(true)
+    try {
+      const r = await fetch('/api/vina/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
+      })
+      const d = await r.json()
+      if (!r.ok) {
+        setError(d.error ?? 'Credenciales incorrectas.')
+        triggerShake()
+        return
+      }
+      localStorage.setItem(TOKEN_KEY, d.token)
+      setRedirectName(d.asesor ?? email)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setBarWidth('100%'))
+      })
+      setTimeout(() => router.push('/app'), 2000)
+    } catch {
+      setError('No se pudo conectar con el servidor.')
       triggerShake()
-      return
+    } finally {
+      setLoading(false)
     }
-
-    localStorage.setItem('proxis_user', JSON.stringify({ name: user.name, role: user.role }))
-    setRedirectUser(user)
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setBarWidth('100%'))
-    })
-
-    const dest = destMode === 'plataforma'
-      ? '/plataforma'
-      : user.role === 'supervisor' ? '/tutorial/supervisor' : '/tutorial/asesor'
-
-    setTimeout(() => router.push(dest), 2000)
   }
 
   function triggerShake() {
@@ -107,7 +84,7 @@ function LoginForm() {
           <span className="logo-tag login-tag">Prospección<br/>en práctica</span>
         </Link>
 
-        {!redirectUser ? (
+        {!redirectName ? (
           <div>
             <div className="login-badge">
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -116,14 +93,8 @@ function LoginForm() {
               </svg>
               Acceso seguro
             </div>
-            <h1 className="login-title">
-              {destMode === 'plataforma' ? <>Accede a<br/>Proxis</> : <>Bienvenido/a<br/>a tu tutorial</>}
-            </h1>
-            <p className="login-sub">
-              {destMode === 'plataforma'
-                ? 'Ingresa tus credenciales para abrir la plataforma.'
-                : 'Ingresa tus credenciales para acceder al recorrido personalizado según tu perfil.'}
-            </p>
+            <h1 className="login-title">Accede a<br/>Proxis</h1>
+            <p className="login-sub">Ingresa tus credenciales para abrir la plataforma.</p>
 
             {error && (
               <div className="error-msg visible">
@@ -141,14 +112,14 @@ function LoginForm() {
               autoComplete="off"
             >
               <div className="form-group">
-                <label className="form-label" htmlFor="username">Usuario</label>
+                <label className="form-label" htmlFor="email">Email</label>
                 <input
                   className={`form-input${error ? ' error' : ''}`}
-                  type="text"
-                  id="username"
-                  placeholder="Tu nombre completo"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
+                  type="email"
+                  id="email"
+                  placeholder="tu@email.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('password')?.focus() } }}
                   autoComplete="off"
                   spellCheck={false}
@@ -182,27 +153,25 @@ function LoginForm() {
                 </div>
               </div>
 
-              <button className="login-btn" type="submit">
-                Ingresar
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+              <button className="login-btn" type="submit" disabled={loading}>
+                {loading ? 'Verificando…' : 'Ingresar'}
+                {!loading && (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
               </button>
             </form>
           </div>
         ) : (
           <div className="redirect-overlay visible">
-            <div className="redirect-avatar">{ROLE_EMOJI[redirectUser.role]}</div>
-            <div className="redirect-name">{redirectUser.name}</div>
-            <div className="redirect-role">
-              {destMode === 'plataforma' ? ROLE_LABEL_PLATAFORMA[redirectUser.role] : ROLE_LABEL[redirectUser.role]}
-            </div>
+            <div className="redirect-avatar">🧑‍💼</div>
+            <div className="redirect-name">{redirectName}</div>
+            <div className="redirect-role">Asesor/a · Proxis</div>
             <div className="redirect-bar-wrap">
               <div className="redirect-bar" style={{ width: barWidth }} />
             </div>
-            <div className="redirect-txt">
-              {destMode === 'plataforma' ? 'Cargando Proxis…' : 'Cargando tu tutorial…'}
-            </div>
+            <div className="redirect-txt">Cargando Proxis…</div>
           </div>
         )}
       </div>
@@ -300,8 +269,9 @@ function LoginForm() {
           display: flex; align-items: center; justify-content: center; gap: 8px;
           font-family: inherit;
         }
-        .login-btn:hover { background: var(--lime-dk); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(168,204,26,0.3); }
-        .login-btn:active { transform: translateY(0); }
+        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+        .login-btn:not(:disabled):hover { background: var(--lime-dk); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(168,204,26,0.3); }
+        .login-btn:not(:disabled):active { transform: translateY(0); }
         .redirect-overlay { display: none; flex-direction: column; align-items: center; text-align: center; padding: 20px 0 8px; }
         .redirect-overlay.visible { display: flex; }
         .redirect-avatar {
