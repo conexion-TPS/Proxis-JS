@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendResumenSemanal } from '@/lib/resend'
 import { normalizarTipo, nombreTipo } from '@/lib/tipo-catalogo'
+import { procesarRecordatorios } from '@/lib/cuestionario-recordatorios'
 
 // Emoji decorativo por tipo ERRIM (no es nomenclatura: el nombre viene de tipo_catalogo).
 const EMOJI_TIPO: Record<string, string> = {
@@ -72,6 +73,9 @@ export async function POST(req: NextRequest) {
       ...(error ? { error: String(error) } : {}),
     })
   }
+
+  // Recordatorios de cuestionario pendiente (capa aditiva, best-effort — no bloquea el resumen)
+  try { await procesarRecordatorios() } catch { /* no critico */ }
 
   return NextResponse.json({ ok: true, total: resultados.length, resultados })
 }
