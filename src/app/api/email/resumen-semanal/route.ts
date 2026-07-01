@@ -74,8 +74,8 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // Recordatorios de cuestionario pendiente (capa aditiva, best-effort — no bloquea el resumen)
-  try { await procesarRecordatorios() } catch { /* no critico */ }
+  // DESACTIVADO TEMPORAL: recordatorios en pausa hasta gatear a prueba. Reactivar tras validación.
+  // try { await procesarRecordatorios() } catch { /* no critico */ }
 
   return NextResponse.json({ ok: true, total: resultados.length, resultados })
 }
