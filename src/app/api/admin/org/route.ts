@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseVina } from '@/lib/supabaseVina'
 
 function genToken() {
   return randomBytes(24).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
@@ -218,47 +219,88 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(rows) || rows.length === 0)
       return NextResponse.json({ error: 'rows requerido' }, { status: 400 })
 
-    // Asesores existentes (para decidir crear vs actualizar)
+    const sbVina = supabaseVina()
+    const EMPRESA_MAP: Record<string, string> = { Consorcio: 'consorcio', Zurich: 'zurich', 'Equipo Rojo (PRUEBA)': 'prueba' }
+
     const { data: existentes } = await sb.from('asesor_credentials').select('asesor')
     const existSet = new Set((existentes ?? []).map(e => e.asesor.toLowerCase().trim()))
 
     let updated = 0
     let created = 0
     const errores: string[] = []
+    const detalle: Array<{ email: string; sailor: 'ok' | 'error'; bitacora: 'ok' | 'parcial'; motivo?: string }> = []
 
     for (const row of rows) {
-      const titulo = row.titulo_cargo?.trim() || null
-      const yaExiste = existSet.has(row.asesor.toLowerCase().trim())
+      const titulo    = row.titulo_cargo?.trim() || null
+      const email     = row.email?.toLowerCase().trim() ?? ''
+      const yaExiste  = existSet.has(row.asesor.toLowerCase().trim())
+
+      // Paso 1: asesor_credentials
+      let password_hash: string | undefined
       if (yaExiste) {
-        // Solo sobrescribir titulo_cargo si el CSV lo trae (no borrar el existente)
         const patch: Record<string, unknown> = { org_nodo_id: row.org_nodo_id }
         if (titulo) patch.titulo_cargo = titulo
-        const { error } = await sb.from('asesor_credentials')
-          .update(patch)
-          .eq('asesor', row.asesor)
-        if (error) errores.push(`${row.asesor}: ${error.message}`)
-        else updated++
+        const { error } = await sb.from('asesor_credentials').update(patch).eq('asesor', row.asesor)
+        if (error) { errores.push(`${row.asesor}: ${error.message}`); continue }
+        updated++
+        if (row.password) password_hash = await bcrypt.hash(row.password, 10)
       } else {
-        // Crear asesor nuevo — requiere email + password
-        if (!row.email || !row.password) {
+        if (!email || !row.password) {
           errores.push(`${row.asesor}: nuevo asesor sin email/password (se omite)`)
           continue
         }
-        const password_hash = await bcrypt.hash(row.password, 10)
-        const { error } = await sb.from('asesor_credentials').insert({
-          asesor:       row.asesor.trim(),
-          email:        row.email.toLowerCase().trim(),
-          password_hash,
-          rol:          'asesor',
-          org_nodo_id:  row.org_nodo_id,
-          titulo_cargo: titulo,
-          activo:       true,
-        })
-        if (error) errores.push(`${row.asesor}: ${error.message}`)
-        else created++
+        password_hash = await bcrypt.hash(row.password, 10)
+        const { error } = await sb.from('asesor_credentials').upsert(
+          { asesor: row.asesor.trim(), email, password_hash, rol: 'asesor', org_nodo_id: row.org_nodo_id, titulo_cargo: titulo, activo: true },
+          { onConflict: 'email' }
+        )
+        if (error) { errores.push(`${row.asesor}: ${error.message}`); continue }
+        created++
       }
+
+      // Sin email o password_hash no se actualizan vina_credentials ni persona
+      if (!email || !password_hash) {
+        detalle.push({ email: email || row.asesor, sailor: 'ok', bitacora: 'parcial', motivo: 'sin email/password → Bitácora no actualizada' })
+        continue
+      }
+
+      // Paso 2: resolver institucion_id y empresa desde el nodo
+      const { data: nodo } = await sb.from('org_nodos').select('institucion_id').eq('id', row.org_nodo_id).maybeSingle()
+      if (!nodo?.institucion_id) {
+        detalle.push({ email, sailor: 'ok', bitacora: 'parcial', motivo: `nodo ${row.org_nodo_id} no resuelto` })
+        continue
+      }
+      const { data: inst } = await sb.from('instituciones').select('nombre').eq('id', nodo.institucion_id).maybeSingle()
+      const empresa = EMPRESA_MAP[inst?.nombre ?? ''] ?? 'prueba'
+
+      // Paso 3: vina_credentials (upsert por email — login Bitácora)
+      const { error: e3 } = await sbVina.from('vina_credentials').upsert(
+        { asesor: row.asesor.trim(), email, password_hash, empresa, rol: 'asesor', activo: true },
+        { onConflict: 'email' }
+      )
+      if (e3) {
+        errores.push(`${row.asesor} [vina]: ${e3.message}`)
+        detalle.push({ email, sailor: 'ok', bitacora: 'parcial', motivo: `vina: ${e3.message}` })
+        continue
+      }
+
+      // Paso 4: persona (upsert por email — identidad /api/app/me)
+      const { error: e4 } = await sb.from('persona').upsert(
+        { nombre: row.asesor.trim(), email, tipo: 'asesor', institucion_id: nodo.institucion_id, origen_tabla: 'asesor_credentials', activo: true },
+        { onConflict: 'email' }
+      )
+      if (e4) {
+        // Rollback: eliminar vina_credentials recién escrita para no dejar estado inconsistente
+        await sbVina.from('vina_credentials').delete().eq('email', email)
+        errores.push(`${row.asesor} [persona]: ${e4.message} (vina revertido)`)
+        detalle.push({ email, sailor: 'ok', bitacora: 'parcial', motivo: `persona: ${e4.message} (vina revertido)` })
+        continue
+      }
+
+      detalle.push({ email, sailor: 'ok', bitacora: 'ok' })
     }
-    return NextResponse.json({ ok: true, updated, created, errores })
+
+    return NextResponse.json({ ok: true, updated, created, errores, detalle })
   }
 
   if (accion === 'importar_usuarios') {
