@@ -20,6 +20,17 @@ const TTL_MS = 60_000
 // Comparación case-insensitive (la BD guarda 'pendiente'; defensa ante 'Pendiente').
 export const SENTINEL_PERFIL = new Set(['', 'pendiente', 'canary', 'provisional'])
 
+// Mapa síncrono id_tipo→nombre_errim para contextos sin async (client components, etc.).
+// Fuente de verdad de nombres vigentes; coincide con tipo_catalogo en BD.
+export const NOMBRE_TIPO_SYNC: Record<string, string> = {
+  energetico:  'Energético',
+  magnetico:   'Magnético',
+  relacional:  'Relacional',
+  reflexivo:   'Reflexivo',
+  ambiguo:     'Equilibrio Adaptativo',
+  integrador:  'Integrador',
+}
+
 type Catalogo = {
   idTipos: Set<string>                  // {energetico, reflexivo, relacional, magnetico, integrador, ambiguo}
   porCodigo: Map<string, string>        // codigo_origen → id_tipo (E→energetico, S→magnetico, …)

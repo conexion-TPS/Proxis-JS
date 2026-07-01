@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-const PERFILES_CORE = ['Energético', 'Sociable', 'Relacional', 'Reflexivo']
+const PERFILES_CORE = ['energetico', 'magnetico', 'relacional', 'reflexivo']
 
 const CATEGORIAS = [
   'fortaleza', 'debilidad', 'tactica_cliente', 'ciclo_7pasos',

@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { NOMBRE_TIPO_SYNC } from '@/lib/tipo-catalogo'
 
-const PERFILES       = ['Energético','Sociable','Relacional','Reflexivo','Integrador','General']
-const PERFILES_CORE  = ['Energético','Sociable','Relacional','Reflexivo']
+const PERFILES       = ['energetico','magnetico','relacional','reflexivo','integrador','General']
+const PERFILES_CORE  = ['energetico','magnetico','relacional','reflexivo']
 const CATEGORIAS = [
   'fortaleza','debilidad','tactica_cliente','ciclo_7pasos',
   'backup_style','colision_espejo','diagnostico_perceptual',
@@ -282,7 +283,7 @@ export default function ConocimientoPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 24 }}>
         {completitudByPerfil.map(({ perfil, count, avg }) => (
           <div key={perfil} style={{ background: '#fff', border: '1px solid #e8e6e3', borderRadius: 10, padding: '12px 14px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#4a4844', marginBottom: 6 }}>{perfil}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#4a4844', marginBottom: 6 }}>{NOMBRE_TIPO_SYNC[perfil] ?? perfil}</div>
             <div style={{ fontSize: 20, fontWeight: 800, color: avg >= 70 ? '#1f6f56' : avg >= 40 ? '#a8691a' : '#b03a3a', marginBottom: 4 }}>{avg}%</div>
             <div style={{ height: 3, background: '#f5f3ef', borderRadius: 2, marginBottom: 4 }}>
               <div style={{ width: `${avg}%`, height: '100%', background: avg >= 70 ? '#1f6f56' : avg >= 40 ? '#a8691a' : '#b03a3a', borderRadius: 2 }} />
@@ -312,7 +313,7 @@ export default function ConocimientoPage() {
                 <tr>
                   <th style={{ padding: '6px 8px', textAlign: 'left', color: '#8a8885', fontWeight: 600, borderBottom: '1px solid #e8e6e3', whiteSpace: 'nowrap' }}>Categoría</th>
                   {PERFILES_CORE.map(p => (
-                    <th key={p} style={{ padding: '6px 8px', textAlign: 'center', color: '#4a4844', fontWeight: 700, borderBottom: '1px solid #e8e6e3', whiteSpace: 'nowrap' }}>{p.slice(0,3)}</th>
+                    <th key={p} style={{ padding: '6px 8px', textAlign: 'center', color: '#4a4844', fontWeight: 700, borderBottom: '1px solid #e8e6e3', whiteSpace: 'nowrap' }}>{(NOMBRE_TIPO_SYNC[p] ?? p).slice(0,3)}</th>
                   ))}
                   <th style={{ padding: '6px 8px', textAlign: 'center', color: '#4a4844', fontWeight: 700, borderBottom: '1px solid #e8e6e3' }}>Gral</th>
                 </tr>
@@ -468,7 +469,7 @@ export default function ConocimientoPage() {
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <select value={filterP} onChange={e => setFilterP(e.target.value)} style={selStyle}>
           <option value="">Todos los perfiles</option>
-          {PERFILES.map(p => <option key={p} value={p}>{p}</option>)}
+          {PERFILES.map(p => <option key={p} value={p}>{NOMBRE_TIPO_SYNC[p] ?? p}</option>)}
         </select>
         <select value={filterC} onChange={e => setFilterC(e.target.value)} style={selStyle}>
           <option value="">Todas las categorías</option>
@@ -540,7 +541,7 @@ export default function ConocimientoPage() {
               <Field label="Perfil">
                 <select value={form.perfil} onChange={e => setForm(f => ({ ...f, perfil: e.target.value }))} style={inputStyle}>
                   <option value="">General</option>
-                  {PERFILES.filter(p => p !== 'General').map(p => <option key={p} value={p}>{p}</option>)}
+                  {PERFILES.filter(p => p !== 'General').map(p => <option key={p} value={p}>{NOMBRE_TIPO_SYNC[p] ?? p}</option>)}
                 </select>
               </Field>
               <Field label="Categoría">
